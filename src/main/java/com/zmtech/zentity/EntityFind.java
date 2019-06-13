@@ -22,276 +22,402 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Used to setup various options for an entity find (query).
- *
- * All methods to set options modify the option then return this modified object to allow method call chaining. It is
- * important to note that this object is not immutable and is modified internally, and returning EntityFind is just a
- * self reference for convenience.
- *
- * Even after a query a find object can be modified and then used to perform another query.
+ * 用于为实体查找（查询）设置各种选项
+ * 设置选项的所有方法都会修改该选项，然后返回此修改后的对象以允许方法调用链接。
+ * 重要的是要注意，此对象不是不可变的并且在内部进行了修改，为了方便起见，返回EntityFind只是一个自引用。
+ * 即使在查询之后，也可以修改查找对象，然后使用它来执行另一个查询。
  */
 @SuppressWarnings("unused")
 public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
 
-    /** The Name of the Entity to use, as defined in an entity XML file.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 实体名称
+     * 要使用的实体的名称，如实体XML文件中所定义.
+     * @return 当前对象.
      */
     EntityFind entity(String entityName);
+
+    /**
+     * 取实体名称
+     * @return 实体名称.
+     */
     String getEntity();
 
-    /** Make a dynamic view object to use instead of the entity name (if used the entity name will be ignored).
+    /**
+     * 转换为动态视图
+     * 使用动态视图对象而不是实体名称（如果使用，将忽略实体名称）
+     * 如果多次调用将返回相同的对象.
      *
-     * If called multiple times will return the same object.
-     *
-     * @return EntityDynamicView object to add view details to.
+     * @return EntityDynamicView.
      */
     EntityDynamicView makeEntityDynamicView();
 
     // ======================== Conditions (Where and Having) =================
 
-    /** Add a field to the find (where clause).
-     * If a field has been set with the same name, this will replace that field's value.
-     * If any other constraints are already in place this will be ANDed to them.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 添加条件
+     * 在find（where子句）中添加一个字段
+     * 如果已使用相同名称设置字段，则将替换该字段的值。
+     * 如果已经存在任何其他约束，则将对它们进行AND运算。
+     * @param fieldName 字段名称
+     * @param value 字段值
+     * @return 当前对象.
      */
     EntityFind condition(String fieldName, Object value);
 
-    /** Compare the named field to the value using the operator. */
+    /**
+     * 添加条件
+     * 在find（where子句）中添加一个条件
+     * 使用运算符将命名字段与值进行比较。
+     * @param fieldName 字段名称
+     * @param operator 操作符
+     * @param value 字段值
+     * @return 当前对象.
+     */
     EntityFind condition(String fieldName, EntityCondition.ComparisonOperator operator, Object value);
+
+    /**
+     * 添加条件
+     * 在find（where子句）中添加一个条件
+     * 使用运算符将命名字段与值进行比较。
+     * @param fieldName 字段名称
+     * @param operator 操作符
+     * @param value 字段值
+     * @return 当前对象.
+     */
     EntityFind condition(String fieldName, String operator, Object value);
 
-    /** Compare a field to another field using the operator. */
+    /**
+     * 添加条件
+     * 使用运算符将字段与另一个字段进行比较。
+     * @param fieldName 字段名称
+     * @param operator 操作符
+     * @param toFieldName 字段名称
+     * @return 当前对象.
+     */
     EntityFind conditionToField(String fieldName, EntityCondition.ComparisonOperator operator, String toFieldName);
 
-    /** Add a Map of fields to the find (where clause).
-     * If a field has been set with the same name and any of the Map keys, this will replace that field's value.
-     * Fields set in this way will be combined with other conditions (if applicable) just before doing the query.
-     *
-     * This will do conversions if needed from Strings to field types as needed, and will only get keys that match
-     * entity fields. In other words, it does the same thing as:
-     * <code>EntityValue.setFields(fields, true, null, null)</code>
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 添加条件
+     * 将Map映射到字段添加到find（where子句）。
+     * 如果已使用相同名称和任何Map键设置字段，则将替换该字段的值。
+     * 以这种方式设置的字段将在执行查询之前与其他条件（如果适用）组合。
+     * 如果需要，这将根据需要从字符串到字段类型进行转换，并且只获取与实体字段匹配的键。
+     * 它的作用与：<code> EntityValue.setFields（fields，true，null，null）</ code> 相同
+     * @param fields 字段映射Map
+     * @return 当前对象.
      */
     EntityFind condition(Map<String, Object> fields);
 
-    /** Add a EntityCondition to the find (where clause).
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 添加条件
+     * 将一个EntityCondition添加到find（where子句）。
+     * @param condition 条件
+     * @return 当前对象.
      */
     EntityFind condition(EntityCondition condition);
 
-    /** Add conditions for the standard effective date query pattern including from field is null or earlier than
-     * or equal to compareStamp and thru field is null or later than or equal to compareStamp.
+    /**
+     * 添加条件
+     * 为标准生效日期查询模式添加条件，包括from字段为null或早于或等于compareStamp，并且thru字段为null或晚于或等于compareStamp。
+     * @param fromFieldName 开始字段
+     * @param thruFieldName 截止字段
+     * @param compareStamp 时间戳
+     * @return 当前对象.
      */
     EntityFind conditionDate(String fromFieldName, String thruFieldName, java.sql.Timestamp compareStamp);
 
+    /**
+     * 是否含条件
+     * @return 含有条件：true 不含条件：false
+     */
     boolean getHasCondition();
+
+    /**
+     * 是否含条件
+     * @return 含有条件：true 不含条件：false
+     */
     boolean getHasHavingCondition();
 
-    /** Add a EntityCondition to the having clause of the find.
-     * If any having constraints are already in place this will be ANDed to them.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 添加having条件
+     * 如果已经存在约束，则将对它们进行AND运算。
+     * @param condition 条件
+     * @return 当前对象.
      */
     EntityFind havingCondition(EntityCondition condition);
 
-    /** Get the current where EntityCondition. */
+    /**
+     * 取 where 条件
+     * @return 条件.
+     */
     EntityCondition getWhereEntityCondition();
 
-    /** Get the current having EntityCondition. */
-    EntityCondition getHavingEntityCondition();
-
-    /** Adds conditions for the fields found in the inputFieldsMapName Map.
-     *
-     * The fields and special fields with suffixes supported are the same as the *-find fields in the XML
-     * Forms. This means that you can use this to process the data from the various inputs generated by XML
-     * Forms. The suffixes include things like *_op for operators and *_ic for ignore case.
-     *
-     * For historical reference, this does basically what the Apache OFBiz prepareFind service does.
-     *
-     * @param inputFieldsMapName The map to get form fields from. If empty will look at the ec.web.parameters map if
-     *        the web facade is available, otherwise the current context (ec.context).
-     * @param defaultOrderBy If there is not an orderByField parameter this is used instead.
-     * @param alwaysPaginate If true pagination offset/limit will be set even if there is no pageIndex parameter.
-     * @return Returns this for chaining of method calls.
+    /**
+     * 取 having 条件
+     * @return 条件.
      */
-    EntityFind searchFormInputs(String inputFieldsMapName, String defaultOrderBy, boolean alwaysPaginate);
-    EntityFind searchFormMap(Map<String, Object> inputFieldsMap, Map<String, Object> defaultParameters,
-                             String skipFields, String defaultOrderBy, boolean alwaysPaginate);
+    EntityCondition getHavingEntityCondition();
 
     // ======================== General/Common Options ========================
 
-    /** The field of the named entity to get from the database.
-     * If any select fields have already been specified this will be added to the set.
-     * @return Returns this for chaining of method calls.
+    /**
+     * 添加实体的字段。
+     * 如果已经指定了任何选择字段，则会将其添加到集合中。
+     * @param fieldToSelect 字段名称
+     * @return 当前对象.
      */
     EntityFind selectField(String fieldToSelect);
 
-    /** The fields of the named entity to get from the database; if empty or null all fields will be retrieved.
-     * @return Returns this for chaining of method calls.
+    /**
+     * 添加实体的字段。
+     * 如果为空或null将检索所有字段。
+     * @param fieldsToSelect 字段集合
+     * @return 当前对象.
      */
     EntityFind selectFields(Collection<String> fieldsToSelect);
+
+    /**
+     * 取查询的字段集合
+     * @return 字段集合.
+     */
     List<String> getSelectFields();
 
-    /** A field of the find entity to order the query by. Optionally add a " ASC" to the end or "+" to the
-     *     beginning for ascending, or " DESC" to the end of "-" to the beginning for descending.
-     * If any other order by fields have already been specified this will be added to the end of the list.
-     * The String may be a comma-separated list of field names. Only fields that actually exist on the entity will be
-     *     added to the order by list.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 排序
+     * 查找实体的字段，用于对查询进行排序。
+     * 可选择将“ASC”添加到结尾，或者将“+”添加到开头以进行升序，或者将“DESC”添加到“ - ”的末尾，然后添加到降序的开头。
+     * 可选择将“ASC”添加到结尾，或者将“+”添加到开头以进行升序，或者将“DESC”添加到“ - ”的末尾，然后添加到降序的开头。
+     * 如果已经指定了任何其他排序，则会将其添加到列表的末尾。
+     * String可以是以逗号分隔的字段名称列表。 只有实体上存在的字段才会按列表添加到排序中。
+     * @return 当前对象.
      */
     EntityFind orderBy(String orderByFieldName);
 
-    /** Each List entry is passed to the orderBy(String orderByFieldName) method, see it for details.
-     * @return Returns this for chaining of method calls.
+    /**
+     * 排序
+     * 每个List条目都传递给orderBy（String orderByFieldName）方法，有关详细信息，请参阅它。
+     * @return 当前对象.
      */
     EntityFind orderBy(List<String> orderByFieldNames);
     List<String> getOrderBy();
 
-    /** Look in the cache before finding in the datasource.
-     * Defaults to setting on entity definition.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 是否开启缓存
+     * 默认值在实体定义中
+     * @param useCache 使用缓存:true 不不使用:false
+     * @return 当前对象.
      */
     EntityFind useCache(Boolean useCache);
     boolean getUseCache();
 
     // ======================== Advanced Options ==============================
 
-    /** Specifies whether the values returned should be filtered to remove duplicate values.
-     * Default is false.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 去重
+     * 指定是否应过滤返回的值以删除重复值。
+     * 默认是 false.
+     * @param distinct 去重:true 不去重:false
+     * @return 当前对象.
      */
     EntityFind distinct(boolean distinct);
     boolean getDistinct();
 
-    /** The offset, ie the starting row to return. Default (null) means start from the first actual row.
-     * Only applicable for list() and iterator() finds.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 实体查询起始行
+     * 默认（null）表示从第一行开始。
+     * @param offset 起始行数
+     * @return 当前对象.
      */
     EntityFind offset(Integer offset);
-    /** Specify the offset in terms of page index and size. Actual offset is pageIndex * pageSize. */
+
+    /**
+     * 实体查询起始行
+     * @param pageIndex 页面索引
+     * @param pageSize 单页数量
+     * @return 当前对象.
+     */
     EntityFind offset(int pageIndex, int pageSize);
     Integer getOffset();
 
-    /** The limit, ie max number of rows to return. Default (null) means all rows.
-     * Only applicable for list() and iterator() finds.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 返回的最大行数。
+     * 默认值（null）表示所有行。
+     * 仅适用于list（）和iterator（）查找。
+     * @return 当前对象.
      */
     EntityFind limit(Integer limit);
+
+    /**
+     * 取当前查询的最大行数。
+     * @return 当前查询的最大行数.
+     */
     Integer getLimit();
 
-    /** For use with searchFormInputs when paginated. Equals offset (default 0) divided by page size. */
+    /**
+     * 取页面索引
+     * 用于分页。 等于偏移（默认为0）除以页面大小。
+     * */
     int getPageIndex();
-    /** For use with searchFormInputs when paginated. Equals limit (default 20; exists for consistency/convenience along with getPageIndex()). */
+
+    /**
+     * 取单页数量
+     * 等于限制（默认为20;与getPageIndex（）一起存在以保持一致性）。
+     */
     int getPageSize();
 
-    /** Lock the selected record so only this transaction can change it until it is ended.
-     * If this is set when the find is done the useCache setting will be ignored as this will always get the data from
-     *     the database.
-     * Default is false.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 锁定所选实体，以便只有此事务可以更改它直到结束。
+     * 如果在完成查找时设置了此项，则将忽略useCache设置，因为这将始终从数据库获取数据。
+     * @param forUpdate 锁定:true 不锁定:false
+     * @return 当前对象.
      */
     EntityFind forUpdate(boolean forUpdate);
+
+    /**
+     * 取锁定状态
+     * @return true:锁定 false:不锁定
+     */
     boolean getForUpdate();
 
-    // ======================== JDBC Options ==============================
+    // ======================== JDBC 设置 ==============================
 
-    /** Specifies how the ResultSet will be traversed. Available values: ResultSet.TYPE_FORWARD_ONLY,
-     *      ResultSet.TYPE_SCROLL_INSENSITIVE (default) or ResultSet.TYPE_SCROLL_SENSITIVE. See the java.sql.ResultSet JavaDoc for
-     *      more information. If you want it to be fast, use the common option: ResultSet.TYPE_FORWARD_ONLY.
-     *      For partial results where you want to jump to an index make sure to use TYPE_SCROLL_INSENSITIVE.
-     * Defaults to ResultSet.TYPE_SCROLL_INSENSITIVE.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 指定如何遍历ResultSet。
+     * 可用：ResultSet.TYPE_FORWARD_ONLY，ResultSet.TYPE_SCROLL_INSENSITIVE (默认值) ResultSet.TYPE_SCROLL_SENSITIVE
+     * 有关更多信息，请参阅java.sql.ResultSet JavaDoc。
+     * 如果您希望它快，请使用公共选项：ResultSet.TYPE_FORWARD_ONLY。
+     * 对于要跳转到索引的部分结果，请确保使用TYPE_SCROLL_INSENSITIVE。
+     * 默认为ResultSet.TYPE_SCROLL_INSENSITIVE。
+     * @return 当前对象
      */
     EntityFind resultSetType(int resultSetType);
+
+    /**
+     * 取遍历ResultSet类型
+     * @return 遍历ResultSet类型
+     */
     int getResultSetType();
 
-    /** Specifies whether or not the ResultSet can be updated. Available values:
-     *      ResultSet.CONCUR_READ_ONLY (default) or ResultSet.CONCUR_UPDATABLE. Should pretty much always be
-     *      ResultSet.CONCUR_READ_ONLY with the Entity Facade since updates are generally done as separate operations.
-     * Defaults to CONCUR_READ_ONLY.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 指定是否可以更新ResultSet。 可用值：
+     * ResultSet.CONCUR_READ_ONLY（默认值）或 ResultSet.CONCUR_UPDATABLE。
+     * 应该总是ResultSet.CONCUR_READ_ONLY，因为更新通常作为单独的操作完成。
+     * 默认为CONCUR_READ_ONLY。
+     * @return 当前对象
      */
     EntityFind resultSetConcurrency(int resultSetConcurrency);
     int getResultSetConcurrency();
 
-    /** The JDBC fetch size for this query. Default (null) will fall back to datasource settings.
-     * This is not the fetch as in the OFFSET/FETCH SQL clause (use limit for that), and is rather the JDBC fetch to
-     * determine how many rows to get back on each round-trip to the database.
-     *
-     * Only applicable for list() and iterator() finds.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 此查询的JDBC 查询包容量。
+     * 默认（null）将回退到数据源设置。
+     * 不是OFFSET / FETCH SQL子句中的提取（使用限制），而是用于确定JDBC到database提取每次往返返回的行数的容量 。
+     * 仅仅适用于list（）和iterator（）查找。
+     * @param fetchSize 包容量
+     * @return 当前对象。
      */
     EntityFind fetchSize(Integer fetchSize);
+
+    /**
+     * 取当前包容量
+     * @return 包容量
+     */
     Integer getFetchSize();
 
-    /** The JDBC max rows for this query. Default (null) will fall back to datasource settings.
-     * This is the maximum number of rows the ResultSet will keep in memory at any given time before releasing them
-     * and if requested they are retrieved from the database again.
-     *
-     * Only applicable for list() and iterator() finds.
-     *
-     * @return Returns this for chaining of method calls.
+    /**
+     * 查询的JDBC最大行数。
+     * 默认（null）将使用数据源的设置。
+     * 这是ResultSet在释放它们之前在任何给定时间保留在内存中的最大行数，如果请求，它们将再次从数据库中检索。
+     * 仅适用于list（）和iterator（）查找。
+     * @return 当前对象。
      */
     EntityFind maxRows(Integer maxRows);
+
+    /**
+     * 取当前最大行数
+     * @return 最大行数
+     */
     Integer getMaxRows();
 
-
+    /**
+     * 关闭数据权限
+     * @return 当前对象
+     */
     EntityFind disableAuthz();
+
+    /**
+     * 查询是否使用了缓存
+     * @return true:使用缓存 false:不适用缓存
+     */
     boolean shouldCache();
 
-    // ======================== Run Find Methods ==============================
+    // ======================== 查询方法 ==============================
 
-    /** Runs a find with current options to get a single record by primary key. */
+    /**
+     * 按主键查找单个实体
+     * @return 实体
+     * @throws EntityException 实体操作错误
+     */
     EntityValue one() throws EntityException;
 
-    /** Runs a find with current options to get a single record by primary key, then gets all related/dependent
-     * entities according to the named master definition (default name is 'default'). */
+    /**
+     * 按主键查找单个实体，然后根据指定的主定义获取所有相关/依赖实体
+     * （默认名称为“default”）。
+     * @param name master名称
+     * @return 依赖实体
+     * @throws EntityException 实体操作错误
+     */
     Map<String, Object> oneMaster(String name) throws EntityException;
 
-    /** Runs a find with current options to get a list of records. */
+    /**
+     * 查找实体列表
+     * @return 实体列表
+     * @throws EntityException 实体操作错误
+     */
     EntityList list() throws EntityException;
 
-    /** Runs a find with current options to get a list of records, then for each result gets all related/dependent
-     * entities according to the named master definition (default name is 'default') */
+    /** 查找实体列表，然后为每个结果根据指定的主定义获取所有相关/依赖实体列表
+     * （默认名称为'default'）
+     * @param name master名称
+     * @return 依赖实体列表
+     * @throws EntityException 实体操作错误
+     */
     List<Map<String, Object>> listMaster(String name) throws EntityException;
 
-    /** Runs a find with current options and returns an EntityListIterator object.
-     * This method ignores the cache setting and always gets results from the database.
+    /**
+     * 查找并返回EntityListIterator对象。
+     * 此方法忽略缓存设置，并始终从数据库中获取结果。
+     * @return EntityListIterator对象。
+     *
      */
     EntityListIterator iterator() throws EntityException;
 
-    /** Runs a find with current options to get a count of matching records. */
+    /**
+     * 查找实体的总数。
+     * @return 实体总数
+     */
     long count() throws EntityException;
 
-    /** Update a set of values that match a condition.
-     *
-     * @param fieldsToSet The fields of the named entity to set in the database
-     * @return long representing number of rows effected by this operation
-     * @throws EntityException
+    /**
+     * 使用Map映射更新实体。
+     * @param fieldsToSet 实体映射
+     * @return 受此操作影响的行数
+     * @throws EntityException 实体操作错误
      */
     long updateAll(Map<String, ?> fieldsToSet) throws EntityException;
 
-    /** Delete entity records that match a condition.
-     *
-     * @return long representing number of rows effected by this operation
-     * @throws EntityException
+    /**
+     * 删除与条件匹配的实体。
+     * @return 受此操作影响的行数
+     * @throws EntityException 实体操作错误
      */
     long deleteAll() throws EntityException;
 
-    /** If supported by underlying data source get the text (SQL, etc) used for the find query.
-     * Will have multiple values if multiple queries done with this find. */
+    /**
+     * 如果基础数据源支持，则获取用于查找查询的文本（SQL等）。
+     * 如果使用此查找完成多个查询，则将具有多个值。
+     * @return 文本列表
+     */
     ArrayList<String> getQueryTextList();
 }

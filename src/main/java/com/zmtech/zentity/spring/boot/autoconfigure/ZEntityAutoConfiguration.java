@@ -13,8 +13,9 @@ import org.springframework.context.annotation.Configuration;
 import javax.sql.DataSource;
 
 /**
- * spring boot configuration
- * set properties zentity needs and start zentityfacade
+ * spring boot 配置入口
+ * 配置 EntityFacade 所需的属性
+ *
  */
 @Configuration
 @ConditionalOnClass(ZEntityFacade.class)
