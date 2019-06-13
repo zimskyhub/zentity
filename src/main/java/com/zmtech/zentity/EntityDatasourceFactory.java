@@ -12,6 +12,6 @@ public interface EntityDatasourceFactory {
     EntityValue makeEntityValue(String entityName);
     EntityFind makeEntityFind(String entityName);
 
-    /** Return the JDBC DataSource, if applicable. Return null if no JDBC DataSource exists for this Entity Datasource. */
+    /** 返回适用的 JDBC 数据源. 如果没有返回null. */
     DataSource getDataSource();
 }

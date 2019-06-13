@@ -18,18 +18,41 @@ import com.zmtech.zentity.util.MNode;
 import java.util.List;
 import java.util.Map;
 
-/** This class is used for declaring Dynamic View Entities, to be used and thrown away.
- * A special method exists on the EntityFind to accept a EntityDynamicView instead of an entityName.
- * The methods here return a reference to itself (this) for convenience.
+/**
+ * 此类用于使用和丢弃的动态视图实体。
+ * EntityFind上存在一种特殊方法，用于接受EntityDynamicView而不是entityName。
+ * 此处的方法为方便起见，返回对其自身（this）的引用。
  */
 @SuppressWarnings("unused")
 public interface EntityDynamicView {
-    /** This optionally sets a name for the dynamic view entity. If not used will default to "DynamicView" */
+
+    /**
+     * 为动态视图实体设置名称。
+     * 如果不使用则默认为“DynamicView”。
+     * @param entityName 实体名称
+     * @return 当前对象
+     */
     EntityDynamicView setEntityName(String entityName);
 
+    /**
+     * 为动态视图实体添加成员实体。
+     * @param entityAlias 实体别名
+     * @param entityName 实体名称
+     * @param joinFromAlias 成员实体别名
+     * @param joinOptional 加入方式
+     * @param entityKeyMaps 对应主键
+     * @return 当前对象
+     */
     EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias,
                                       Boolean joinOptional, Map<String, String> entityKeyMaps);
 
+    /**
+     * 为动态视图实体添加关系成员。
+     * @param entityAlias 实体别名
+     * @param joinFromAlias 成员实体别名
+     * @param joinOptional 加入方式
+     * @return 当前对象
+     */
     EntityDynamicView addRelationshipMember(String entityAlias, String joinFromAlias, String relationshipName,
                                             Boolean joinOptional);
 

@@ -18,9 +18,9 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 
-/** Used to write XML entity data from the database to a writer.
- *
- * The document will have a root element like <code>&lt;entity-facade-xml&gt;</code>.
+/**
+ * 用于将XML实体数据从数据库写入writer
+ * xml 文件必须有根元素 entity-facade-xml
  */
 @SuppressWarnings("unused")
 public interface EntityDataWriter {
@@ -32,78 +32,107 @@ public interface EntityDataWriter {
 
     EntityDataWriter fileType(FileType ft);
 
-    /** Specify the name of an entity to query and export. Data is queried and exporting from entities in the order they
-     * are added by calling this or entityNames() multiple times.
-     * @param entityName The entity name
-     * @return Reference to this for convenience.
+    /**
+     * 设置要查询和导出的实体的名称。 通过多次调用this或entityNames（）来查询数据并按实体的顺序从实体中导出数据
+     * @param entityName 实体名称
+     * @return 当前对象.
      */
     EntityDataWriter entityName(String entityName);
 
-    /** A List of entity names to query and export. Data is queried and exporting from entities in the order they are
-     * specified in this list and other calls to this or entityName().
-     * @param entityNames The list of entity names
-     * @return Reference to this for convenience.
+    /**
+     * 设置要查询和导出的实体名称列表。 查询数据并按照在此列表中设置的顺序从实体导出以及对此实体或其他名称的调用（）.
+     * @param entityNames 实体名称列表
+     * @return 当前对象.
      */
     EntityDataWriter entityNames(List<String> entityNames);
-    /** Write data from all entities. When set other entity names are excluded instead of included. */
+
+    /**
+     * 从所有实体写入数据。
+     * 设置时，排除其他实体名称而不是包括在内
+     */
     EntityDataWriter allEntities();
 
-    /** Should the dependent records of each record be written? If set will include 2 levels of dependents by default,
-     * use dependentLevels() to specify a different number of levels.
-     * @param dependents Boolean dependents indicator
-     * @return Reference to this for convenience.
+    /**
+     * 设置是否应该写入每条记录的依赖记录 如果设置将默认包含2个依赖项级别，请使用 dependentLevels（）设置不同数量的级别
+     * @param dependents 依赖标记
+     * @return 当前对象.
      */
     EntityDataWriter dependentRecords(boolean dependents);
 
-    /** The number of levels of dependents to include for records written. If set dependentRecords will be considered true.
-     * If dependentRecords is set but no level limit is specified all levels found will be written (may be large and not
-     * what is desired). */
+    /**
+     * 设置写入记录所包含的依赖级别数。
+     * 如果设置 dependentRecords 将被视为true。
+     * 如果设置了dependentRecords 但未设置级别限制，则将写入所有找到的级别（可能不是所需的级别）。
+     * @param levels 依赖级别
+     * @return 当前对象.
+     */
     EntityDataWriter dependentLevels(int levels);
 
-    /** The name of a master definition, applied to all written entities that have a matching master definition otherwise
-     * just the single record is written, or dependent records if dependentREcords or dependentLevels options specified. */
+    /**
+     * 设置主定义的名称，应用于具有匹配主定义的所有写入实体，否则仅写入单个记录，或者如果设置 dependentRecords 或 dependentLevels选项，则应用于相关记录。
+     * @param masterName 主定义的名称
+     * @return 当前对象.
+     */
     EntityDataWriter master(String masterName);
 
-    /** A Map of field name, value pairs to filter the results by. Each name/value only used on entities that have a
-     * field matching the name.
-     * @param filterMap Map with name/value pairs to filter by
-     * @return Reference to this for convenience.
+    /**
+     * 适用字段名称的映射，用于过滤结果的键值对。
+     * 每个名称/值仅用于具有与名称匹配的字段的实体。
+     * @param filterMap 进行过滤的 名称/值
+     * @return 当前对象.
      */
     EntityDataWriter filterMap(Map<String, Object> filterMap);
 
-    /** Field names to order (sort) the results by. Each name only used on entities with a field matching the name.
-     * May be called multiple times. Each entry may be a comma-separated list of field names.
-     * @param orderByList List with field names to order by
-     * @return Reference to this for convenience.
+    /**
+     * 字段名称按顺序排序。
+     * 每个名称仅用于具有与名称匹配的字段的实体。
+     * 可以多次调用。
+     * 每个条目可以是以逗号分隔的字段名称列表。
+     * @param orderByList 列表，其中包含要按顺序排列的字段名称
+     * @return 当前对象.
      */
     EntityDataWriter orderBy(List<String> orderByList);
 
-    /** From date for lastUpdatedStamp on each entity (lastUpdatedStamp must be greater than or equal (&gt;=) to fromDate).
-     * @param fromDate The from date
-     * @return Reference to this for convenience.
+    /**
+     * 开始日期（作用于字段lastUpdatedStamp 必须大于或等于（＆gt; =）fromDate）。
+     * @param fromDate 开始日期
+     * @return 当前对象.
      */
     EntityDataWriter fromDate(Timestamp fromDate);
-    /** Thru date for lastUpdatedStamp on each entity (lastUpdatedStamp must be less than (&lt;) to thruDate).
-     * @param thruDate The thru date
-     * @return Reference to this for convenience.
+
+    /** 截止日期（作用于字段lastUpdatedStamp 必须小于（＆lt;）thruDate）。
+     * @param thruDate 截止日期
+     * @return 当前对象.
      */
     EntityDataWriter thruDate(Timestamp thruDate);
 
-    /** Write all results to a single file.
-     * @param filename The path and name of the file to write values to
-     * @return Count of values written
+    /**
+     * 将所有结果写入单个文件.
+     * @param filename 文件路径
+     * @return 写入数量
      */
     int file(String filename);
+
+    /**
+     * 压缩文件.
+     * @param filenameWithinZip 压缩文件名称
+     * @param zipFilename 压缩文件名称
+     * @return 写入数量
+     */
     int zipFile(String filenameWithinZip, String zipFilename);
-    /** Write the results to a file for each entity in the specified directory.
-     * @param path The path of the directory to create files in
-     * @return Count of values written
+
+    /**
+     * 将结果写入指定目录中
+     * @param path 目录路径
+     * @return 写入数量
      */
     int directory(String path);
+
     int zipDirectory(String pathWithinZip, String zipFilename);
-    /** Write the results to a Writer.
-     * @param writer The Writer to write to
-     * @return Count of values written
+
+    /** 将结果写入Writer.
+     * @param writer Writer
+     * @return 写入数量
      */
     int writer(Writer writer);
 }
