@@ -83,9 +83,9 @@ public interface ZEntityDataLoader {
     /** Load the values into the database(s). */
     long load();
 
-    /** Create an EntityList with all of the values from the data file(s).
+    /** Create an ZEntityList with all of the values from the data file(s).
      *
-     * @return EntityList representing a List of EntityValue objects for the values in the XML document(s).
+     * @return ZEntityList representing a List of EntityValue objects for the values in the XML document(s).
      */
-//    EntityList list();
+    ZEntityList list();
 }
