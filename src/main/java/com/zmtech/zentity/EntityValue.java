@@ -94,20 +94,20 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
     Map<String, Object> getMap();
 
     /** 取字段值
-     * 该方法支持通过实体关联名称取关联的实体
+     * 该方法支持通过实体关系名称取关系的实体
      * 格式为:"${title}${related-entity-name}"
-     * 当取关联实体的时候相当于调用了
+     * 当取关系实体的时候相当于调用了
      * <code>findRelated(relationshipName, null, null, null, null)</code>:一对多
      * <code>findRelatedOne(relationshipName, null, null)</code> 一对一
-     * @param name 字段名称或者关联的一对多 一对一名称
-     * @return 字段值或者关联的实体
+     * @param name 字段名称或者关系的一对多 一对一名称
+     * @return 字段值或者关系的实体
      */
     Object get(String name);
 
     /**
      * 取字段值
      * 不会检查字段是否存在
-     * 不会取关联实体
+     * 不会取关系实体
      * 如果字段不存在 则返回null 并不会报错
      * @param name 字段名称
      * @return 字段值
@@ -313,104 +313,127 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      */
     boolean refresh() throws EntityException;
 
+    /**
+     * 取实体原值
+     * @param name 字段名称
+     * @return 原值
+     */
     Object getOriginalDbValue(String name);
 
-    /** Get the named Related Entity for the EntityValue from the persistent store
-     * @param relationshipName String containing the relationship name which is the combination of relationship.title
-     *   and relationship.related-entity-name as specified in the entity XML definition file
-     * @param byAndFields the fields that must equal in order to keep; may be null
-     * @param orderBy The fields of the named entity to order the query by; may be null;
-     *      optionally add a " ASC" for ascending or " DESC" for descending
-     * @param useCache Look in the cache before finding in the datasource. Defaults to setting on entity definition.
-     * @return List of EntityValue instances as specified in the relation definition
+    /**
+     * 取关系实体 一对多
+     * @param relationshipName 关系名称 该名称在实体定义relationship中
+     * @param byAndFields 查询字段 可以为 null
+     * @param orderBy 排序 可以为 null 可加选项 ASC DESC
+     * @param useCache 是否使用缓存 默认值在实体定义中
+     * @return 关系实体列表
      */
     EntityList findRelated(String relationshipName, Map<String, Object> byAndFields, List<String> orderBy,
                            Boolean useCache, Boolean forUpdate) throws EntityException;
 
-    /** Get the named Related Entity for the EntityValue from the persistent store
-     * @param relationshipName String containing the relationship name which is the combination of relationship.title
-     *   and relationship.related-entity-name as specified in the entity XML definition file
-     * @param useCache Look in the cache before finding in the datasource. Defaults to setting on entity definition.
-     * @return List of EntityValue instances as specified in the relation definition
+    /**
+     * 取关系实体 一对一
+     * @param relationshipName 关系名称 该名称在实体定义relationship中
+     * @param useCache 是否使用缓存 默认值在实体定义中
+     * @return List of 关系实体
      */
     EntityValue findRelatedOne(String relationshipName, Boolean useCache, Boolean forUpdate) throws EntityException;
 
+    /**
+     * 取关系实体数量 一对多 一对一
+     * @param relationshipName 关系名称 该名称在实体定义relationship中
+     * @param useCache 是否使用缓存 默认值在实体定义中
+     * @return 关系实体数量
+     */
     long findRelatedCount(final String relationshipName, Boolean useCache);
 
-    /** Find all records with a foreign key reference to this record. Operates on relationship definitions for any related entity
-     * that has a type one relationship to this entity.
-     *
-     * Does not recurse, finds directly related (dependant) records only.
-     *
-     * Will skip any related records whose entity name is in skipEntities.
-     *
-     * Useful as a validation before calling deleteWithCascade().
+    /**
+     * 取所有外键关系到实体的关系实体
+     * 该方法不会递归查询，只会查询直接关系的实体
+     * 会跳过所有skip Entities
+     * 可以用于验证级联删除
+     * @param skipEntities 跳过的关系实体
+     * @return 关系实体
      */
     EntityList findRelatedFk(Set<String> skipEntities);
 
-    /** Remove the named Related Entity for the EntityValue from the persistent store
-     * @param relationshipName String containing the relationship name which is the combination of relationship.title
-     *   and relationship.related-entity-name as specified in the entity XML definition file
+    /**
+     * 删除关系实体
+     * @param relationshipName 关系名称 在实体定义中指定
      */
     void deleteRelated(String relationshipName) throws EntityException;
 
-    /** Delete this record plus records for all relationships specified. If any records exist for other relationships not specified
-     * that depend on this record returns false and does not delete anything.
-     *
-     * Returns true if this and related records were deleted.
+    /**
+     * 删除关系实体
+     * 删除此实体以及指定的所有关系的实体。 如果未指定的其他关系存在依赖于此实体的任何实体，则返回false并且不删除任何内容。
+     * @return 删除:true 未删除:false
      */
     boolean deleteWithRelated(Set<String> relationshipsToDelete);
 
-    /** Deletes this record and all records that depend on it, doing the same for each (cascading delete).
-     * Deletes related records that depend on this record (records with a foreign key reference to this record).
-     *
-     * To clear the reference (set fields to null) instead of deleting records specify the entity names, related to this or any
-     * related entity, in the clearRefEntities parameter.
-     *
-     * To check for records that should prevent a delete you can optionally pass a Set of entities names in the
-     * validateAllowDeleteEntities parameter. If this is not null an exception will be thrown instead of deleting
-     * any record for an entity NOT in that Set.
-     *
-     * WARNING: this may delete records you don't want to. Look at the nested relationships in the Entity Reference in the
-     * Tools app to see what might might get deleted (anything with a type one relationship to this entity, or recursing
-     * anything with a type one relationship to those).
+    /**
+     * 实体级联删除
+     * 删除此实体以及依赖于此实体的所有实体，对每个实体执行相同的操作（级联删除）。
+     * 删除依赖于此实体的相关实体（具有对此实体的外键引用的实体）。
+     * 要清除关系（将字段设置为null）而不是删除记录，请指定与此或任何相关的实体名称相关实体，在clearRefEntities参数中。
+     * 要检查应该阻止删除的记录，您可以选择传递一组实体名称validateAllowDeleteEntities参数。
+     * 如果不为null，则抛出异常而不是删除不在该集合中的实体的任何记录。
+     * 警告：这可能会删除您不想要的记录。
+     * 查看实体参考中的嵌套关系工具应用程序，以查看可能会被删除的内容（与此实体具有第一类关系的任何内容，或递归与那些有第一类关系的任何东西）。
+     * @param clearRefEntities 清除关系实体列表
+     * @param validateAllowDeleteEntities 验证允许删除的实体名称列表
      */
     void deleteWithCascade(Set<String> clearRefEntities, Set<String> validateAllowDeleteEntities);
 
     /**
-     * Checks to see if all foreign key records exist in the database (records this record refers to).
-     * Will attempt to create a dummy value (PK only) for those missing when specified insertDummy is true.
-     *
-     * @param insertDummy Create a dummy record using the provided fields
-     * @return true if all FKs exist (or when all missing are created)
+     * 检查外键
+     * 检查数据库中是否存在所有外键记录（记录此记录所引用的记录）。
+     * 当指定的insertDummy为true时，将尝试为缺少的值创建一个虚拟值（仅限PK）。
+     * @param insertDummy 是否使用提供的字段创建虚拟记录
+     * @return 所有外键存在:true 不存在:false
      */
     boolean checkFks(boolean insertDummy) throws EntityException;
-    /** Compare this value to the database, adding messages about fields that differ or if the record doesn't exist to messages. */
+
+    /**
+     * 检查数据库
+     * 将此值与数据库进行比较，添加有不同字段的消息或消息中是否存在记录。
+     * @param messages 消息列表
+     * @return 字段不同的数量
+     */
     long checkAgainstDatabase(List<String> messages);
 
-    /** Makes an XML Element object with an attribute for each field of the entity
-     * @param document The XML Document that the new Element will be part of
-     * @param prefix A prefix to put in front of the entity name in the tag name
-     * @return org.w3c.dom.Element object representing this entity value
+    /**
+     * 创建xml 对象
+     * 使用实体的每个字段的属性创建XML Element对象
+     * @param document 新元素将成为XML document 元素的一部分
+     * @param prefix 放在标记名称中实体名称前面的前缀
+     * @return 表示此实体值的org.w3c.dom.Element对象
      */
     Element makeXmlElement(Document document, String prefix);
 
-    /** Writes XML text with an attribute or CDATA element for each field of the entity. If dependents is true also
-     * writes all dependent (descendant) records.
-     * @param writer A Writer object to write to
-     * @param prefix A prefix to put in front of the entity name in the tag name
-     * @param dependentLevels Write dependent (descendant) records this many levels deep, zero for no dependents
-     * @return The number of records written
+    /**
+     * 写入实体
+     * 主要用于初始化数据
+     * 为实体的每个字段写入带有属性或CDATA元素的XML文本。 如果dependents为true，则还会写入所有依赖（后代）记录
+     * @param writer 输出
+     * @param prefix 放在标记名称中实体名称前面的前缀
+     * @param dependentLevels 写入依赖（后代）记录的级别深度，零没有依赖
+     * @return 写入的记录数
      */
     int writeXmlText(Writer writer, String prefix, int dependentLevels);
-    int writeXmlTextMaster(Writer pw, String prefix, String masterName);
+    int writeXmlTextMaster(Writer writer, String prefix, String masterName);
 
-    /** Get a Map with all non-null field values. If dependentLevels is greater than zero includes nested dependents
-     * in the Map as an entry with key of the dependent relationship's short-alias or if no short-alias then the
-     * relationship name (title + related-entity-name). Each dependent entity's Map may have its own dependent records
-     * up to dependentLevels levels deep.*/
+    /**
+     * 取费用字段Map
+     * 获取包含所有非空字段值的地图。
+     * 如果dependentLevels大于零，则包含Map中的嵌套依赖项作为具有依赖关系的短别名的键的条目，或者如果没有短别名，则关系名称（标题+相关实体名称）。
+     * 每个从属实体的Map可以有自己的依赖记录最深层的依赖级别。
+     * @param dependentLevels 依赖级别
+     * @return 字段Map
+     * */
     Map<String, Object> getPlainValueMap(int dependentLevels);
 
-    /** List getPlainValueMap() but uses a master definition to determine which dependent/related records to get. */
+    /**
+     * 列出getPlainValueMap（）但使用主定义来确定要获取的依赖/相关记录。
+     * */
     Map<String, Object> getMasterValueMap(String name);
 }
