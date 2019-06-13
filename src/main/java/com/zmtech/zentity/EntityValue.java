@@ -14,7 +14,7 @@
 package com.zmtech.zentity;
 
 import com.zmtech.zentity.etl.SimpleEtl;
-import com.zmtech.zentity.exception.ZEntityException;
+import com.zmtech.zentity.exception.EntityException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -27,166 +27,291 @@ import java.util.Map;
 import java.util.Set;
 
 
-/** Entity Value Interface - Represents a single database record. */
+/**
+ * 实体对象
+ * 用于承载数据和基本的数据操作
+ */
 @SuppressWarnings("unused")
 public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable, SimpleEtl.Entry {
 
+    /**
+     * 取实体定义名称
+     * @return 实体名称
+     */
     String getEntityName();
+
+    /**
+     * 取实体定义名称
+     * @return 实体名称
+     */
     String getEntityNamePretty();
 
-    /** Returns true if any field has been modified */
+    /**
+     * 是否含有变更字段
+     * @return 含有变更字段:true 没有:false
+     */
     boolean isModified();
-    /** Returns true if the field has been modified */
+
+    /**
+     * 字段是否变更
+     * @param name 字段名称
+     * @return 变更:true 没有变更:false
+     */
     boolean isFieldModified(String name);
-    /** Returns true if a value for the field is set, even if it is null */
+
+    /**
+     * 字段是否赋值
+     * @param name 字段名称
+     * @return 赋值:true 未赋值:false
+     */
     boolean isFieldSet(String name);
-    /** Returns true if the name is a valid field name for the entity this is a value of,
-     * false otherwise (meaning get(), set(), etc calls with throw an exception with the field name) */
+
+    /**
+     * 字段是否属于该实体
+     * 当字段不属于实体时 使用 get set 方法会抛出异常
+     * @param name  字段名称
+     * @return  属于:true 不属于:false
+     */
     boolean isField(String name);
 
+    /**
+     * 实体是否可变
+     * @return 可变:true 不可变:false
+     */
     boolean isMutable();
 
-    /** Gets a cloned, mutable Map with the field values that is independent of this value object. Can be augmented or
-     * modified without modifying or being constrained by this entity value. */
+    /**
+     * 实体是否所有主键已赋值值
+     * @return 已赋值:true 未赋值:false
+     */
+    boolean containsPrimaryKey();
+
+    /**
+     * 获取实体Map
+     * 实体Map key代表字段名称 value代表字段值
+     * @return 实体Map
+     */
     Map<String, Object> getMap();
 
-    /** Get the named field.
-     *
-     * If there is a matching entry in the moqui.basic.LocalizedEntityField entity using the Locale in the current
-     * ExecutionContext then that will be returned instead.
-     *
-     * This method also supports getting related entities using their relationship name, formatted as
-     * "${title}${related-entity-name}". When doing so it is like calling
-     * <code>findRelated(relationshipName, null, null, null, null)</code> for type many relationships, or
-     * <code>findRelatedOne(relationshipName, null, null)</code> for type one relationships.
-     *
-     * @param name The field name to get, or the name of the relationship to get one or more related values from.
-     * @return Object with the value of the field, or the related EntityValue or ZEntityList.
+    /** 取字段值
+     * 该方法支持通过实体关联名称取关联的实体
+     * 格式为:"${title}${related-entity-name}"
+     * 当取关联实体的时候相当于调用了
+     * <code>findRelated(relationshipName, null, null, null, null)</code>:一对多
+     * <code>findRelatedOne(relationshipName, null, null)</code> 一对一
+     * @param name 字段名称或者关联的一对多 一对一名称
+     * @return 字段值或者关联的实体
      */
     Object get(String name);
 
-    /** Get simple fields only (no localization, no relationship) and don't check to see if it is a valid field; mostly
-     * for performance reasons and for well tested code with known field names. If it is not a valid field name will
-     * just return null and not throw an error, ie doesn't check for valid field names. */
+    /**
+     * 取字段值
+     * 不会检查字段是否存在
+     * 不会取关联实体
+     * 如果字段不存在 则返回null 并不会报错
+     * @param name 字段名称
+     * @return 字段值
+     */
     Object getNoCheckSimple(String name);
 
-    /** Returns true if the entity contains all of the primary key fields. */
-    boolean containsPrimaryKey();
-
+    /**
+     * 取实体主键Map
+     * @return 实体主键Map
+     */
     Map<String, Object> getPrimaryKeys();
 
-    /** Sets the named field to the passed value, even if the value is null
-     * @param name The field name to set
-     * @param value The value to set
-     * @return reference to this for convenience
+    /**
+     * 实体赋值
+     * value 可以为 null
+     * @param name 字段名称
+     * @param value 字段值
+     * @return 实体
      */
     EntityValue set(String name, Object value);
 
-    /** Sets fields on this entity from the Map of fields passed in using the entity definition to only get valid
-     * fields from the Map. For any String values passed in this will call setString to convert based on the field
-     * definition, otherwise it sets the Object as-is.
-     *
-     * @param fields The fields Map to get the values from
-     * @return reference to this for convenience
+    /**
+     * 实体赋值
+     * 为多个字段赋值
+     * Map 的 key 必须对应字段名称
+     * @param fields 字段Map
+     * @return 实体
      */
     EntityValue setAll(Map<String, Object> fields);
 
-    /** Sets the named field to the passed value, converting the value from a String to the corresponding type using 
-     *   <code>Type.valueOf()</code>
-     *
-     * If the String "null" is passed in it will be treated the same as a null value. If you really want to set a
-     * String of "null" then pass in "\null".
-     *
-     * @param name The field name to set
-     * @param value The String value to convert and set
-     * @return reference to this for convenience
+    /**
+     * 实体赋值 字符串类型
+     * @param name 字段名称
+     * @param value 字段值
+     * @return 实体
      */
     EntityValue setString(String name, String value);
 
-    Boolean getBoolean(String name);
-
+    /**
+     * 实体取值 String
+     * @param name 字段名称
+     * @return  字段值
+     */
     String getString(String name);
 
+    /**
+     * 实体取值 Boolean
+     * @param name 字段名称
+     * @return 字段值
+     */
+    Boolean getBoolean(String name);
+
+    /**
+     * 实体取值 Timestamp
+     * @param name 字段名称
+     * @return 字段值
+     */
     java.sql.Timestamp getTimestamp(String name);
+
+    /**
+     * 实体取值 Time
+     * @param name 字段名称
+     * @return 字段值
+     */
     java.sql.Time getTime(String name);
+
+    /**
+     * 实体取值 Date
+     * @param name 字段名称
+     * @return 字段值
+     */
     java.sql.Date getDate(String name);
 
+    /**
+     * 实体取值 Long
+     * @param name 字段名称
+     * @return 字段值
+     */
     Long getLong(String name);
+
+    /**
+     * 实体取值 Double
+     * @param name 字段名称
+     * @return 字段值
+     */
     Double getDouble(String name);
+
+    /**
+     * 实体取值 BigDecimal
+     * @param name 字段名称
+     * @return 字段值
+     */
     BigDecimal getBigDecimal(String name);
 
+    /**
+     * 实体取值 byte[]
+     * @param name 字段名称
+     * @return 字段值
+     */
     byte[] getBytes(String name);
+
+    /**
+     * 实体赋值 byte[]
+     * @param name 字段名称
+     * @return 字段值
+     */
     EntityValue setBytes(String name, byte[] theBytes);
+
+    /**
+     * 实体取值 SerialBlob
+     * @param name 字段名称
+     * @return 字段值
+     */
     SerialBlob getSerialBlob(String name);
 
-    /** Sets fields on this entity from the Map of fields passed in using the entity definition to only get valid
-     * fields from the Map. For any String values passed in this will call setString to convert based on the field
-     * definition, otherwise it sets the Object as-is.
-     *
-     * @param fields The fields Map to get the values from
-     * @param setIfEmpty Used to specify whether empty/null values in the field Map should be set
-     * @param namePrefix If not null or empty will be pre-pended to each field name (upper-casing the first letter of
-     *   the field name first), and that will be used as the fields Map lookup name instead of the field-name
-     * @param pks If null, get all values, if TRUE just get PKs, if FALSE just get non-PKs
-     * @return reference to this for convenience
+    /**
+     * 实体赋值 Map
+     * 将Map对应的值付给实体 Map key 必须和实体字段对应
+     * 当值类型为 String 会调用 setString方法
+     * 其他会按照 Object类型 赋值
+     * @param fields 字段Map
+     * @param setIfEmpty 指定是否 空和null 的值 设不设置
+     * @param namePrefix 字典前缀 设置会为所有字段添加前缀 原字段名称第一个字母会变成大写
+     * @param pks null: 全部赋值 true: 只选择主键赋值 false: 只选择非主键赋值
+     * @return 实体
      */
     EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks);
 
-    /** Get the next guaranteed unique seq id for this entity, and set it in the primary key field. This will set it in
-     * the first primary key field in the entity definition, but it really should be used for entities with only one
-     * primary key field.
-     *
-     * @return reference to this for convenience
+    /**
+     * 设置自增长主键
+     * 取自增长的 sequencedId 并且把值赋予实体
+     * 只能用于单主键实体
+     * @return 实体
      */
     EntityValue setSequencedIdPrimary();
 
-    /** Look at existing values with the same primary sequenced ID (first PK field) and get the highest existing
-     * value for the secondary sequenced ID (the second PK field), add 1 to it and set the result in this entity value.
-     *
-     * The current value object must have the primary sequenced field already populated.
-     *
-     * @return reference to this for convenience
+    /**
+     * 设置自增长主键
+     * 取自增长 sequencedId 并且取得存在的最大值，再加1 赋予实体主键
+     * 只能用于单主键实体
+     * @return 实体
      */
     EntityValue setSequencedIdSecondary();
 
-    /** Compares this EntityValue to the passed object
-     * @param that Object to compare this to
-     * @return int representing the result of the comparison (-1,0, or 1)
+    /**
+     * 实体比较
+     * 比较两个实体的值是否相等
+     * @param that 对比实体
+     * @return int -1 0 1
      */
     @Override
     int compareTo(EntityValue that);
 
-    /** Returns true if all entries in the Map match field values. */
+    /**
+     * 实体Map比较
+     * @param theMap 实体map
+     * @return 相等 true 不等 false
+     */
     boolean mapMatches(Map<String, Object> theMap);
 
     EntityValue cloneValue();
 
-    /** Creates a record for this entity value.
-     * @return reference to this for convenience
+    /**
+     * 创建实体
+     * @return 实体
+     * @throws EntityException 创建错误
      */
-    EntityValue create() throws ZEntityException;
+    EntityValue create() throws EntityException;
 
-    /** Creates a record for this entity value, or updates the record if one exists that matches the primary key.
-     * @return reference to this for convenience
+    /**
+     * 创建或更新实体
+     * 当数据库记录存在时更新 不存在时新建
+     * @return 实体
+     * @throws EntityException 创建或更新错误
      */
-    EntityValue createOrUpdate() throws ZEntityException;
-    /** Alias for createOrUpdate() */
-    EntityValue store() throws ZEntityException;
+    EntityValue createOrUpdate() throws EntityException;
 
-    /** Updates the record that matches the primary key.
-     * @return reference to this for convenience
-     */
-    EntityValue update() throws ZEntityException;
+    /** 等同于 createOrUpdate() */
+    EntityValue store() throws EntityException;
 
-    /** Deletes the record that matches the primary key.
-     * @return reference to this for convenience
+    /**
+     * 更新实体
+     * 必须数据库存在实体主键的数据
+     * @return 实体
+     * @throws EntityException 更新错误
      */
-    EntityValue delete() throws ZEntityException;
+    EntityValue update() throws EntityException;
 
-    /** Refreshes this value based on the record that matches the primary key.
-     * @return true if a record was found, otherwise false also meaning no refresh was done
+    /**
+     * 删除实体
+     * 必须数据库存在实体主键的数据
+     * 删除后返回的实体只代表数据
+     * @return 实体
+     * @throws EntityException 删除错误
      */
-    boolean refresh() throws ZEntityException;
+    EntityValue delete() throws EntityException;
+
+    /**
+     * 同步实体
+     * 同步数据库数据到实体中
+     * 实体主键必须在数据库中存在
+     * @return 成功:true 刷新失败:false
+     */
+    boolean refresh() throws EntityException;
 
     Object getOriginalDbValue(String name);
 
@@ -199,8 +324,8 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      * @param useCache Look in the cache before finding in the datasource. Defaults to setting on entity definition.
      * @return List of EntityValue instances as specified in the relation definition
      */
-    ZEntityList findRelated(String relationshipName, Map<String, Object> byAndFields, List<String> orderBy,
-                            Boolean useCache, Boolean forUpdate) throws ZEntityException;
+    EntityList findRelated(String relationshipName, Map<String, Object> byAndFields, List<String> orderBy,
+                           Boolean useCache, Boolean forUpdate) throws EntityException;
 
     /** Get the named Related Entity for the EntityValue from the persistent store
      * @param relationshipName String containing the relationship name which is the combination of relationship.title
@@ -208,7 +333,7 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      * @param useCache Look in the cache before finding in the datasource. Defaults to setting on entity definition.
      * @return List of EntityValue instances as specified in the relation definition
      */
-    EntityValue findRelatedOne(String relationshipName, Boolean useCache, Boolean forUpdate) throws ZEntityException;
+    EntityValue findRelatedOne(String relationshipName, Boolean useCache, Boolean forUpdate) throws EntityException;
 
     long findRelatedCount(final String relationshipName, Boolean useCache);
 
@@ -221,13 +346,13 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      *
      * Useful as a validation before calling deleteWithCascade().
      */
-    ZEntityList findRelatedFk(Set<String> skipEntities);
+    EntityList findRelatedFk(Set<String> skipEntities);
 
     /** Remove the named Related Entity for the EntityValue from the persistent store
      * @param relationshipName String containing the relationship name which is the combination of relationship.title
      *   and relationship.related-entity-name as specified in the entity XML definition file
      */
-    void deleteRelated(String relationshipName) throws ZEntityException;
+    void deleteRelated(String relationshipName) throws EntityException;
 
     /** Delete this record plus records for all relationships specified. If any records exist for other relationships not specified
      * that depend on this record returns false and does not delete anything.
@@ -259,7 +384,7 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      * @param insertDummy Create a dummy record using the provided fields
      * @return true if all FKs exist (or when all missing are created)
      */
-    boolean checkFks(boolean insertDummy) throws ZEntityException;
+    boolean checkFks(boolean insertDummy) throws EntityException;
     /** Compare this value to the database, adding messages about fields that differ or if the record doesn't exist to messages. */
     long checkAgainstDatabase(List<String> messages);
 

@@ -6,14 +6,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * ZEntityException
+ * EntityException
  *
  */
-public class ZEntityException extends RuntimeException {
+public class EntityException extends RuntimeException {
 
-    public ZEntityException(String message) { super(message); }
-    public ZEntityException(String message, Throwable nested) { super(message, nested); }
-    public ZEntityException(Throwable nested) { super(nested); }
+    public EntityException(String message) { super(message); }
+    public EntityException(String message, Throwable nested) { super(message, nested); }
+    public EntityException(Throwable nested) { super(nested); }
 
 
     @Override public void printStackTrace() { filterStackTrace(this); super.printStackTrace(); }

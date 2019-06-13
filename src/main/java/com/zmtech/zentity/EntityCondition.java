@@ -3,8 +3,8 @@ package com.zmtech.zentity;
 import java.io.Externalizable;
 import java.util.Map;
 
-
-public interface ZEntityCondition extends Externalizable {
+@SuppressWarnings("unused")
+public interface EntityCondition extends Externalizable {
 
     // 相等
     ComparisonOperator EQUALS = ComparisonOperator.EQUALS;
@@ -61,6 +61,6 @@ public interface ZEntityCondition extends Externalizable {
      * 作用于所有条件类型
      * @return 当前条件对象.
      */
-    ZEntityCondition ignoreCase();
+    EntityCondition ignoreCase();
 }
 

@@ -13,9 +13,9 @@
  */
 package com.zmtech.zentity.exception;
 
-public class ZEntityValueNotFoundException extends ZEntityException {
-    public ZEntityValueNotFoundException(String str) {
+public class EntityNotFoundException extends EntityException {
+    public EntityNotFoundException(String str) {
         super(str);
     }
-    // public ZEntityValueNotFoundException(String str, Throwable nested) { super(str, nested); }
+    // public EntityNotFoundException(String str, Throwable nested) { super(str, nested); }
 }

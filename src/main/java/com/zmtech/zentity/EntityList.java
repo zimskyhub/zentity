@@ -25,10 +25,10 @@ import java.util.*;
  * Entity List that adds some additional operations like filtering to the basic List&lt;EntityValue&gt;.
  *
  * The various methods here modify the internal list for efficiency and return a reference to this for convenience.
- * If you want a new ZEntityList with the modifications, use clone() or cloneList() then modify it.
+ * If you want a new EntityList with the modifications, use clone() or cloneList() then modify it.
  */
 @SuppressWarnings("unused")
-public interface ZEntityList extends List<EntityValue>, Iterable<EntityValue>, Cloneable, RandomAccess, Externalizable {
+public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cloneable, RandomAccess, Externalizable {
 
     /** Get the first value in the list.
      *
@@ -36,7 +36,7 @@ public interface ZEntityList extends List<EntityValue>, Iterable<EntityValue>, C
      */
     EntityValue getFirst();
 
-    /** Modify this ZEntityList so that it contains only the values that are active for the moment passed in.
+    /** Modify this EntityList so that it contains only the values that are active for the moment passed in.
      * The results include values that match the fromDate, but exclude values that match the thruDate.
      *
      *@param fromDateName The name of the from/beginning date/time field. Defaults to "fromDate".
@@ -44,54 +44,54 @@ public interface ZEntityList extends List<EntityValue>, Iterable<EntityValue>, C
      *@param moment The point in time to compare the values to; if null the current system date/time is used.
      *@return A reference to this for convenience.
      */
-    ZEntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment);
-    ZEntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment, boolean ignoreIfEmpty);
+    EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment);
+    EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment, boolean ignoreIfEmpty);
 
-    /** Modify this ZEntityList so that it contains only the values that match the values in the fields parameter.
+    /** Modify this EntityList so that it contains only the values that match the values in the fields parameter.
      *
      *@param fields The name/value pairs that must match for a value to be included in the output list.
      *@return List of EntityValue objects that match the values in the fields parameter.
      */
-    ZEntityList filterByAnd(Map<String, Object> fields);
-    ZEntityList filterByAnd(Map<String, Object> fields, Boolean include);
+    EntityList filterByAnd(Map<String, Object> fields);
+    EntityList filterByAnd(Map<String, Object> fields, Boolean include);
 
-    /** Modify this ZEntityList so that it contains only the values that match the values in the namesAndValues parameter.
+    /** Modify this EntityList so that it contains only the values that match the values in the namesAndValues parameter.
      *
      *@param namesAndValues Must be an even number of parameters as field name then value repeated as needed
      *@return List of EntityValue objects that match the values in the fields parameter.
      */
-    ZEntityList filterByAnd(Object... namesAndValues);
+    EntityList filterByAnd(Object... namesAndValues);
 
-    ZEntityList removeByAnd(Map<String, Object> fields);
+    EntityList removeByAnd(Map<String, Object> fields);
 
-    /** Modify this ZEntityList so that it includes (or excludes) values matching the condition.
+    /** Modify this EntityList so that it includes (or excludes) values matching the condition.
      *
      * @param condition EntityCondition to filter by.
      * @param include If true include matching values, if false exclude matching values.
      *     Defaults to true (include, ie only include values that do meet condition).
      * @return List with filtered values.
      */
-    ZEntityList filterByCondition(ZEntityCondition condition, Boolean include);
+    EntityList filterByCondition(EntityCondition condition, Boolean include);
 
-    /** Modify this ZEntityList so that it includes (or excludes) entity values where the closure evaluates to true.
+    /** Modify this EntityList so that it includes (or excludes) entity values where the closure evaluates to true.
      * The closure is called with a single argument, the current EntityValue in the list, and should evaluate to a Boolean. */
-    ZEntityList filter(Closure<Boolean> closure, Boolean include);
+    EntityList filter(Closure<Boolean> closure, Boolean include);
 
-    /** Find the first value in this ZEntityList where the closure evaluates to true. */
+    /** Find the first value in this EntityList where the closure evaluates to true. */
     EntityValue find(Closure<Boolean> closure);
-    /** Different from filter* method semantics, does not modify this ZEntityList. Returns a new ZEntityList with just the
+    /** Different from filter* method semantics, does not modify this EntityList. Returns a new EntityList with just the
      * values where the closure evaluates to true. */
-    ZEntityList findAll(Closure<Boolean> closure);
+    EntityList findAll(Closure<Boolean> closure);
 
-    /** Modify this ZEntityList to only contain up to limit values starting at the offset.
+    /** Modify this EntityList to only contain up to limit values starting at the offset.
      *
      * @param offset Starting index to include
      * @param limit Include only this many values
      * @return List with filtered values.
      */
-    ZEntityList filterByLimit(Integer offset, Integer limit);
+    EntityList filterByLimit(Integer offset, Integer limit);
     /** For limit filter in a cached entity-find with search-form-inputs, done after the query */
-    ZEntityList filterByLimit(String inputFieldsMapName, boolean alwaysPaginate);
+    EntityList filterByLimit(String inputFieldsMapName, boolean alwaysPaginate);
 
     /** The offset used to filter the list, if filterByLimit has been called. */
     Integer getOffset();
@@ -102,21 +102,21 @@ public interface ZEntityList extends List<EntityValue>, Iterable<EntityValue>, C
     /** For use with filterByLimit when paginated. Equals limit (default 20; for use along with getPageIndex()). */
     int getPageSize();
 
-    /** Modify this ZEntityList so that is ordered by the field names passed in.
+    /** Modify this EntityList so that is ordered by the field names passed in.
      *
      *@param fieldNames The field names for the entity values to sort the list by. Optionally prefix each field name
      * with a plus sign (+) for ascending or a minus sign (-) for descending. Defaults to ascending.
      *@return List of EntityValue objects in the specified order.
      */
-    ZEntityList orderByFields(List<String> fieldNames);
+    EntityList orderByFields(List<String> fieldNames);
 
     int indexMatching(Map<String, Object> valueMap);
     void move(int fromIndex, int toIndex);
 
     /** Adds the value to this list if the value isn't already in it. Returns reference to this list. */
-    ZEntityList addIfMissing(EntityValue value);
+    EntityList addIfMissing(EntityValue value);
     /** Adds each value in the passed list to this list if the value isn't already in it. Returns reference to this list. */
-    ZEntityList addAllIfMissing(ZEntityList el);
+    EntityList addAllIfMissing(EntityList el);
 
     /** Writes XML text with an attribute or CDATA element for each field of each record. If dependents is true also
      * writes all dependent (descendant) records.
@@ -127,7 +127,7 @@ public interface ZEntityList extends List<EntityValue>, Iterable<EntityValue>, C
      */
     int writeXmlText(Writer writer, String prefix, int dependentLevels);
 
-    /** Method to implement the Iterable interface to allow an ZEntityList to be used in a foreach loop.
+    /** Method to implement the Iterable interface to allow an EntityList to be used in a foreach loop.
      *
      * @return Iterator&lt;EntityValue&gt; to iterate over internal list.
      */
@@ -140,7 +140,7 @@ public interface ZEntityList extends List<EntityValue>, Iterable<EntityValue>, C
     List<Map<String, Object>> getMasterValueList(String name);
     ArrayList<Map<String, Object>> getValueMapList();
 
-    ZEntityList cloneList();
+    EntityList cloneList();
 
     void setFromCache();
     boolean isFromCache();

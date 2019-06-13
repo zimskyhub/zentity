@@ -8,9 +8,10 @@ import java.util.Map;
  *
  * 条件生产者
  */
-public interface ZEntityConditionFactory {
+@SuppressWarnings("unused")
+public interface EntityConditionFactory {
 
-    ZEntityCondition getTrueCondition();
+    EntityCondition getTrueCondition();
 
     /**
      * 创建条件 :联合条件
@@ -19,7 +20,7 @@ public interface ZEntityConditionFactory {
      * @param rhs       右条件
      * @return          条件
      */
-    ZEntityCondition makeCondition(ZEntityCondition lhs, ZEntityCondition.JoinOperator operator, ZEntityCondition rhs);
+    EntityCondition makeCondition(EntityCondition lhs, EntityCondition.JoinOperator operator, EntityCondition rhs);
 
     /**
      * 创建条件
@@ -28,7 +29,7 @@ public interface ZEntityConditionFactory {
      * @param value     值
      * @return          条件
      */
-    ZEntityCondition makeCondition(String field, ZEntityCondition.ComparisonOperator operator, Object value);
+    EntityCondition makeCondition(String field, EntityCondition.ComparisonOperator operator, Object value);
 
     /**
      * 创建条件
@@ -37,7 +38,7 @@ public interface ZEntityConditionFactory {
      * @param toField   对比字段名称
      * @return          条件
      */
-    ZEntityCondition makeConditionToField(String field, ZEntityCondition.ComparisonOperator operator, String toField);
+    EntityCondition makeConditionToField(String field, EntityCondition.ComparisonOperator operator, String toField);
 
     /**
      * 创建条件
@@ -45,7 +46,7 @@ public interface ZEntityConditionFactory {
      * @param conditionList 条件列表
      * @return              条件
      */
-    ZEntityCondition makeCondition(List<ZEntityCondition> conditionList);
+    EntityCondition makeCondition(List<EntityCondition> conditionList);
 
     /**
      * 创建条件
@@ -53,10 +54,10 @@ public interface ZEntityConditionFactory {
      * @param operator      操作符
      * @return              条件
      */
-    ZEntityCondition makeCondition(List<ZEntityCondition> conditionList, ZEntityCondition.JoinOperator operator);
+    EntityCondition makeCondition(List<EntityCondition> conditionList, EntityCondition.JoinOperator operator);
 
 
-    /** More convenient for scripts, etc. The conditionList parameter may contain Map or ZEntityCondition objects. */
+    /** More convenient for scripts, etc. The conditionList parameter may contain Map or EntityCondition objects. */
     /**
      * 创建条件
      * @param conditionList         条件列表
@@ -65,7 +66,7 @@ public interface ZEntityConditionFactory {
      * @param mapJoinOperator
      * @return
      */
-    ZEntityCondition makeCondition(List<Object> conditionList, String listOperator, String mapComparisonOperator, String mapJoinOperator);
+    EntityCondition makeCondition(List<Object> conditionList, String listOperator, String mapComparisonOperator, String mapJoinOperator);
 
     /**
      * 创建条件
@@ -74,7 +75,7 @@ public interface ZEntityConditionFactory {
      * @param joinOperator          集合操作符
      * @return                      条件
      */
-    ZEntityCondition makeCondition(Map<String, Object> fieldMap, ZEntityCondition.ComparisonOperator comparisonOperator, ZEntityCondition.JoinOperator joinOperator);
+    EntityCondition makeCondition(Map<String, Object> fieldMap, EntityCondition.ComparisonOperator comparisonOperator, EntityCondition.JoinOperator joinOperator);
 
     /**
      * 创建条件
@@ -82,7 +83,7 @@ public interface ZEntityConditionFactory {
      * @param fieldMap  字段集合
      * @return          条件
      */
-    ZEntityCondition makeCondition(Map<String, Object> fieldMap);
+    EntityCondition makeCondition(Map<String, Object> fieldMap);
 
     /**
      * 创建条件
@@ -92,7 +93,7 @@ public interface ZEntityConditionFactory {
      * @param compareStamp  时间
      * @return              条件
      */
-    ZEntityCondition makeConditionDate(String fromField, String thruField, Timestamp compareStamp);
+    EntityCondition makeConditionDate(String fromField, String thruField, Timestamp compareStamp);
 
     /**
      * 创建条件
@@ -100,12 +101,12 @@ public interface ZEntityConditionFactory {
      * @param sqlWhereClause    sql条件
      * @return                  条件
      */
-    ZEntityCondition makeConditionWhere(String sqlWhereClause);
+    EntityCondition makeConditionWhere(String sqlWhereClause);
 
     /**
      * 取条件操作符
      * @param enumId    枚举代码
      * @return          条件操作符
      */
-    ZEntityCondition.ComparisonOperator comparisonOperatorFromEnumId(String enumId);
+    EntityCondition.ComparisonOperator comparisonOperatorFromEnumId(String enumId);
 }
