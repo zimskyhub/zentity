@@ -1,2 +1,2 @@
-# entity
-zhuma tech jdbc framework
+# zentity spring boot start
+ZhumaTech entity framework base on Moqui framework
