@@ -16,6 +16,7 @@ package com.zmtech.zentity.actions;
 import com.zmtech.zentity.entity.impl.EntityContextFactoryImpl;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.util.MNode;
+import com.zmtech.zentity.util.StringUtil;
 import groovy.lang.Script;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.codehaus.groovy.runtime.InvokerHelper;
@@ -55,7 +56,7 @@ public class XmlAction {
     }
 
     /** Run the XML actions in the current context of the ExecutionContext */
-    public Object run(ExecutionContextImpl eci) {
+    public Object run(EntityContextImpl eci) {
         Class curClass = getGroovyClass();
         if (curClass == null) throw new IllegalStateException("No Groovy class in place for XML actions, look earlier in log for the error in init");
         if (isDebugEnabled) logger.debug("Running groovy script: \n" + writeGroovyWithLines() + "\n");
@@ -72,7 +73,7 @@ public class XmlAction {
         }
     }
 
-    public boolean checkCondition(ExecutionContextImpl eci) {
+    public boolean checkCondition(EntityContextImpl eci) {
         Object result = run(eci);
         if (result == null) return false;
         return DefaultGroovyMethods.asType(run(eci), Boolean.class);
@@ -96,7 +97,7 @@ public class XmlAction {
         String curGroovy = getGroovyString();
         // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${curGroovy}")
         try {
-            groovyClassInternal = effi.compileGroovy(curGroovy, StringUtilities.cleanStringForJavaName(location));
+            groovyClassInternal = effi.compileGroovy(curGroovy, StringUtil.cleanStringForJavaName(location));
         } catch (Throwable t) {
             groovyClassInternal = null;
             logger.error("Error parsing groovy String at [" + location + "]:\n" + writeGroovyWithLines() + "\n");

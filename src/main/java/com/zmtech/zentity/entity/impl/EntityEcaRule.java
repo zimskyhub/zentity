@@ -1,7 +1,8 @@
 
 package com.zmtech.zentity.entity.impl;
 
-import com.oracle.xmlns.internal.webservices.jaxws_databinding.XmlAction;
+
+import com.zmtech.zentity.actions.XmlAction;
 import com.zmtech.zentity.entity.EntityValue;
 import com.zmtech.zentity.util.MNode;
 import org.slf4j.Logger;

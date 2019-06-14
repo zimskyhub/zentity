@@ -1,7 +1,6 @@
 package com.zmtech.zentity.util;
 
-import com.oracle.xmlns.internal.webservices.jaxws_databinding.XmlAction;
-import com.zmtech.zentity.entity.EntityFacade;
+import com.zmtech.zentity.actions.XmlAction;
 import com.zmtech.zentity.entity.EntityValue;
 import com.zmtech.zentity.exception.EntityException;
 import groovy.lang.MissingPropertyException;
@@ -84,7 +83,7 @@ public class AggregationUtil {
 
 
     @SuppressWarnings("unchecked")
-    public ArrayList<Map<String, Object>> aggregateList(Object listObj, Set<String> includeFields, boolean makeSubList, EntityFacadeImpl efi) {
+    public ArrayList<Map<String, Object>> aggregateList(Object listObj, Set<String> includeFields, boolean makeSubList, EntityContextImpl eci) {
         if (groupFields == null || groupFields.length == 0) makeSubList = false;
         ArrayList<Map<String, Object>> resultList = new ArrayList<>();
         if (listObj == null) return resultList;
@@ -101,13 +100,13 @@ public class AggregationUtil {
             if (listObj instanceof RandomAccess) {
                 for (int i = 0; i < listSize; i++) {
                     Object curObject = listList.get(i);
-                    processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, efi);
+                    processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
                     originalCount++;
                 }
             } else {
                 int i = 0;
                 for (Object curObject : listList) {
-                    processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, efi);
+                    processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
                     i++;
                     originalCount++;
                 }
@@ -117,7 +116,7 @@ public class AggregationUtil {
             int i = 0;
             while (listIter.hasNext()) {
                 Object curObject = listIter.next();
-                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, listIter.hasNext(), makeSubList, efi);
+                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, listIter.hasNext(), makeSubList, eci);
                 i++;
                 originalCount++;
             }
@@ -126,7 +125,7 @@ public class AggregationUtil {
             int listSize = listArray.length;
             for (int i = 0; i < listSize; i++) {
                 Object curObject = listArray[i];
-                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList,ef);
+                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList,eci);
                 originalCount++;
             }
         } else {
@@ -155,7 +154,7 @@ public class AggregationUtil {
     @SuppressWarnings("unchecked")
     private void processAggregateOriginal(Object curObject, ArrayList<Map<String, Object>> resultList, Set<String> includeFields,
                                           Map<Map<String, Object>, Map<String, Object>> groupRows, Map<String, Object> totalsMap,
-                                          int index, boolean hasNext, boolean makeSubList, EntityFacadeImpl efi) {
+                                          int index, boolean hasNext, boolean makeSubList, EntityContextImpl eci) {
         Map curMap = null;
         if (curObject instanceof EntityValue) {
             curMap = ((EntityValue) curObject).getMap();
@@ -164,7 +163,7 @@ public class AggregationUtil {
         }
         boolean curIsMap = curMap != null;
 
-        ContextStack context = efi.contextStack;
+        ContextStack context = eci.contextStack;
         Map<String, Object> contextTopMap;
         if (curMap != null) { contextTopMap = new HashMap<>(curMap); } else { contextTopMap = new HashMap<>(); }
         context.push(contextTopMap);
@@ -292,7 +291,7 @@ public class AggregationUtil {
 
     private Object getField(String fieldName, ContextStack context, Object curObject, boolean curIsMap) {
         Object value = context.getByString(fieldName);
-        if (curObject != null && !curIsMap && ObjectUtilities.isEmpty(value)) {
+        if (curObject != null && !curIsMap && ObjectUtil.isEmpty(value)) {
             // try Groovy getAt for property access
             try {
                 value = DefaultGroovyMethods.getAt(curObject, fieldName);
@@ -320,7 +319,7 @@ public class AggregationUtil {
                 }
                 break;
             case SUM:
-                Number sumNum = ObjectUtilities.addNumbers((Number) resultMap.get(fieldName), (Number) fieldValue);
+                Number sumNum = ObjectUtil.addNumbers((Number) resultMap.get(fieldName), (Number) fieldValue);
                 if (sumNum != null) resultMap.put(fieldName, sumNum);
                 break;
             case AVG:
