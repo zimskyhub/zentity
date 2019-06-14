@@ -1,47 +1,58 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
 package com.zmtech.zentity.util;
 
+import com.oracle.xmlns.internal.webservices.jaxws_databinding.XmlAction;
+import com.zmtech.zentity.entity.EntityFacade;
+import com.zmtech.zentity.entity.EntityValue;
+import com.zmtech.zentity.exception.EntityException;
 import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.codehaus.groovy.runtime.InvokerHelper;
-import org.moqui.BaseArtifactException;
-import org.moqui.entity.EntityValue;
-import org.moqui.impl.actions.XmlAction;
-import org.moqui.impl.context.ExecutionContextImpl;
-import org.moqui.util.ContextStack;
-import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.util.*;
 
-public class Aggregation {
+/**
+ * 聚合工具
+ * 用户执行xml中的聚合函数 比如function属性为 aggregate-function 时或者 is-aggregate 属性是true时
+ */
+public class AggregationUtil {
     protected final static Logger logger = LoggerFactory.getLogger(AggregationUtil.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
 
+    /**
+     * 聚合方法
+     */
     public enum AggregateFunction { MIN, MAX, SUM, AVG, COUNT, FIRST, LAST }
     private static final BigDecimal BIG_DECIMAL_TWO = new BigDecimal(2);
 
+    /**
+     * 字段聚合工具
+     */
     public static class AggregateField {
+
+        /* 字段名称 */
         public final String fieldName;
+        /* 聚合方法 */
         public final AggregateFunction function;
+        /* 汇总方法 */
         public final AggregateFunction showTotal;
+        /* 是否排序，是否聚合为子列表 */
         public final boolean groupBy, subList;
+        /* 聚合后的类型 */
         public final Class fromExpr;
+
+        /**
+         *
+         * @param fn 聚合字段名称
+         * @param func 聚合方法
+         * @param gb 是否排序
+         * @param sl 是否使用子列表
+         * @param st 汇总方法
+         * @param from 聚合后的类型
+         */
         public AggregateField(String fn, AggregateFunction func, boolean gb, boolean sl, String st, Class from) {
             if ("false".equals(st)) st = null;
             fieldName = fn; function = func; groupBy = gb; subList = sl; fromExpr = from;
@@ -54,9 +65,10 @@ public class Aggregation {
     private boolean hasFromExpr = false;
     private boolean hasSubListTotals = false;
     private String[] groupFields;
-//    private XmlAction rowActions;
+    private XmlAction rowActions;
 
-    public Aggregation(String listName, String listEntryName, AggregateField[] aggregateFields, String[] groupFields, XmlAction rowActions) {
+    // 构造函数
+    public AggregationUtil(String listName, String listEntryName, AggregateField[] aggregateFields, String[] groupFields, XmlAction rowActions) {
         this.listName = listName;
         this.listEntryName = listEntryName;
         if (this.listEntryName != null && this.listEntryName.isEmpty()) this.listEntryName = null;
@@ -72,7 +84,7 @@ public class Aggregation {
 
 
     @SuppressWarnings("unchecked")
-    public ArrayList<Map<String, Object>> aggregateList(Object listObj, Set<String> includeFields, boolean makeSubList, ExecutionContextImpl eci) {
+    public ArrayList<Map<String, Object>> aggregateList(Object listObj, Set<String> includeFields, boolean makeSubList, EntityFacadeImpl efi) {
         if (groupFields == null || groupFields.length == 0) makeSubList = false;
         ArrayList<Map<String, Object>> resultList = new ArrayList<>();
         if (listObj == null) return resultList;
@@ -89,13 +101,13 @@ public class Aggregation {
             if (listObj instanceof RandomAccess) {
                 for (int i = 0; i < listSize; i++) {
                     Object curObject = listList.get(i);
-                    processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
+                    processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, efi);
                     originalCount++;
                 }
             } else {
                 int i = 0;
                 for (Object curObject : listList) {
-                    processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
+                    processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, efi);
                     i++;
                     originalCount++;
                 }
@@ -105,7 +117,7 @@ public class Aggregation {
             int i = 0;
             while (listIter.hasNext()) {
                 Object curObject = listIter.next();
-                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, listIter.hasNext(), makeSubList, eci);
+                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, listIter.hasNext(), makeSubList, efi);
                 i++;
                 originalCount++;
             }
@@ -114,11 +126,11 @@ public class Aggregation {
             int listSize = listArray.length;
             for (int i = 0; i < listSize; i++) {
                 Object curObject = listArray[i];
-                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
+                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList,ef);
                 originalCount++;
             }
         } else {
-            throw new BaseArtifactException("form-list list " + listName + " is a type we don't know how to iterate: " + listObj.getClass().getName());
+            throw new EntityException("form-list list " + listName + " is a type we don't know how to iterate: " + listObj.getClass().getName());
         }
 
         if (hasSubListTotals) {
@@ -143,7 +155,7 @@ public class Aggregation {
     @SuppressWarnings("unchecked")
     private void processAggregateOriginal(Object curObject, ArrayList<Map<String, Object>> resultList, Set<String> includeFields,
                                           Map<Map<String, Object>, Map<String, Object>> groupRows, Map<String, Object> totalsMap,
-                                          int index, boolean hasNext, boolean makeSubList, ExecutionContextImpl eci) {
+                                          int index, boolean hasNext, boolean makeSubList, EntityFacadeImpl efi) {
         Map curMap = null;
         if (curObject instanceof EntityValue) {
             curMap = ((EntityValue) curObject).getMap();
@@ -152,7 +164,7 @@ public class Aggregation {
         }
         boolean curIsMap = curMap != null;
 
-        ContextStack context = eci.contextStack;
+        ContextStack context = efi.contextStack;
         Map<String, Object> contextTopMap;
         if (curMap != null) { contextTopMap = new HashMap<>(curMap); } else { contextTopMap = new HashMap<>(); }
         context.push(contextTopMap);

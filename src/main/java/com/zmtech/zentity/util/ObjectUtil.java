@@ -1,20 +1,7 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
 package com.zmtech.zentity.util;
 
+import com.zmtech.zentity.exception.EntityException;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
-import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +23,7 @@ import java.util.regex.Pattern;
  */
 @SuppressWarnings("unused")
 public class ObjectUtil {
-    protected static final Logger logger = LoggerFactory.getLogger(ObjectUtilities.class);
+    protected static final Logger logger = LoggerFactory.getLogger(ObjectUtil.class);
     public static final Map<String, Integer> calendarFieldByUomId;
     public static final Map<String, TemporalUnit> temporalUnitByUomId;
     static {
@@ -58,7 +45,7 @@ public class ObjectUtil {
     public static Object basicConvert(Object value, final String javaType) {
         if (value == null) return null;
 
-        Class theClass = MClassLoader.getCommonClass(javaType);
+        Class theClass = ZClassLoader.getCommonClass(javaType);
         // only support the classes we have pre-configured
         if (theClass == null) return value;
         boolean origString = false;
@@ -200,7 +187,7 @@ public class ObjectUtil {
             while ((i = r.read(buf, 0, 4096)) > 0) sb.append(buf, 0, i);
             return sb.toString();
         } catch (IOException e) {
-            throw new BaseException("Error getting stream text", e);
+            throw new EntityException("Error getting stream text", e);
         } finally {
             try {
                 if (r != null) r.close();
@@ -223,7 +210,7 @@ public class ObjectUtil {
             }
             return totalLen;
         } catch (IOException e) {
-            throw new BaseException("Error copying stream", e);
+            throw new EntityException("Error copying stream", e);
         }
     }
 
@@ -273,7 +260,7 @@ public class ObjectUtil {
     }
 
     public static Class getClass(String javaType) {
-        Class theClass = MClassLoader.getCommonClass(javaType);
+        Class theClass = ZClassLoader.getCommonClass(javaType);
         if (theClass == null) {
             try {
                 theClass = Thread.currentThread().getContextClassLoader().loadClass(javaType);
@@ -283,7 +270,7 @@ public class ObjectUtil {
     }
 
     public static boolean isInstanceOf(Object theObjectInQuestion, String javaType) {
-        Class theClass = MClassLoader.getCommonClass(javaType);
+        Class theClass = ZClassLoader.getCommonClass(javaType);
         if (theClass == null) {
             try {
                 theClass = Thread.currentThread().getContextClassLoader().loadClass(javaType);

@@ -403,14 +403,14 @@ public class CollectionUtil {
                         if (overrideEmpty || ((CharSequence) value).length() > 0) baseMap.put(key, value);
                     } else if (value instanceof Map) {
                         Object baseValue = baseMap.get(key);
-                        if (baseValue != null && baseValue instanceof Map) {
+                        if (baseValue instanceof Map) {
                             mergeNestedMap((Map) baseValue, (Map) value, overrideEmpty);
                         } else {
                             baseMap.put(key, value);
                         }
                     } else if (value instanceof Collection) {
                         Object baseValue = baseMap.get(key);
-                        if (baseValue != null && baseValue instanceof Collection) {
+                        if (baseValue instanceof Collection) {
                             Collection baseCol = (Collection) baseValue;
                             Collection overrideCol = (Collection) value;
                             for (Object overrideObj : overrideCol) {
@@ -465,7 +465,7 @@ public class CollectionUtil {
 
         Node newNode = new Node(parent, original.name(), new HashMap(original.attributes()));
         Object newValue = original.value();
-        if (newValue != null && newValue instanceof List) {
+        if (newValue instanceof List) {
             NodeList childList = new NodeList();
             for (Object child : (List) newValue) {
                 if (child instanceof Node) {
@@ -519,9 +519,9 @@ public class CollectionUtil {
         if (theList == null) theList = new ArrayList();
 
         final Object pageIndexObj = context.get("pageIndex");
-        int pageIndex = ObjectUtilities.isEmpty(pageIndexObj) ? 0 : Integer.parseInt(pageIndexObj.toString());
+        int pageIndex = ObjectUtil.isEmpty(pageIndexObj) ? 0 : Integer.parseInt(pageIndexObj.toString());
         final Object pageSizeObj = context.get("pageSize");
-        int pageSize = ObjectUtilities.isEmpty(pageSizeObj) ? 20 : Integer.parseInt(pageSizeObj.toString());
+        int pageSize = ObjectUtil.isEmpty(pageSizeObj) ? 20 : Integer.parseInt(pageSizeObj.toString());
 
         int count = theList.size();
 
