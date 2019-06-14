@@ -4,7 +4,6 @@ import com.zmtech.zentity.exception.EntityException;
 import groovy.lang.Closure;
 import groovy.util.Node;
 import groovy.util.NodeList;
-import jdk.nashorn.internal.runtime.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;

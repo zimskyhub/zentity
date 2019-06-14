@@ -89,7 +89,8 @@ public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cl
      */
     EntityList filterByCondition(EntityCondition condition, Boolean include);
 
-    /** Modify this EntityList so that it includes (or excludes) entity values where the closure evaluates to true.
+    /**
+     * 修改此EntityList，使其包含（或排除）闭包计算结果为true的实体值。
      * The closure is called with a single argument, the current EntityValue in the list, and should evaluate to a Boolean. */
     EntityList filter(Closure<Boolean> closure, Boolean include);
 

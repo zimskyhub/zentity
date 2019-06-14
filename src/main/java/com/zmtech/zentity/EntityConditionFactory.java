@@ -35,6 +35,16 @@ public interface EntityConditionFactory {
      * 创建条件
      * @param field     字段名称
      * @param operator  操作符
+     * @param value     值
+     * @param orNull    如果值为空则忽略此条件
+     * @return          条件
+     */
+    EntityCondition makeCondition(String field, EntityCondition.ComparisonOperator operator, Object value, boolean orNull);
+
+    /**
+     * 创建条件
+     * @param field     字段名称
+     * @param operator  操作符
      * @param toField   对比字段名称
      * @return          条件
      */

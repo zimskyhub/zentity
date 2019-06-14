@@ -1,6 +1,5 @@
 package com.zmtech.zentity.etl;
 
-import javax.annotation.Nonnull;
 import java.util.*;
 
 @SuppressWarnings("unused")
@@ -19,20 +18,20 @@ public class SimpleEtl {
     private int extractCount = 0, skipCount = 0, loadCount = 0;
     private long startTime = 0, endTime = 0;
 
-    public SimpleEtl(@Nonnull Extractor extractor, @Nonnull Loader loader) {
+    public SimpleEtl(Extractor extractor, Loader loader) {
         this.extractor = extractor;
         this.loader = loader;
     }
 
 
     /** Call this to add a transformer to run for any type, will be run in order added */
-    public SimpleEtl addTransformer(@Nonnull Transformer transformer) {
+    public SimpleEtl addTransformer(Transformer transformer) {
         if (internalConfig == null) internalConfig = new TransformConfiguration();
         internalConfig.addTransformer(transformer);
         return this;
     }
     /** Call this to add a transformer to run a particular type, which will be run in order for entries of the type */
-    public SimpleEtl addTransformer(@Nonnull String type, @Nonnull Transformer transformer) {
+    public SimpleEtl addTransformer(String type, Transformer transformer) {
         if (internalConfig == null) internalConfig = new TransformConfiguration();
         internalConfig.addTransformer(type, transformer);
         return this;

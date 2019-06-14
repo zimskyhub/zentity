@@ -5,22 +5,25 @@ import com.zmtech.zentity.EntityCondition;
 import com.zmtech.zentity.EntityConditionFactory;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.impl.condition.*;
-import groovy.transform.CompileStatic;
+import com.zmtech.zentity.EntityCondition.*;
+import com.zmtech.zentity.util.CollectionUtil.*;
+import com.zmtech.zentity.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Timestamp;
 import java.util.*;
 
-@CompileStatic
-class EntityConditionFactoryImpl implements EntityConditionFactory {
+
+public class EntityConditionFactoryImpl implements EntityConditionFactory {
+
     protected final static Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class);
 
     protected final EntityFacadeImpl efi;
     protected final TrueCondition trueCondition;
 
     EntityConditionFactoryImpl(EntityFacadeImpl efi) {
-        this.efi = efi
+        this.efi = efi;
         trueCondition = new TrueCondition();
     }
 
@@ -30,10 +33,11 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     public EntityCondition getTrueCondition() { return trueCondition; }
 
     @Override
-    public EntityCondition makeCondition(EntityCondition lhs, EntityCondition.JoinOperator operator, EntityCondition rhs) {
+    public EntityCondition makeCondition(EntityCondition lhs, JoinOperator operator, EntityCondition rhs) {
         return makeConditionImpl((EntityConditionImplBase) lhs, operator, (EntityConditionImplBase) rhs);
     }
-    static EntityConditionImplBase makeConditionImpl(EntityConditionImplBase lhs, EntityCondition.JoinOperator operator, EntityConditionImplBase rhs) {
+
+    private static EntityConditionImplBase makeConditionImpl(EntityConditionImplBase lhs, JoinOperator operator, EntityConditionImplBase rhs) {
         if (lhs != null) {
             if (rhs != null) {
                 // we have both lhs and rhs
@@ -50,13 +54,13 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                                 return lhsLc;
                             }
                         } else {
-                            lhsLc.addCondition((EntityConditionImplBase) rhs);
+                            lhsLc.addCondition(rhs);
                             return lhsLc;
                         }
                     }
                 }
                 // no special handling, create a BasicJoinCondition
-                return new BasicJoinCondition((EntityConditionImplBase) lhs, operator, (EntityConditionImplBase) rhs);
+                return new BasicJoinCondition(lhs, operator, rhs);
             } else {
                 return lhs;
             }
@@ -70,25 +74,27 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     }
 
     @Override
-    public EntityCondition makeCondition(String fieldName, EntityCondition.ComparisonOperator operator, Object value) {
-        return new FieldValueCondition(new ConditionField(fieldName), operator, value);
+    public EntityCondition makeCondition(String field, ComparisonOperator operator, Object value) {
+        return new FieldValueCondition(new ConditionField(field), operator, value);
     }
+
     @Override
-    public EntityCondition makeCondition(String fieldName, EntityCondition.ComparisonOperator operator, Object value, boolean orNull) {
-        EntityConditionImplBase cond = new FieldValueCondition(new ConditionField(fieldName), operator, value);
-        return orNull ? makeCondition(cond, EntityCondition.JoinOperator.OR, makeCondition(fieldName, EntityCondition.ComparisonOperator.EQUALS, null)) : cond;
+    public EntityCondition makeCondition(String field, ComparisonOperator operator, Object value, boolean orNull) {
+        EntityConditionImplBase cond = new FieldValueCondition(new ConditionField(field), operator, value);
+        return orNull ? makeCondition(cond, JoinOperator.OR, makeCondition(field, ComparisonOperator.EQUALS, null)) : cond;
     }
+
     @Override
-    public EntityCondition makeConditionToField(String fieldName, EntityCondition.ComparisonOperator operator, String toFieldName) {
-        return new FieldToFieldCondition(new ConditionField(fieldName), operator, new ConditionField(toFieldName))
+    public EntityCondition makeConditionToField(String fieldName, ComparisonOperator operator, String toFieldName) {
+        return new FieldToFieldCondition(new ConditionField(fieldName), operator, new ConditionField(toFieldName));
     }
 
     @Override
     public EntityCondition makeCondition(List<EntityCondition> conditionList) {
-        return this.makeCondition(conditionList, EntityCondition.JoinOperator.AND);
+        return this.makeCondition(conditionList, JoinOperator.AND);
     }
     @Override
-    public EntityCondition makeCondition(List<EntityCondition> conditionList, EntityCondition.JoinOperator operator) {
+    public EntityCondition makeCondition(List<EntityCondition> conditionList, JoinOperator operator) {
         if (conditionList == null || conditionList.size() == 0) return null;
         ArrayList<EntityConditionImplBase> newList = new ArrayList<>();
 
@@ -122,222 +128,225 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
     @Override
     public EntityCondition makeCondition(List<Object> conditionList, String listOperator, String mapComparisonOperator, String mapJoinOperator) {
-        if (conditionList == null || conditionList.size() == 0) return null
+        if (conditionList == null || conditionList.size() == 0) return null;
 
-        EntityCondition.JoinOperator listJoin = listOperator != null ? getJoinOperator(listOperator) : EntityCondition.JoinOperator.AND;
-        EntityCondition.ComparisonOperator mapComparison = mapComparisonOperator != null ? getComparisonOperator(mapComparisonOperator) : EntityCondition.ComparisonOperator.EQUALS;
-        EntityCondition.JoinOperator mapJoin = mapJoinOperator != null ? getJoinOperator(mapJoinOperator) : EntityCondition.JoinOperator.AND
+        JoinOperator listJoin = listOperator != null ? getJoinOperator(listOperator) : JoinOperator.AND;
+        ComparisonOperator mapComparison = mapComparisonOperator != null ? getComparisonOperator(mapComparisonOperator) : ComparisonOperator.EQUALS;
+        JoinOperator mapJoin = mapJoinOperator != null ? getJoinOperator(mapJoinOperator) : JoinOperator.AND;
 
-        List<EntityConditionImplBase> newList = new ArrayList<EntityConditionImplBase>()
-        Iterator<Object> conditionIter = conditionList.iterator()
+        List<EntityConditionImplBase> newList = new ArrayList<>();
+        Iterator<Object> conditionIter = conditionList.iterator();
         while (conditionIter.hasNext()) {
-            Object curObj = conditionIter.next()
-            if (curObj == null) continue
+            Object curObj = conditionIter.next();
+            if (curObj == null) continue;
             if (curObj instanceof Map) {
-                Map curMap = (Map) curObj
-                if (curMap.size() == 0) continue
-                EntityCondition curCond = makeCondition(curMap, mapComparison, mapJoin)
-                newList.add((EntityConditionImplBase) curCond)
-                continue
+                Map curMap = (Map) curObj;
+                if (curMap.size() == 0) continue;
+                EntityCondition curCond = makeCondition(curMap, mapComparison, mapJoin);
+                newList.add((EntityConditionImplBase) curCond);
+                continue;
             }
             if (curObj instanceof EntityConditionImplBase) {
-                EntityConditionImplBase curCond = (EntityConditionImplBase) curObj
-                newList.add(curCond)
-                continue
+                EntityConditionImplBase curCond = (EntityConditionImplBase) curObj;
+                newList.add(curCond);
+                continue;
             }
-            throw new BaseArtifactException("The conditionList parameter must contain only Map and EntityCondition objects, found entry of type [${curObj.getClass().getName()}]")
+            throw new EntityException("The conditionList parameter must contain only Map and EntityCondition objects, found entry of type [${curObj.getClass().getName()}]");
         }
-        if (newList.size() == 0) return null
+        if (newList.size() == 0) return null;
         if (newList.size() == 1) {
-            return newList.get(0)
+            return newList.get(0);
         } else {
-            return new ListCondition(newList, listJoin)
+            return new ListCondition(newList, listJoin);
         }
     }
 
     @Override
     EntityCondition makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator, JoinOperator joinOperator) {
-        return makeCondition(fieldMap, comparisonOperator, joinOperator, null, null, false)
+        return makeCondition(fieldMap, comparisonOperator, joinOperator, null, null, false);
     }
     EntityConditionImplBase makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator,
                                           JoinOperator joinOperator, EntityDefinition findEd, Map<String, ArrayList<MNode>> memberFieldAliases, boolean excludeNulls) {
-        if (fieldMap == null || fieldMap.size() == 0) return (EntityConditionImplBase) null
+        if (fieldMap == null || fieldMap.size() == 0) return  null;
 
-        JoinOperator joinOp = joinOperator != null ? joinOperator : JoinOperator.AND
-        ComparisonOperator compOp = comparisonOperator != null ? comparisonOperator : ComparisonOperator.EQUALS
-        ArrayList<EntityConditionImplBase> condList = new ArrayList<EntityConditionImplBase>()
-        ArrayList<KeyValue> fieldList = new ArrayList<KeyValue>()
+        JoinOperator joinOp = joinOperator != null ? joinOperator : JoinOperator.AND;
+        ComparisonOperator compOp = comparisonOperator != null ? comparisonOperator : ComparisonOperator.EQUALS;
+        ArrayList<EntityConditionImplBase> condList = new ArrayList<>();
+        ArrayList<KeyValue> fieldList = new ArrayList<>();
 
-        for (Map.Entry<String, Object> entry in fieldMap.entrySet()) {
-            String key = entry.getKey()
-            Object value = entry.getValue()
+        for (Map.Entry<String, Object> entry : fieldMap.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
             if (key.startsWith("_")) {
                 if (key == "_comp") {
-                    compOp = getComparisonOperator((String) value)
-                    continue
+                    compOp = getComparisonOperator((String) value);
+                    continue;
                 } else if (key == "_join") {
-                    joinOp = getJoinOperator((String) value)
+                    joinOp = getJoinOperator((String) value);
                     continue
                 } else if (key == "_list") {
                     // if there is an _list treat each as a condition Map, ie call back into this method
                     if (value instanceof List) {
-                        List valueList = (List) value
-                        for (Object listEntry in valueList) {
+                        List valueList = (List) value;
+                        for (Object listEntry : valueList) {
                             if (listEntry instanceof Map) {
                                 EntityConditionImplBase entryCond = makeCondition((Map) listEntry, ComparisonOperator.EQUALS,
-                                        JoinOperator.AND, findEd, memberFieldAliases, excludeNulls)
-                                if (entryCond != null) condList.add(entryCond)
+                                        JoinOperator.AND, findEd, memberFieldAliases, excludeNulls);
+                                if (entryCond != null) condList.add(entryCond);
                             } else {
-                                throw new EntityException("Entry in _list is not a Map: ${listEntry}")
+                                throw new EntityException("Entry in _list is not a Map: ${listEntry}");
                             }
                         }
                     } else {
-                        throw new EntityException("Value for _list entry is not a List: ${value}")
+                        throw new EntityException("Value for _list entry is not a List: ${value}");
                     }
-                    continue
+                    continue;
                 }
             }
 
             if (excludeNulls && value == null) {
-                if (logger.isTraceEnabled()) logger.trace("Tried to filter find on entity ${findEd.fullEntityName} on field ${key} but value was null, not adding condition")
-                continue
+                if (logger.isTraceEnabled()) logger.trace("Tried to filter find on entity ${findEd.fullEntityName} on field ${key} but value was null, not adding condition");
+                continue;
             }
 
             // add field key/value to a list to iterate over later for conditions once we have _comp for sure
-            fieldList.add(new KeyValue(key, value))
+            fieldList.add(new KeyValue(key, value));
         }
 
         // has fields? make conditions for them
         if (fieldList.size() > 0) {
-            int fieldListSize = fieldList.size()
+            int fieldListSize = fieldList.size();
             for (int i = 0; i < fieldListSize; i++) {
-                KeyValue fieldValue = (KeyValue) fieldList.get(i)
-                String fieldName = fieldValue.key
-                Object value = fieldValue.value
+                KeyValue fieldValue = (KeyValue) fieldList.get(i);
+                String fieldName = fieldValue.key;
+                Object value = fieldValue.value;
 
                 if (memberFieldAliases != null && memberFieldAliases.size() > 0) {
                     // we have a view entity, more complex
-                    ArrayList<MNode> aliases = (ArrayList<MNode>) memberFieldAliases.get(fieldName)
+                    ArrayList<MNode> aliases = memberFieldAliases.get(fieldName);
                     if (aliases == null || aliases.size() == 0)
-                        throw new EntityException("Tried to filter on field ${fieldName} which is not included in view-entity ${findEd.fullEntityName}")
+                        throw new EntityException("Tried to filter on field ${fieldName} which is not included in view-entity ${findEd.fullEntityName}");
 
                     for (int k = 0; k < aliases.size(); k++) {
-                        MNode aliasNode = (MNode) aliases.get(k)
+                        MNode aliasNode = (MNode) aliases.get(k);
                         // could be same as field name, but not if aliased with different name
-                        String aliasName = aliasNode.attribute("name")
-                        ConditionField cf = findEd != null ? findEd.getFieldInfo(aliasName).conditionField : new ConditionField(aliasName)
-                        if (ComparisonOperator.NOT_EQUAL.is(compOp) || ComparisonOperator.NOT_IN.is(compOp) || ComparisonOperator.NOT_LIKE.is(compOp)) {
+                        String aliasName = aliasNode.attribute("name");
+                        ConditionField cf = findEd != null ? findEd.getFieldInfo(aliasName).conditionField : new ConditionField(aliasName);
+                        if (ComparisonOperator.NOT_EQUAL.equals(compOp) || ComparisonOperator.NOT_IN.equals(compOp) || ComparisonOperator.NOT_LIKE.equals(compOp)) {
                             condList.add(makeConditionImpl(new FieldValueCondition(cf, compOp, value), JoinOperator.OR,
-                                    new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)))
+                                    new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)));
                         } else {
                             // in view-entities do or null for member entities that are join-optional
-                            String memberAlias = aliasNode.attribute("entity-alias")
-                            MNode memberEntity = findEd.getMemberEntityNode(memberAlias)
+                            String memberAlias = aliasNode.attribute("entity-alias");
+                            MNode memberEntity = findEd.getMemberEntityNode(memberAlias);
                             if ("true".equals(memberEntity.attribute("join-optional"))) {
                                 condList.add(new BasicJoinCondition(new FieldValueCondition(cf, compOp, value), JoinOperator.OR,
-                                        new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)))
+                                        new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)));
                             } else {
-                                condList.add(new FieldValueCondition(cf, compOp, value))
+                                condList.add(new FieldValueCondition(cf, compOp, value));
                             }
                         }
                     }
                 } else {
-                    ConditionField cf = findEd != null ? findEd.getFieldInfo(fieldName).conditionField : new ConditionField(fieldName)
-                    if (ComparisonOperator.NOT_EQUAL.is(compOp) || ComparisonOperator.NOT_IN.is(compOp) || ComparisonOperator.NOT_LIKE.is(compOp)) {
+                    ConditionField cf = findEd != null ? findEd.getFieldInfo(fieldName).conditionField : new ConditionField(fieldName);
+                    if (ComparisonOperator.NOT_EQUAL.equals(compOp) || ComparisonOperator.NOT_IN.equals(compOp) || ComparisonOperator.NOT_LIKE.equals(compOp)) {
                         condList.add(makeConditionImpl(new FieldValueCondition(cf, compOp, value), JoinOperator.OR,
-                                new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)))
+                                new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)));
                     } else {
-                        condList.add(new FieldValueCondition(cf, compOp, value))
+                        condList.add(new FieldValueCondition(cf, compOp, value));
                     }
                 }
 
             }
         }
 
-        if (condList.size() == 0) return (EntityConditionImplBase) null
+        if (condList.size() == 0) return null;
 
         if (condList.size() == 1) {
-            return (EntityConditionImplBase) condList.get(0)
+            return condList.get(0);
         } else {
-            return new ListCondition(condList, joinOp)
+            return new ListCondition(condList, joinOp);
         }
     }
+
     @Override
-    EntityCondition makeCondition(Map<String, Object> fieldMap) {
-        return makeCondition(fieldMap, ComparisonOperator.EQUALS, JoinOperator.AND, null, null, false)
+    public EntityCondition makeCondition(Map<String, Object> fieldMap) {
+        return makeCondition(fieldMap, ComparisonOperator.EQUALS, JoinOperator.AND, null, null, false);
     }
 
     @Override
-    EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
+    public EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
         return new DateCondition(fromFieldName, thruFieldName,
-                (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp())
+                (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp());
     }
-    EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp, boolean ignoreIfEmpty, String ignore) {
-        if (ignoreIfEmpty && (Object) compareStamp == null) return null
-        if (efi.ecfi.resourceFacade.condition(ignore, null)) return null
+    public EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp, boolean ignoreIfEmpty, String ignore) {
+        if (ignoreIfEmpty && (Object) compareStamp == null) return null;
+        if (efi.ecfi.resourceFacade.condition(ignore, null)) return null;
         return new DateCondition(fromFieldName, thruFieldName,
-                (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp())
+                (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp());
     }
 
     @Override
-    EntityCondition makeConditionWhere(String sqlWhereClause) {
-        if (!sqlWhereClause) return null
-        return new WhereCondition(sqlWhereClause)
+    public EntityCondition makeConditionWhere(String sqlWhereClause) {
+        if (sqlWhereClause == null || sqlWhereClause.equals("")) return null;
+        return new WhereCondition(sqlWhereClause);
     }
 
-    ComparisonOperator comparisonOperatorFromEnumId(String enumId) {
+    public ComparisonOperator comparisonOperatorFromEnumId(String enumId) {
         switch (enumId) {
-            case "ENTCO_LESS": return EntityCondition.LESS_THAN
-            case "ENTCO_GREATER": return EntityCondition.GREATER_THAN
-            case "ENTCO_LESS_EQ": return EntityCondition.LESS_THAN_EQUAL_TO
-            case "ENTCO_GREATER_EQ": return EntityCondition.GREATER_THAN_EQUAL_TO
-            case "ENTCO_EQUALS": return EntityCondition.EQUALS
-            case "ENTCO_NOT_EQUALS": return EntityCondition.NOT_EQUAL
-            case "ENTCO_IN": return EntityCondition.IN
-            case "ENTCO_NOT_IN": return EntityCondition.NOT_IN
-            case "ENTCO_BETWEEN": return EntityCondition.BETWEEN
-            case "ENTCO_NOT_BETWEEN": return EntityCondition.NOT_BETWEEN
-            case "ENTCO_LIKE": return EntityCondition.LIKE
-            case "ENTCO_NOT_LIKE": return EntityCondition.NOT_LIKE
-            case "ENTCO_IS_NULL": return EntityCondition.IS_NULL
-            case "ENTCO_IS_NOT_NULL": return EntityCondition.IS_NOT_NULL
-            default: return null
+            case "ENTCO_LESS": return EntityCondition.LESS_THAN;
+            case "ENTCO_GREATER": return EntityCondition.GREATER_THAN;
+            case "ENTCO_LESS_EQ": return EntityCondition.LESS_THAN_EQUAL_TO;
+            case "ENTCO_GREATER_EQ": return EntityCondition.GREATER_THAN_EQUAL_TO;
+            case "ENTCO_EQUALS": return EntityCondition.EQUALS;
+            case "ENTCO_NOT_EQUALS": return EntityCondition.NOT_EQUAL;
+            case "ENTCO_IN": return EntityCondition.IN;
+            case "ENTCO_NOT_IN": return EntityCondition.NOT_IN;
+            case "ENTCO_BETWEEN": return EntityCondition.BETWEEN;
+            case "ENTCO_NOT_BETWEEN": return EntityCondition.NOT_BETWEEN;
+            case "ENTCO_LIKE": return EntityCondition.LIKE;
+            case "ENTCO_NOT_LIKE": return EntityCondition.NOT_LIKE;
+            case "ENTCO_IS_NULL": return EntityCondition.IS_NULL;
+            case "ENTCO_IS_NOT_NULL": return EntityCondition.IS_NOT_NULL;
+            default: return null;
         }
     }
 
-    static EntityConditionImplBase addAndListToCondition(EntityConditionImplBase baseCond, ArrayList<EntityConditionImplBase> condList) {
-        EntityConditionImplBase outCondition = baseCond
-        int condListSize = condList != null ? condList.size() : 0
+    public static EntityConditionImplBase addAndListToCondition(EntityConditionImplBase baseCond, ArrayList<EntityConditionImplBase> condList) {
+        EntityConditionImplBase outCondition = baseCond;
+        int condListSize = condList != null ? condList.size() : 0;
         if (condListSize > 0) {
             if (baseCond == null) {
                 if (condListSize == 1) {
-                    outCondition = (EntityConditionImplBase) condList.get(0)
+                    outCondition = condList.get(0);
                 } else {
-                    outCondition = new ListCondition(condList, EntityCondition.AND)
+                    outCondition = new ListCondition(condList, EntityCondition.AND);
                 }
             } else {
-                ListCondition newListCond = (ListCondition) null
+                ListCondition newListCond = null;
                 if (baseCond instanceof ListCondition) {
-                    ListCondition baseListCond = (ListCondition) baseCond
-                    if (EntityCondition.AND.is(baseListCond.operator)) {
+                    ListCondition baseListCond = (ListCondition) baseCond;
+                    if (EntityCondition.AND.equals(baseListCond.getOperator())) {
                         // modify in place
-                        newListCond = baseListCond
+                        newListCond = baseListCond;
                     }
                 }
-                if (newListCond == null) newListCond = new ListCondition([baseCond], EntityCondition.AND)
-                newListCond.addConditions(condList)
-                outCondition = newListCond
+                ArrayList<EntityConditionImplBase> basList = new ArrayList<>();
+                basList.add(baseCond);
+                if (newListCond == null) newListCond = new ListCondition(basList, EntityCondition.AND);
+                newListCond.addConditions(condList);
+                outCondition = newListCond;
             }
         }
-        return outCondition
+        return outCondition;
     }
 
-    EntityCondition makeActionCondition(String fieldName, String operator, String fromExpr, String value, String toFieldName,
+    public EntityCondition makeActionCondition(String fieldName, String operator, String fromExpr, String value, String toFieldName,
                                         boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
         Object from = fromExpr ? this.efi.ecfi.resourceFacade.expression(fromExpr, "") : null
         return makeActionConditionDirect(fieldName, operator, from, value, toFieldName, ignoreCase, ignoreIfEmpty, orNull, ignore)
     }
-    EntityCondition makeActionConditionDirect(String fieldName, String operator, Object fromObj, String value, String toFieldName,
+    public EntityCondition makeActionConditionDirect(String fieldName, String operator, Object fromObj, String value, String toFieldName,
                                               boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
         // logger.info("TOREMOVE makeActionCondition(fieldName ${fieldName}, operator ${operator}, fromExpr ${fromExpr}, value ${value}, toFieldName ${toFieldName}, ignoreCase ${ignoreCase}, ignoreIfEmpty ${ignoreIfEmpty}, orNull ${orNull}, ignore ${ignore})")
 
@@ -366,7 +375,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         }
     }
 
-    EntityCondition makeActionCondition(MNode node) {
+    public EntityCondition makeActionCondition(MNode node) {
         Map<String, String> attrs = node.attributes
         return makeActionCondition(attrs.get("field-name"),
                 attrs.get("operator") ?: "equals", (attrs.get("from") ?: attrs.get("field-name")),
@@ -375,7 +384,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 (attrs.get("ignore") ?: "false"))
     }
 
-    EntityCondition makeActionConditions(MNode node, boolean isCached) {
+    public EntityCondition makeActionConditions(MNode node, boolean isCached) {
         ArrayList<EntityCondition> condList = new ArrayList()
         ArrayList<MNode> subCondList = node.getChildren()
         int subCondListSize = subCondList.size()
