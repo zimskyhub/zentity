@@ -1,13 +1,10 @@
 package com.zmtech.zentity.util;
 
 import com.zmtech.zentity.exception.EntityException;
-import freemarker.ext.beans.BeansWrapper;
-import freemarker.ext.beans.BeansWrapperBuilder;
-import freemarker.template.*;
-
 import groovy.lang.Closure;
 import groovy.util.Node;
 import groovy.util.NodeList;
+import jdk.nashorn.internal.runtime.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;
@@ -20,15 +17,13 @@ import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @SuppressWarnings("unused")
-public class MNode implements TemplateNodeModel, TemplateSequenceModel, TemplateHashModelEx, AdapterTemplateModel, TemplateScalarModel{
+public class MNode{
 
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
-    private static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
 
     private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
     public static void clearParsedNodeCache() { parsedNodeCache.clear(); }
@@ -770,180 +765,5 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
         @Override
         public void setDocumentLocator(Locator locator) { this.locator = locator; }
-    }
-
-    /* ============================================================== */
-    /* ========== FreeMarker (FTL) Fields Methods, Classes ========== */
-    /* ============================================================== */
-
-    private static final BeansWrapper wrapper = new BeansWrapperBuilder(FTL_VERSION).build();
-    private static final FtlNodeListWrapper emptyNodeListWrapper = new FtlNodeListWrapper(new ArrayList<>(), null);
-    private FtlNodeListWrapper allChildren = null;
-    private ConcurrentHashMap<String, TemplateModel> ftlAttrAndChildren = null;
-    private ConcurrentHashMap<String, Boolean> knownNullAttributes = null;
-
-    public Object getAdaptedObject(Class aClass) { return this; }
-
-    // TemplateHashModel methods
-    @Override public TemplateModel get(String s) {
-        if (s == null) return null;
-        // first try the attribute and children caches, then if not found in either pick it apart and create what is needed
-        ConcurrentHashMap<String, TemplateModel> localAttrAndChildren = ftlAttrAndChildren != null ? ftlAttrAndChildren : makeAttrAndChildrenByName();
-        TemplateModel attrOrChildWrapper = localAttrAndChildren.get(s);
-        if (attrOrChildWrapper != null) return attrOrChildWrapper;
-        if (knownNullAttributes != null && knownNullAttributes.containsKey(s)) return null;
-
-        // at this point we got a null value but attributes and child nodes were pre-loaded so return null or empty list
-        if (s.startsWith("@")) {
-            if ("@@text".equals(s)) {
-                // if we got this once will get it again so add @@text always, always want wrapper though may be null
-                FtlTextWrapper textWrapper = new FtlTextWrapper(childText, this);
-                localAttrAndChildren.putIfAbsent("@@text", textWrapper);
-                return localAttrAndChildren.get("@@text");
-                // TODO: handle other special hashes? (see http://www.freemarker.org/docs/xgui_imperative_formal.html)
-            } else {
-                String attrName = s.substring(1, s.length());
-                String attrValue = attributeMap.get(attrName);
-                if (attrValue == null) {
-                    if (knownNullAttributes == null) knownNullAttributes = new ConcurrentHashMap<>();
-                    knownNullAttributes.put(s, Boolean.TRUE);
-                    return null;
-                } else {
-                    FtlAttributeWrapper attrWrapper = new FtlAttributeWrapper(attrName, attrValue, this);
-                    TemplateModel existingAttr = localAttrAndChildren.putIfAbsent(s, attrWrapper);
-                    if (existingAttr != null) return existingAttr;
-                    return attrWrapper;
-                }
-            }
-        } else {
-            if (hasChild(s)) {
-                FtlNodeListWrapper nodeListWrapper = new FtlNodeListWrapper(children(s), this);
-                TemplateModel existingNodeList = localAttrAndChildren.putIfAbsent(s, nodeListWrapper);
-                if (existingNodeList != null) return existingNodeList;
-                return nodeListWrapper;
-            } else {
-                return emptyNodeListWrapper;
-            }
-        }
-    }
-    private synchronized ConcurrentHashMap<String, TemplateModel> makeAttrAndChildrenByName() {
-        if (ftlAttrAndChildren == null) ftlAttrAndChildren = new ConcurrentHashMap<>();
-        return ftlAttrAndChildren;
-    }
-    @Override public boolean isEmpty() {
-        return attributeMap.isEmpty() && (childList == null || childList.isEmpty()) && (childText == null || childText.length() == 0);
-    }
-
-    // TemplateHashModelEx methods
-    @Override public TemplateCollectionModel keys() throws TemplateModelException { return new SimpleCollection(attributeMap.keySet(), wrapper); }
-    @Override public TemplateCollectionModel values() throws TemplateModelException { return new SimpleCollection(attributeMap.values(), wrapper); }
-
-    // TemplateNodeModel methods
-    @Override public TemplateNodeModel getParentNode() { return parentNode; }
-    @Override public TemplateSequenceModel getChildNodes() { return this; }
-    @Override public String getNodeName() { return getName(); }
-    @Override public String getNodeType() { return "element"; }
-    @Override public String getNodeNamespace() { return null; } /* Namespace not supported for now. */
-
-    // TemplateSequenceModel methods
-    @Override public TemplateModel get(int i) {
-        if (allChildren == null) return getSequenceList().get(i);
-        return allChildren.get(i);
-    }
-    @Override public int size() {
-        if (allChildren == null) return getSequenceList().size();
-        return allChildren.size();
-    }
-    private FtlNodeListWrapper getSequenceList() {
-        // Looks like attributes should NOT go in the FTL children list, so just use the node.children()
-        if (allChildren == null) allChildren = (childText != null && childText.length() > 0) ?
-                new FtlNodeListWrapper(childText, this) : new FtlNodeListWrapper(childList, this);
-        return allChildren;
-    }
-
-    // TemplateScalarModel methods
-    @Override public String getAsString() { return childText != null ? childText : ""; }
-
-    private static class FtlAttributeWrapper implements TemplateNodeModel, TemplateSequenceModel, AdapterTemplateModel,
-            TemplateScalarModel {
-        protected String key;
-        protected String value;
-        MNode parentNode;
-        FtlAttributeWrapper(String key, String value, MNode parentNode) {
-            this.key = key;
-            this.value = value;
-            this.parentNode = parentNode;
-        }
-
-        @Override public Object getAdaptedObject(Class aClass) { return value; }
-
-        // TemplateNodeModel methods
-        @Override public TemplateNodeModel getParentNode() { return parentNode; }
-        @Override public TemplateSequenceModel getChildNodes() { return this; }
-        @Override public String getNodeName() { return key; }
-        @Override public String getNodeType() { return "attribute"; }
-        @Override public String getNodeNamespace() { return null; } /* Namespace not supported for now. */
-
-        // TemplateSequenceModel methods
-        @Override public TemplateModel get(int i) {
-            if (i == 0) try {
-                return wrapper.wrap(value);
-            } catch (TemplateModelException e) {
-                throw new EntityException("Error wrapping object for FreeMarker", e);
-            }
-            throw new IndexOutOfBoundsException("Attribute node only has 1 value. Tried to get index [${i}] for attribute [${key}]");
-        }
-        @Override public int size() { return 1; }
-
-        // TemplateScalarModel methods
-        @Override public String getAsString() { return value; }
-        @Override public String toString() { return value; }
-    }
-
-    private static class FtlTextWrapper implements TemplateNodeModel, TemplateSequenceModel, AdapterTemplateModel, TemplateScalarModel {
-        protected String text;
-        MNode parentNode;
-        FtlTextWrapper(String text, MNode parentNode) {
-            this.text = text;
-            this.parentNode = parentNode;
-        }
-
-        @Override public Object getAdaptedObject(Class aClass) { return text; }
-
-        // TemplateNodeModel methods
-        @Override public TemplateNodeModel getParentNode() { return parentNode; }
-        @Override public TemplateSequenceModel getChildNodes() { return this; }
-        @Override public String getNodeName() { return "@text"; }
-        @Override public String getNodeType() { return "text"; }
-        @Override public String getNodeNamespace() { return null; } /* Namespace not supported for now. */
-
-        // TemplateSequenceModel methods
-        @Override public TemplateModel get(int i) {
-            if (i == 0) try {
-                return wrapper.wrap(getAsString());
-            } catch (TemplateModelException e) {
-                throw new EntityException("Error wrapping object for FreeMarker", e);
-            }
-            throw new IndexOutOfBoundsException("Text node only has 1 value. Tried to get index [${i}]");
-        }
-        @Override public int size() { return 1; }
-
-        // TemplateScalarModel methods
-        @Override public String getAsString() { return text != null ? text : ""; }
-        @Override public String toString() { return getAsString(); }
-    }
-
-    private static class FtlNodeListWrapper implements TemplateSequenceModel {
-        ArrayList<TemplateModel> nodeList = new ArrayList<>();
-        FtlNodeListWrapper(ArrayList<MNode> mnodeList, MNode parentNode) {
-            if (mnodeList != null) nodeList.addAll(mnodeList);
-        }
-        FtlNodeListWrapper(String text, MNode parentNode) {
-            nodeList.add(new FtlTextWrapper(text, parentNode));
-        }
-
-        @Override public TemplateModel get(int i) { return nodeList.get(i); }
-        @Override public int size() { return nodeList.size(); }
-        @Override public String toString() { return nodeList.toString(); }
     }
 }

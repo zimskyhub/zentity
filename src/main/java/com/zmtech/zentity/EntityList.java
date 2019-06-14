@@ -21,38 +21,54 @@ import java.sql.Timestamp;
 import java.util.*;
 
 /**
- * Contains a list of EntityValue objects.
- * Entity List that adds some additional operations like filtering to the basic List&lt;EntityValue&gt;.
- *
- * The various methods here modify the internal list for efficiency and return a reference to this for convenience.
- * If you want a new EntityList with the modifications, use clone() or cloneList() then modify it.
+ * 包含实体对象的列表。
+ * 实体列表含有一些额外的功能，如过滤到基本List<EntityValue>;
+ * 这里的各种方法修改内部列表以提高效率，并为方便起见返回对此的引用。
+ * 如果您想要一个带有修改的新EntityList，请使用clone（）或cloneList（）然后修改它。
  */
 @SuppressWarnings("unused")
 public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cloneable, RandomAccess, Externalizable {
 
-    /** Get the first value in the list.
-     *
-     * @return EntityValue that is first in the list.
+    /**
+     * 取列表中的第一个值。
+     * @return 列表中的第一个值.
      */
     EntityValue getFirst();
 
-    /** Modify this EntityList so that it contains only the values that are active for the moment passed in.
-     * The results include values that match the fromDate, but exclude values that match the thruDate.
-     *
-     *@param fromDateName The name of the from/beginning date/time field. Defaults to "fromDate".
-     *@param thruDateName The name of the thru/ending date/time field. Defaults to "thruDate".
-     *@param moment The point in time to compare the values to; if null the current system date/time is used.
-     *@return A reference to this for convenience.
+    /**
+     * 列表过滤 按照日期区间过滤实体。
+     * 结果包括与fromDate到thruDate区间的值。
+     *@param fromDateName 起始时间字段的名称。 默认为“fromDate”。
+     *@param thruDateName 截止时间字段的名称。 默认为“thruDate”。
+     *@param moment 比较值的时间点; 如果为null，则使用当前系统日期/时间。
+     *@return 当前对象
      */
     EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment);
+
+    /**
+     * 列表过滤 按照日期区间过滤实体。
+     * 结果包括与fromDate到thruDate区间的值。
+     *@param fromDateName 起始时间字段的名称。 默认为“fromDate”。
+     *@param thruDateName 截止时间字段的名称。 默认为“thruDate”。
+     *@param moment 比较值的时间点; 如果为null，则使用当前系统日期/时间。
+     *@param ignoreIfEmpty true：忽略空值，false：不忽略空值。
+     *@return 当前对象
+     */
     EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment, boolean ignoreIfEmpty);
 
-    /** Modify this EntityList so that it contains only the values that match the values in the fields parameter.
-     *
-     *@param fields The name/value pairs that must match for a value to be included in the output list.
-     *@return List of EntityValue objects that match the values in the fields parameter.
+    /**
+     * 列表过滤，使其仅包含与fields参数中的值匹配的值。
+     *@param fields 要包含在输出列表中的值必须匹配的字段名称/字段值 map。
+     *@return 当前对象
      */
     EntityList filterByAnd(Map<String, Object> fields);
+
+    /**
+     * 列表过滤，使其仅包含与fields参数中的值匹配的值。
+     *@param fields 要包含在输出列表中的值必须匹配的字段名称/字段值 map。
+     *@param include true：
+     *@return 当前对象
+     */
     EntityList filterByAnd(Map<String, Object> fields, Boolean include);
 
     /** Modify this EntityList so that it contains only the values that match the values in the namesAndValues parameter.
