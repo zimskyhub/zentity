@@ -184,6 +184,9 @@ public class MNode{
             // system properties and environment variables don't generally change once initial init is done, so save expanded value
             attributeMap.put(attrName, attrValue);
         }
+        if (attrValue != null && attrValue.equals("")){
+            attrValue = null;
+        }
         return attrValue;
     }
     public void setSystemExpandAttributes(boolean b) { systemExpandAttributes = b; }

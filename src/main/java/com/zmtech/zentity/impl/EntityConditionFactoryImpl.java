@@ -3,6 +3,7 @@ package com.zmtech.zentity.impl;
 
 import com.zmtech.zentity.EntityCondition;
 import com.zmtech.zentity.EntityConditionFactory;
+import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.impl.condition.*;
 import groovy.transform.CompileStatic;
 import org.slf4j.Logger;
@@ -83,49 +84,49 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     }
 
     @Override
-    EntityCondition makeCondition(List<EntityCondition> conditionList) {
-        return this.makeCondition(conditionList, JoinOperator.AND)
+    public EntityCondition makeCondition(List<EntityCondition> conditionList) {
+        return this.makeCondition(conditionList, EntityCondition.JoinOperator.AND);
     }
     @Override
-    EntityCondition makeCondition(List<EntityCondition> conditionList, JoinOperator operator) {
-        if (conditionList == null || conditionList.size() == 0) return null
-        ArrayList<EntityConditionImplBase> newList = new ArrayList()
+    public EntityCondition makeCondition(List<EntityCondition> conditionList, EntityCondition.JoinOperator operator) {
+        if (conditionList == null || conditionList.size() == 0) return null;
+        ArrayList<EntityConditionImplBase> newList = new ArrayList<>();
 
         if (conditionList instanceof RandomAccess) {
             // avoid creating an iterator if possible
-            int listSize = conditionList.size()
+            int listSize = conditionList.size();
             for (int i = 0; i < listSize; i++) {
-                EntityCondition curCond = conditionList.get(i)
-                if (curCond == null) continue
+                EntityCondition curCond = conditionList.get(i);
+                if (curCond == null) continue;
                 // this is all they could be, all that is supported right now
-                if (curCond instanceof EntityConditionImplBase) newList.add((EntityConditionImplBase) curCond)
-                else throw new BaseArtifactException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
+                if (curCond instanceof EntityConditionImplBase) newList.add((EntityConditionImplBase) curCond);
+                else throw new EntityException("EntityCondition of type [${curCond.getClass().getName()}] not supported");
             }
         } else {
-            Iterator<EntityCondition> conditionIter = conditionList.iterator()
+            Iterator<EntityCondition> conditionIter = conditionList.iterator();
             while (conditionIter.hasNext()) {
-                EntityCondition curCond = conditionIter.next()
-                if (curCond == null) continue
+                EntityCondition curCond = conditionIter.next();
+                if (curCond == null) continue;
                 // this is all they could be, all that is supported right now
-                if (curCond instanceof EntityConditionImplBase) newList.add((EntityConditionImplBase) curCond)
-                else throw new BaseArtifactException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
+                if (curCond instanceof EntityConditionImplBase) newList.add((EntityConditionImplBase) curCond);
+                else throw new EntityException("EntityCondition of type [${curCond.getClass().getName()}] not supported");
             }
         }
-        if (newList == null || newList.size() == 0) return null
+        if (newList == null || newList.size() == 0) return null;
         if (newList.size() == 1) {
-            return (EntityCondition) newList.get(0)
+            return (EntityCondition) newList.get(0);
         } else {
-            return new ListCondition(newList, operator)
+            return new ListCondition(newList, operator);
         }
     }
 
     @Override
-    EntityCondition makeCondition(List<Object> conditionList, String listOperator, String mapComparisonOperator, String mapJoinOperator) {
+    public EntityCondition makeCondition(List<Object> conditionList, String listOperator, String mapComparisonOperator, String mapJoinOperator) {
         if (conditionList == null || conditionList.size() == 0) return null
 
-        JoinOperator listJoin = listOperator ? getJoinOperator(listOperator) : JoinOperator.AND
-        ComparisonOperator mapComparison = mapComparisonOperator ? getComparisonOperator(mapComparisonOperator) : ComparisonOperator.EQUALS
-        JoinOperator mapJoin = mapJoinOperator ? getJoinOperator(mapJoinOperator) : JoinOperator.AND
+        EntityCondition.JoinOperator listJoin = listOperator != null ? getJoinOperator(listOperator) : EntityCondition.JoinOperator.AND;
+        EntityCondition.ComparisonOperator mapComparison = mapComparisonOperator != null ? getComparisonOperator(mapComparisonOperator) : EntityCondition.ComparisonOperator.EQUALS;
+        EntityCondition.JoinOperator mapJoin = mapJoinOperator != null ? getJoinOperator(mapJoinOperator) : EntityCondition.JoinOperator.AND
 
         List<EntityConditionImplBase> newList = new ArrayList<EntityConditionImplBase>()
         Iterator<Object> conditionIter = conditionList.iterator()
@@ -485,8 +486,8 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     static String getJoinOperatorString(JoinOperator op) { return JoinOperator.OR.is(op) ? "OR" : "AND" }
     static JoinOperator getJoinOperator(String opName) { return "or".equalsIgnoreCase(opName) ? JoinOperator.OR :JoinOperator.AND }
 
-    static String getComparisonOperatorString(ComparisonOperator op) { return comparisonOperatorStringMap.get(op) }
-    static ComparisonOperator getComparisonOperator(String opName) {
+    static String getComparisonOperatorString(EntityCondition.ComparisonOperator op) { return comparisonOperatorStringMap.get(op) }
+    static EntityCondition.ComparisonOperator getComparisonOperator(String opName) {
         if (opName == null) return ComparisonOperator.EQUALS
         ComparisonOperator co = stringComparisonOperatorMap.get(opName)
         return co != null ? co : ComparisonOperator.EQUALS

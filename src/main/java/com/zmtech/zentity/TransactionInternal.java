@@ -22,7 +22,7 @@ import javax.transaction.UserTransaction;
 
 public interface TransactionInternal {
 
-    TransactionInternal init(ExecutionContextFactory ecf);
+//    TransactionInternal init(ExecutionContextFactory ecf);
 
     TransactionManager getTransactionManager();
     UserTransaction getUserTransaction();

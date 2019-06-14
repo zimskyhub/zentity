@@ -1,6 +1,11 @@
 
 package com.zmtech.zentity.impl;
 
+import com.zmtech.zentity.EntityCondition;
+import com.zmtech.zentity.EntityDatasourceFactory;
+import com.zmtech.zentity.exception.EntityException;
+import com.zmtech.zentity.exception.EntityNotFoundException;
+import com.zmtech.zentity.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -426,7 +431,7 @@ public class EntityJavaUtil {
                             try {
                                 Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
                                 dest.putNoCheck(fieldName, converted);
-                            } catch (BaseException be) {
+                            } catch (EntityException be) {
                                 eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
                             }
                         } else {

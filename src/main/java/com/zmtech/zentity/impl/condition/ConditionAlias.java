@@ -13,6 +13,8 @@
  */
 package com.zmtech.zentity.impl.condition;
 
+import com.zmtech.zentity.exception.EntityException;
+import com.zmtech.zentity.impl.EntityDefinition;
 import org.moqui.BaseArtifactException;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.FieldInfo;
@@ -34,9 +36,9 @@ public class ConditionAlias extends ConditionField implements Externalizable {
 
     public ConditionAlias() { }
     public ConditionAlias(String entityAlias, String fieldName, EntityDefinition aliasEntityDef) {
-        if (fieldName == null) throw new BaseArtifactException("Empty fieldName not allowed");
-        if (entityAlias == null) throw new BaseArtifactException("Empty entityAlias not allowed");
-        if (aliasEntityDef == null) throw new BaseArtifactException("Null aliasEntityDef not allowed");
+        if (fieldName == null) throw new EntityException("Empty fieldName not allowed");
+        if (entityAlias == null) throw new EntityException("Empty entityAlias not allowed");
+        if (aliasEntityDef == null) throw new EntityException("Null aliasEntityDef not allowed");
         this.fieldName = fieldName.intern();
         this.entityAlias = entityAlias.intern();
 
