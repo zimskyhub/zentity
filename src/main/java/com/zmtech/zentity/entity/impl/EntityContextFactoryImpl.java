@@ -1,6 +1,6 @@
 package com.zmtech.zentity.entity.impl;
 
-import com.zmtech.zentity.entity.EntityFacadeFactory;
+import com.zmtech.zentity.entity.EntityContextFactory;
 import com.zmtech.zentity.util.MNode;
 import groovy.lang.GroovyClassLoader;
 import org.codehaus.groovy.control.CompilationUnit;
@@ -26,9 +26,9 @@ import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-public class EntityFacadeFactoryImpl implements EntityFacadeFactory {
+public class EntityContextFactoryImpl implements EntityContextFactory {
 
-    protected final static Logger logger = LoggerFactory.getLogger(EntityFacadeFactoryImpl.class);
+    protected final static Logger logger = LoggerFactory.getLogger(EntityContextFactoryImpl.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
 
     private AtomicBoolean destroyed = new AtomicBoolean(false);

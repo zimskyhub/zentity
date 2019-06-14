@@ -13,7 +13,7 @@
  */
 package com.zmtech.zentity.actions;
 
-import com.zmtech.zentity.entity.impl.EntityFacadeFactoryImpl;
+import com.zmtech.zentity.entity.impl.EntityContextFactoryImpl;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.util.MNode;
 import groovy.lang.Script;
@@ -31,20 +31,20 @@ public class XmlAction {
     private static final Logger logger = LoggerFactory.getLogger(XmlAction.class);
     private static final boolean isDebugEnabled = logger.isDebugEnabled();
 
-    protected final EntityFacadeFactoryImpl effi;
+    protected final EntityContextFactoryImpl effi;
 
     private final MNode xmlNode;
     protected final String location;
     /** The Groovy class compiled from the script transformed from the XML actions text using the FTL template. */
     private Class groovyClassInternal = null;
 
-    public XmlAction(EntityFacadeFactoryImpl effi, MNode xmlNode, String location) {
+    public XmlAction(EntityContextFactoryImpl effi, MNode xmlNode, String location) {
         this.effi = effi;
         this.xmlNode = xmlNode;
         this.location = location;
     }
 
-    public XmlAction(EntityFacadeFactoryImpl effi, String xmlText, String location) {
+    public XmlAction(EntityContextFactoryImpl effi, String xmlText, String location) {
         this.effi = effi;
         this.location = location;
         if (xmlText != null && !xmlText.isEmpty()) {
