@@ -3,6 +3,7 @@ package com.zmtech.zentity.entity.impl;
 import com.zmtech.zentity.entity.EntityDynamicView;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.util.MNode;
+import groovy.lang.Closure;
 
 
 import java.util.List;
@@ -55,7 +56,7 @@ public class EntityDynamicViewImpl implements EntityDynamicView {
     @Override
     public EntityDynamicView addRelationshipMember(String entityAlias, String joinFromAlias, String relationshipName,
                                             Boolean joinOptional) {
-        MNode joinFromMemberEntityNode = entityNode.first({ MNode it -> it.name == "member-entity" && it.attribute("entity-alias") == joinFromAlias });
+        MNode joinFromMemberEntityNode = entityNode.first((MNode it) -> {return it.getName().equals("member-entity")  && it.attribute("entity-alias").equals(joinFromAlias);});
         String entityName = joinFromMemberEntityNode.attribute("entity-name");
         EntityDefinition joinFromEd = efi.getEntityDefinition(entityName);
         EntityJavaUtil.RelationshipInfo relInfo = joinFromEd.getRelationshipInfo(relationshipName);
