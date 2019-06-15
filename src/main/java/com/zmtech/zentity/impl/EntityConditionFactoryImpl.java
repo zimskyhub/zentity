@@ -5,15 +5,14 @@ import com.zmtech.zentity.EntityCondition;
 import com.zmtech.zentity.EntityConditionFactory;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.impl.condition.*;
-import groovy.transform.CompileStatic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Timestamp;
 import java.util.*;
 
-@CompileStatic
-class EntityConditionFactoryImpl implements EntityConditionFactory {
+
+public class EntityConditionFactoryImpl implements EntityConditionFactory {
     protected final static Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class);
 
     protected final EntityFacadeImpl efi;
@@ -160,7 +159,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         return makeCondition(fieldMap, comparisonOperator, joinOperator, null, null, false)
     }
     EntityConditionImplBase makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator,
-                                          JoinOperator joinOperator, EntityDefinition findEd, Map<String, ArrayList<MNode>> memberFieldAliases, boolean excludeNulls) {
+                                          EntityCondition.JoinOperator joinOperator, EntityDefinition findEd, Map<String, ArrayList<MNode>> memberFieldAliases, boolean excludeNulls) {
         if (fieldMap == null || fieldMap.size() == 0) return (EntityConditionImplBase) null
 
         JoinOperator joinOp = joinOperator != null ? joinOperator : JoinOperator.AND

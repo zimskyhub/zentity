@@ -1,6 +1,8 @@
 
 package com.zmtech.zentity.impl.condition;
 
+import com.zmtech.zentity.impl.EntityConditionFactoryImpl;
+import com.zmtech.zentity.impl.EntityDefinition;
 import com.zmtech.zentity.impl.EntityQueryBuilder;
 
 
