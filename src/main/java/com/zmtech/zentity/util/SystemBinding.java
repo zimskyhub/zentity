@@ -62,6 +62,7 @@ public class SystemBinding extends Binding{
 
 
     private static SystemBinding defaultBinding = new SystemBinding();
+
     public static String expand(String value) {
         if (value == null || value.length() == 0) return "";
         if (!value.contains("${")) return value;
