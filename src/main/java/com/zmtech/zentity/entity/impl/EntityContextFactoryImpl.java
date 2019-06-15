@@ -14,22 +14,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.*;
-import java.lang.management.ManagementFactory;
-import java.math.BigDecimal;
-import java.net.InetAddress;
-import java.net.URL;
-import java.net.UnknownHostException;
-import java.sql.Timestamp;
 import java.util.*;
-import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-
-import static java.lang.Thread.sleep;
 
 public class EntityContextFactoryImpl implements EntityContextFactory {
 

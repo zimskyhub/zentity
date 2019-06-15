@@ -1,9 +1,14 @@
 package com.zmtech.zentity.entity.impl;
 
-import com.zmtech.zentity.entity.EntityDatasourceFactory;
+import com.zmtech.zentity.entity.*;
+import com.zmtech.zentity.etl.SimpleEtl;
+import com.zmtech.zentity.exception.EntityException;
+import com.zmtech.zentity.exception.EntityNotFoundException;
+import com.zmtech.zentity.transaction.impl.TransactionFacadeImpl;
+import com.zmtech.zentity.util.CollectionUtil;
 import com.zmtech.zentity.util.MNode;
+import com.zmtech.zentity.util.SystemBinding;
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException;
-import com.zmtech.zentity.entity.EntityFacade;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,22 +29,23 @@ public class EntityFacadeImpl implements EntityFacade {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFacadeImpl.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
 
+    public final EntityContextFactoryImpl ecfi;
     public final EntityConditionFactoryImpl entityConditionFactory;
 
     protected final HashMap<String, EntityDatasourceFactory> datasourceFactoryByGroupMap = new ConcurrentHashMap<>();
 
     /** Cache with entity name as the key and an EntityDefinition as the value; clear this cache to reload entity def */
-    final Cache<String, EntityDefinition> entityDefinitionCache;
+    public final Cache<String, EntityDefinition> entityDefinitionCache;
     /** Cache with single entry so can be expired/cleared, contains Map with entity name as the key and List of file
      * location Strings as the value */
-    final Cache<String, Map<String, List<String>>> entityLocationSingleCache;
-    static final String entityLocSingleEntryName = "ALL_ENTITIES";
+    public final Cache<String, Map<String, List<String>>> entityLocationSingleCache;
+    public static final String entityLocSingleEntryName = "ALL_ENTITIES";
     /** Map for framework entity definitions, avoid cache overhead and timeout issues */
     final HashMap<String, EntityDefinition> frameworkEntityDefinitions = new HashMap<>();
 
     /** Sequence name (often entity name) is the key and the value is an array of 2 Longs the first is the next
      * available value and the second is the highest value reserved/cached in the bank. */
-    final Cache<String, long[]> entitySequenceBankCache;
+    public final Cache<String, long[]> entitySequenceBankCache;
 
     protected final ConcurrentHashMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>();
     protected final ReentrantLock locationLoadLock = new ReentrantLock();
@@ -54,92 +60,92 @@ public class EntityFacadeImpl implements EntityFacade {
     protected final ThreadLocal<Calendar> databaseTzLcCalendar = new ThreadLocal<>();
     protected final String sequencedIdPrefix;
 
-    boolean queryStats = false;
+    public boolean queryStats = false;
 
-    protected EntityDbMeta dbMeta = null
-    protected final EntityCache entityCache
-    protected final EntityDataFeed entityDataFeed
-    protected final EntityDataDocument entityDataDocument
+    protected EntityDbMeta dbMeta = null;
+    protected final EntityCache entityCache;
+    protected final EntityDataFeed entityDataFeed;
+    protected final EntityDataDocument entityDataDocument;
 
-    protected final EntityListImpl emptyList
+    protected final EntityListImpl emptyList;
 
-    EntityFacadeImpl(ExecutionContextFactoryImpl ecfi) {
-        this.ecfi = ecfi
-        entityConditionFactory = new EntityConditionFactoryImpl(this)
+    public EntityFacadeImpl(EntityContextFactoryImpl ecfi) {
+        this.ecfi = ecfi;
+        entityConditionFactory = new EntityConditionFactoryImpl(this);
 
-        MNode entityFacadeNode = getEntityFacadeNode()
-        entityFacadeNode.setSystemExpandAttributes(true)
-        defaultGroupName = entityFacadeNode.attribute("default-group-name")
-        sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: null
-        queryStats = entityFacadeNode.attribute("query-stats") == "true"
+        MNode entityFacadeNode = getEntityFacadeNode();
+        entityFacadeNode.setSystemExpandAttributes(true);
+        defaultGroupName = entityFacadeNode.attribute("default-group-name");
+        sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix");
+        queryStats = entityFacadeNode.attribute("query-stats").equals("true");
 
-        TimeZone theTimeZone = null
-        if (entityFacadeNode.attribute("database-time-zone")) {
+        TimeZone theTimeZone = null;
+        if (entityFacadeNode.attribute("database-time-zone") != null) {
             try {
-                theTimeZone = TimeZone.getTimeZone((String) entityFacadeNode.attribute("database-time-zone"))
-            } catch (Exception e) { logger.warn("Error parsing database-time-zone: ${e.toString()}") }
+                theTimeZone = TimeZone.getTimeZone((String) entityFacadeNode.attribute("database-time-zone"));
+            } catch (Exception e) { logger.warn("Error parsing database-time-zone: ${e.toString()}"); }
         }
-        databaseTimeZone = theTimeZone != null ? theTimeZone : TimeZone.getDefault()
-        logger.info("Database time zone is ${databaseTimeZone}")
+        databaseTimeZone = theTimeZone != null ? theTimeZone : TimeZone.getDefault();
+        logger.info("Database time zone is ${databaseTimeZone}");
         Locale theLocale = null
-        if (entityFacadeNode.attribute("database-locale")) {
+        if (entityFacadeNode.attribute("database-locale") != null) {
             try {
-                String localeStr = entityFacadeNode.attribute("database-locale")
-                if (localeStr) theLocale = localeStr.contains("_") ?
+                String localeStr = entityFacadeNode.attribute("database-locale");
+                if (localeStr != null ) theLocale = localeStr.contains("_") ?
                         new Locale(localeStr.substring(0, localeStr.indexOf("_")), localeStr.substring(localeStr.indexOf("_")+1).toUpperCase()) :
-                        new Locale(localeStr)
-            } catch (Exception e) { logger.warn("Error parsing database-locale: ${e.toString()}") }
+                        new Locale(localeStr);
+            } catch (Exception e) { logger.warn("Error parsing database-locale: ${e.toString()}");}
         }
-        databaseLocale = theLocale ?: Locale.getDefault()
+        databaseLocale = theLocale != null ?theLocale: Locale.getDefault();
 
         // init entity meta-data
-        entityDefinitionCache = ecfi.cacheFacade.getCache("entity.definition")
-        entityLocationSingleCache = ecfi.cacheFacade.getCache("entity.location")
+        entityDefinitionCache = ecfi.cacheFacade.getCache("entity.definition");
+        entityLocationSingleCache = ecfi.cacheFacade.getCache("entity.location");
         // NOTE: don't try to load entity locations before constructor is complete; this.loadAllEntityLocations()
-        entitySequenceBankCache = ecfi.cacheFacade.getCache("entity.sequence.bank")
+        entitySequenceBankCache = ecfi.cacheFacade.getCache("entity.sequence.bank");
 
         // init connection pool (DataSource) for each group
-        initAllDatasources()
+        initAllDatasources();
 
-        entityCache = new EntityCache(this)
-        entityDataFeed = new EntityDataFeed(this)
-        entityDataDocument = new EntityDataDocument(this)
+        entityCache = new EntityCache(this);
+        entityDataFeed = new EntityDataFeed(this);
+        entityDataDocument = new EntityDataDocument(this);
 
-        emptyList = new EntityListImpl(this)
-        emptyList.setFromCache()
+        emptyList = new EntityListImpl(this);
+        emptyList.setFromCache();
     }
-    void postFacadeInit() {
+    public void postFacadeInit() {
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity definitions
-        logger.info("Loading entity definitions")
-        long entityStartTime = System.currentTimeMillis()
+        logger.info("Loading entity definitions");
+        long entityStartTime = System.currentTimeMillis();
         loadAllEntityLocations()
-        int entityCount = loadAllEntityDefinitions()
+        int entityCount = loadAllEntityDefinitions();
         // don't always load/warm framework entities, in production warms anyway and in dev not needed: entityFacade.loadFrameworkEntities()
-        logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
+        logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms");
 
         // now that everything is started up, if configured check all entity tables
-        checkInitDatasourceTables()
+        checkInitDatasourceTables();
 
         // EECA rule tables
-        loadEecaRulesAll()
+        loadEecaRulesAll();
     }
 
-    EntityCache getEntityCache() { return entityCache }
-    EntityDataFeed getEntityDataFeed() { return entityDataFeed }
-    EntityDataDocument getEntityDataDocument() { return entityDataDocument }
-    String getDefaultGroupName() { return defaultGroupName }
+    public EntityCache getEntityCache() { return entityCache; }
+    public EntityDataFeed getEntityDataFeed() { return entityDataFeed; }
+    public EntityDataDocument getEntityDataDocument() { return entityDataDocument; }
+    public String getDefaultGroupName() { return defaultGroupName; }
 
     // NOTE: used in scripts, etc
-    TimeZone getDatabaseTimeZone() { return databaseTimeZone }
-    Locale getDatabaseLocale() { return databaseLocale }
+    TimeZone getDatabaseTimeZone() { return databaseTimeZone; }
+    Locale getDatabaseLocale() { return databaseLocale; }
 
-    EntityListImpl getEmptyList() { return emptyList }
+    EntityListImpl getEmptyList() { return emptyList; }
 
     @Override
-    Calendar getCalendarForTzLc() {
+    public Calendar getCalendarForTzLc() {
         // the OLD approach using user's TimeZone/Locale, bad idea because user may change for same record, getting different value, etc
-        // return efi.getEcfi().getExecutionContext().getUser().getCalendarForTzLcOnly()
+        // return efi.getEcfi().getEntityContext().getUser().getCalendarForTzLcOnly()
 
         // the safest approach but from profiling tests this is VERY slow
         // return Calendar.getInstance(databaseTimeZone, databaseLocale)
@@ -147,201 +153,199 @@ public class EntityFacadeImpl implements EntityFacade {
         // return databaseTzLcCalendar // NOTE this field was a Calendar object, is now a ThreadLocal<Calendar>
 
         // latest approach to avoid creating a Calendar object for each use, use a ThreadLocal field
-        Calendar dbCal = databaseTzLcCalendar.get()
+        Calendar dbCal = databaseTzLcCalendar.get();
         if (dbCal == null) {
-            dbCal = Calendar.getInstance(databaseTimeZone, databaseLocale)
-            dbCal.clear()
-            databaseTzLcCalendar.set(dbCal)
+            dbCal = Calendar.getInstance(databaseTimeZone, databaseLocale);
+            dbCal.clear();
+            databaseTzLcCalendar.set(dbCal);
         } else {
-            dbCal.clear()
+            dbCal.clear();
         }
-        return dbCal
+        return dbCal;
     }
 
-    MNode getEntityFacadeNode() { return ecfi.getConfXmlRoot().first("entity-facade") }
-    void checkInitDatasourceTables() {
+    public MNode getEntityFacadeNode() { return ecfi.getConfXmlRoot().first("entity-facade"); }
+    public void checkInitDatasourceTables() {
         // if startup-add-missing=true check tables now
-        long currentTime = System.currentTimeMillis()
+        long currentTime = System.currentTimeMillis();
 
-        Set<String> startupAddMissingGroups = new TreeSet<>()
-        Set<String> allConfiguredGroups = new TreeSet<>()
-        for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
-            String groupName = datasourceNode.attribute("group-name")
-            MNode databaseNode = getDatabaseNode(groupName)
-            String startupAddMissing = datasourceNode.attribute("startup-add-missing")
-            if ((!startupAddMissing && "true".equals(databaseNode.attribute("default-startup-add-missing"))) || "true".equals(startupAddMissing)) {
-                startupAddMissingGroups.add(groupName)
+        Set<String> startupAddMissingGroups = new TreeSet<>();
+        Set<String> allConfiguredGroups = new TreeSet<>();
+        for (MNode datasourceNode : getEntityFacadeNode().children("datasource")) {
+            String groupName = datasourceNode.attribute("group-name");
+            MNode databaseNode = getDatabaseNode(groupName);
+            String startupAddMissing = datasourceNode.attribute("startup-add-missing");
+            if ((startupAddMissing == null && "true".equals(databaseNode.attribute("default-startup-add-missing"))) || "true".equals(startupAddMissing)) {
+                startupAddMissingGroups.add(groupName);
             }
-            allConfiguredGroups.add(groupName)
+            allConfiguredGroups.add(groupName);
         }
 
-        boolean defaultStartAddMissing = startupAddMissingGroups.contains(getEntityFacadeNode().attribute("default-group-name"))
+        boolean defaultStartAddMissing = startupAddMissingGroups.contains(getEntityFacadeNode().attribute("default-group-name"));
         if (startupAddMissingGroups.size() > 0) {
-            logger.info("Checking tables for entities in groups ${startupAddMissingGroups}")
-            boolean createdTables = false
-            for (String entityName in getAllEntityNames()) {
-                String groupName = getEntityGroupName(entityName) ?: defaultGroupName
+            logger.info("Checking tables for entities in groups ${startupAddMissingGroups}");
+            boolean createdTables = false;
+            for (String entityName : getAllEntityNames()) {
+                String groupName = getEntityGroupName(entityName) != null ? getEntityGroupName(entityName) : defaultGroupName;
                 if (startupAddMissingGroups.contains(groupName) ||
                         (!allConfiguredGroups.contains(groupName) && defaultStartAddMissing)) {
-                    EntityDatasourceFactory edf = getDatasourceFactory(groupName)
-                    if (edf.checkAndAddTable(entityName)) createdTables = true
+                    EntityDatasourceFactory edf = getDatasourceFactory(groupName);
+                    if (edf.checkAndAddTable(entityName)) createdTables = true;
                 }
             }
             // do second pass to make sure all FKs created
             if (createdTables) {
-                logger.info("Tables were created, checking FKs for all entities in groups ${startupAddMissingGroups}")
-                for (String entityName in getAllEntityNames()) {
-                    String groupName = getEntityGroupName(entityName) ?: defaultGroupName
+                logger.info("Tables were created, checking FKs for all entities in groups ${startupAddMissingGroups}");
+                for (String entityName : getAllEntityNames()) {
+                    String groupName = getEntityGroupName(entityName) != null ? getEntityGroupName(entityName): defaultGroupName;
                     if (startupAddMissingGroups.contains(groupName) ||
                             (!allConfiguredGroups.contains(groupName) && defaultStartAddMissing)) {
-                        EntityDatasourceFactory edf = getDatasourceFactory(groupName)
+                        EntityDatasourceFactory edf = getDatasourceFactory(groupName);
                         if (edf instanceof EntityDatasourceFactoryImpl) {
-                            EntityDefinition ed = getEntityDefinition(entityName)
-                            if (ed.isViewEntity) continue
-                            getEntityDbMeta().createForeignKeys(ed, true)
+                            EntityDefinition ed = getEntityDefinition(entityName);
+                            if (ed.isViewEntity) continue;
+                            getEntityDbMeta().createForeignKeys(ed, true);
 
                         }
                     }
                 }
             }
-            logger.info("Checked tables for all entities in ${(System.currentTimeMillis() - currentTime)/1000} seconds")
+            logger.info("Checked tables for all entities in ${(System.currentTimeMillis() - currentTime)/1000} seconds");
         }
     }
 
-    protected void initAllDatasources() {
-        for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
-            datasourceNode.setSystemExpandAttributes(true)
-            String groupName = datasourceNode.attribute("group-name")
-            String objectFactoryClass = datasourceNode.attribute("object-factory") ?: "org.moqui.impl.entity.EntityDatasourceFactoryImpl"
-            EntityDatasourceFactory edf = (EntityDatasourceFactory) Thread.currentThread().getContextClassLoader().loadClass(objectFactoryClass).newInstance()
-            datasourceFactoryByGroupMap.put(groupName, edf.init(this, datasourceNode))
+    protected void initAllDatasources() throws ClassNotFoundException, IllegalAccessException, InstantiationException {
+        for (MNode datasourceNode : getEntityFacadeNode().children("datasource")) {
+            datasourceNode.setSystemExpandAttributes(true);
+            String groupName = datasourceNode.attribute("group-name");
+            String objectFactoryClass = datasourceNode.attribute("object-factory") != null? datasourceNode.attribute("object-factory"): "com.zmtech.zentity.entity.impl.entity.EntityDatasourceFactoryImpl";
+            EntityDatasourceFactory edf = (EntityDatasourceFactory) Thread.currentThread().getContextClassLoader().loadClass(objectFactoryClass).newInstance();
+            datasourceFactoryByGroupMap.put(groupName, edf.init(this, datasourceNode));
         }
     }
 
-    static class DatasourceInfo {
-        EntityFacadeImpl efi
-        MNode datasourceNode
-        String uniqueName
-        Map<String, String> dsDetails = new LinkedHashMap<>()
+    public static class DatasourceInfo {
+        EntityFacadeImpl efi;
+        MNode datasourceNode;
+        String uniqueName;
+        Map<String, String> dsDetails = new LinkedHashMap<>();
 
-        String jndiName
-        MNode serverJndi
-        String jdbcDriver = null, jdbcUri = null, jdbcUsername = null, jdbcPassword = null
-        String xaDsClass = null
-        Properties xaProps = null
+        String jndiName;
+        MNode serverJndi;
+        String jdbcDriver = null, jdbcUri = null, jdbcUsername = null, jdbcPassword = null;
+        String xaDsClass = null;
+        Properties xaProps = null;
 
-        MNode inlineJdbc = null
-        MNode database = null
+        MNode inlineJdbc = null;
+        MNode database = null;
 
-        DatasourceInfo(EntityFacadeImpl efi, MNode datasourceNode) {
-            this.efi = efi
-            this.datasourceNode = datasourceNode
+        public DatasourceInfo(EntityFacadeImpl efi, MNode datasourceNode) {
+            this.efi = efi;
+            this.datasourceNode = datasourceNode;
 
-            String groupName = datasourceNode.attribute("group-name")
-            uniqueName =  groupName + "_DS"
+            String groupName = datasourceNode.attribute("group-name");
+            uniqueName =  groupName + "_DS";
 
-            MNode jndiJdbcNode = datasourceNode.first("jndi-jdbc")
-            inlineJdbc = datasourceNode.first("inline-jdbc")
+            MNode jndiJdbcNode = datasourceNode.first("jndi-jdbc");
+            inlineJdbc = datasourceNode.first("inline-jdbc");
             if (jndiJdbcNode == null && inlineJdbc == null) {
-                MNode dbNode = efi.getDatabaseNode(groupName)
-                inlineJdbc = dbNode.first("inline-jdbc")
+                MNode dbNode = efi.getDatabaseNode(groupName);
+                inlineJdbc = dbNode.first("inline-jdbc");
             }
-            MNode xaProperties = inlineJdbc?.first("xa-properties")
-            database = efi.getDatabaseNode(groupName)
+            MNode xaProperties = inlineJdbc != null?inlineJdbc.first("xa-properties"):null;
+            database = efi.getDatabaseNode(groupName);
 
             if (jndiJdbcNode != null) {
-                serverJndi = efi.getEntityFacadeNode().first("server-jndi")
-                if (serverJndi != null) serverJndi.setSystemExpandAttributes(true)
-                jndiName = jndiJdbcNode.attribute("jndi-name")
+                serverJndi = efi.getEntityFacadeNode().first("server-jndi");
+                if (serverJndi != null) serverJndi.setSystemExpandAttributes(true);
+                jndiName = jndiJdbcNode.attribute("jndi-name");
             } else if (xaProperties != null) {
-                xaDsClass = inlineJdbc.attribute("xa-ds-class") ? inlineJdbc.attribute("xa-ds-class") : database.attribute("default-xa-ds-class")
+                xaDsClass = inlineJdbc.attribute("xa-ds-class") != null ? inlineJdbc.attribute("xa-ds-class") : database.attribute("default-xa-ds-class");
 
-                xaProps = new Properties()
-                xaProperties.setSystemExpandAttributes(true)
-                for (String key in xaProperties.attributes.keySet()) {
-                    if (xaProps.containsKey(key)) continue
+                xaProps = new Properties();
+                xaProperties.setSystemExpandAttributes(true);
+                for (String key : xaProperties.getAttributes().keySet()) {
+                    if (xaProps.containsKey(key)) continue;
                             // various H2, Derby, etc properties have a ${moqui.runtime} which is a System property, others may have it too
-                    String propValue = xaProperties.attribute(key)
-                    if (propValue) xaProps.setProperty(key, propValue)
+                    String propValue = xaProperties.attribute(key);
+                    if (propValue != null) xaProps.setProperty(key, propValue);
                 }
 
-                for (String propName in xaProps.stringPropertyNames()) {
-                    if (propName.toLowerCase().contains("password")) continue
-                    dsDetails.put(propName, xaProps.getProperty(propName))
+                for (String propName : xaProps.stringPropertyNames()) {
+                    if (propName.toLowerCase().contains("password")) continue;
+                    dsDetails.put(propName, xaProps.getProperty(propName));
                 }
             } else if (inlineJdbc != null) {
-                inlineJdbc.setSystemExpandAttributes(true)
-                jdbcDriver = inlineJdbc.attribute("jdbc-driver") ? inlineJdbc.attribute("jdbc-driver") : database.attribute("default-jdbc-driver")
-                jdbcUri = inlineJdbc.attribute("jdbc-uri")
-                if (jdbcUri.contains('${')) jdbcUri = SystemBinding.expand(jdbcUri)
-                jdbcUsername = inlineJdbc.attribute("jdbc-username")
-                jdbcPassword = inlineJdbc.attribute("jdbc-password")
+                inlineJdbc.setSystemExpandAttributes(true);
+                jdbcDriver = inlineJdbc.attribute("jdbc-driver") != null? inlineJdbc.attribute("jdbc-driver") : database.attribute("default-jdbc-driver");
+                jdbcUri = inlineJdbc.attribute("jdbc-uri");
+                if (jdbcUri.contains("${")) jdbcUri = SystemBinding.expand(jdbcUri);
+                jdbcUsername = inlineJdbc.attribute("jdbc-username");
+                jdbcPassword = inlineJdbc.attribute("jdbc-password");
 
-                dsDetails.put("uri", jdbcUri)
-                dsDetails.put("user", jdbcUsername)
+                dsDetails.put("uri", jdbcUri);
+                dsDetails.put("user", jdbcUsername);
             } else {
-                throw new EntityException("Data source for group ${groupName} has no inline-jdbc or jndi-jdbc configuration")
+                throw new EntityException("Data source for group "+groupName+" has no inline-jdbc or jndi-jdbc configuration");
             }
         }
     }
 
-    void loadFrameworkEntities() {
+    public void loadFrameworkEntities() {
         // load framework entity definitions (moqui.*)
-        long startTime = System.currentTimeMillis()
-        Set<String> entityNames = getAllEntityNames()
-        int entityCount = 0
-        for (String entityName in entityNames) {
+        long startTime = System.currentTimeMillis();
+        Set<String> entityNames = getAllEntityNames();
+        int entityCount = 0;
+        for (String entityName : entityNames) {
             if (entityName.startsWith("moqui.")) {
-                entityCount++
+                entityCount++;
                 try {
-                    EntityDefinition ed = getEntityDefinition(entityName)
-                    ed.getRelationshipInfoMap()
+                    EntityDefinition ed = getEntityDefinition(entityName);
+                    ed.getRelationshipInfoMap();
                     // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
-                    ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName())
-                } catch (Throwable t) { logger.warn("Error loading framework entity ${entityName} definitions: ${t.toString()}", t) }
+                    ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName());
+                } catch (Throwable t) { logger.warn("Error loading framework entity "+entityName+" definitions: "+t.toString(), t) ;}
             }
         }
-        logger.info("Loaded ${entityCount} framework entity definitions in ${System.currentTimeMillis() - startTime}ms")
+        logger.info("Loaded ${entityCount} framework entity definitions in ${System.currentTimeMillis() - startTime}ms");
     }
 
-    final static Set<String> cachedCountEntities = new HashSet<>(["moqui.basic.EnumerationType"])
-    final static Set<String> cachedListEntities = new HashSet<>([ "moqui.entity.document.DataDocument",
-        "moqui.entity.document.DataDocumentCondition", "moqui.entity.document.DataDocumentField",
-                "moqui.entity.feed.DataFeedAndDocument", "moqui.entity.view.DbViewEntity", "moqui.entity.view.DbViewEntityAlias",
-                "moqui.entity.view.DbViewEntityKeyMap", "moqui.entity.view.DbViewEntityMember",
+    public final static Set<String> cachedCountEntities = new HashSet<>(Collections.singletonList("moqui.basic.EnumerationType"));
+    public final static Set<String> cachedListEntities = new HashSet<>(Arrays.asList("moqui.entity.document.DataDocument",
+            "moqui.entity.document.DataDocumentCondition", "moqui.entity.document.DataDocumentField",
+            "moqui.entity.feed.DataFeedAndDocument", "moqui.entity.view.DbViewEntity", "moqui.entity.view.DbViewEntityAlias",
+            "moqui.entity.view.DbViewEntityKeyMap", "moqui.entity.view.DbViewEntityMember",
 
-                "moqui.screen.ScreenThemeResource", "moqui.screen.SubscreensItem", "moqui.screen.form.DbFormField",
-                "moqui.screen.form.DbFormFieldAttribute", "moqui.screen.form.DbFormFieldEntOpts", "moqui.screen.form.DbFormFieldEntOptsCond",
-                "moqui.screen.form.DbFormFieldEntOptsOrder", "moqui.screen.form.DbFormFieldOption", "moqui.screen.form.DbFormLookup",
+            "moqui.screen.ScreenThemeResource", "moqui.screen.SubscreensItem", "moqui.screen.form.DbFormField",
+            "moqui.screen.form.DbFormFieldAttribute", "moqui.screen.form.DbFormFieldEntOpts", "moqui.screen.form.DbFormFieldEntOptsCond",
+            "moqui.screen.form.DbFormFieldEntOptsOrder", "moqui.screen.form.DbFormFieldOption", "moqui.screen.form.DbFormLookup",
 
-                "moqui.security.ArtifactAuthzCheckView", "moqui.security.ArtifactTarpitCheckView", "moqui.security.ArtifactTarpitLock",
-                "moqui.security.UserGroupMember", "moqui.security.UserGroupPreference"
-                ])
-    final static Set<String> cachedOneEntities = new HashSet<>([ "moqui.basic.Enumeration", "moqui.basic.LocalizedMessage",
+            "moqui.security.ArtifactAuthzCheckView", "moqui.security.ArtifactTarpitCheckView", "moqui.security.ArtifactTarpitLock",
+            "moqui.security.UserGroupMember", "moqui.security.UserGroupPreference"));
+    public final static Set<String> cachedOneEntities = new HashSet<>(Arrays.asList("moqui.basic.Enumeration", "moqui.basic.LocalizedMessage",
             "moqui.entity.document.DataDocument", "moqui.entity.view.DbViewEntity", "moqui.screen.form.DbForm",
-            "moqui.security.UserAccount", "moqui.security.UserPreference", "moqui.security.UserScreenTheme", "moqui.server.Visit"
-            ])
-    void warmCache()  {
-        logger.info("Warming cache for all entity definitions")
-        long startTime = System.currentTimeMillis()
-        Set<String> entityNames = getAllEntityNames()
-        for (String entityName in entityNames) {
+            "moqui.security.UserAccount", "moqui.security.UserPreference", "moqui.security.UserScreenTheme", "moqui.server.Visit"));
+    public void warmCache()  {
+        logger.info("Warming cache for all entity definitions");
+        long startTime = System.currentTimeMillis();
+        Set<String> entityNames = getAllEntityNames();
+        for (String entityName : entityNames) {
             try {
-                EntityDefinition ed = getEntityDefinition(entityName)
-                ed.getRelationshipInfoMap()
+                EntityDefinition ed = getEntityDefinition(entityName);
+                ed.getRelationshipInfoMap();
                 // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
-                ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName())
+                ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName());
 
-                if (cachedCountEntities.contains(entityName)) ed.getCacheCount(entityCache)
+                if (cachedCountEntities.contains(entityName)) ed.getCacheCount(entityCache);
                 if (cachedListEntities.contains(entityName)) {
-                    ed.getCacheList(entityCache)
-                    ed.getCacheListRa(entityCache)
-                    ed.getCacheListViewRa(entityCache)
+                    ed.getCacheList(entityCache);
+                    ed.getCacheListRa(entityCache);
+                    ed.getCacheListViewRa(entityCache);
                 }
                 if (cachedOneEntities.contains(entityName)) {
-                    ed.getCacheOne(entityCache)
-                    ed.getCacheOneRa(entityCache)
-                    ed.getCacheOneViewRa(entityCache)
+                    ed.getCacheOne(entityCache);
+                    ed.getCacheOneRa(entityCache);
+                    ed.getCacheOneViewRa(entityCache);
                 }
             } catch (Throwable t) { logger.warn("Error warming entity cache: ${t.toString()}") }
         }
@@ -349,200 +353,200 @@ public class EntityFacadeImpl implements EntityFacade {
         logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${System.currentTimeMillis() - startTime}ms")
     }
 
-    Set<String> getDatasourceGroupNames() {
-        Set<String> groupNames = new TreeSet<String>()
-        for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
-            groupNames.add((String) datasourceNode.attribute("group-name"))
+    public Set<String> getDatasourceGroupNames() {
+        Set<String> groupNames = new TreeSet<>();
+        for (MNode datasourceNode : getEntityFacadeNode().children("datasource")) {
+            groupNames.add((String) datasourceNode.attribute("group-name"));
         }
-        return groupNames
+        return groupNames;
     }
 
-    static int getTxIsolationFromString(String isolationLevel) {
-        if (!isolationLevel) return -1
+    public static int getTxIsolationFromString(String isolationLevel) {
+        if (isolationLevel == null) return -1;
         if ("Serializable".equals(isolationLevel)) {
-            return Connection.TRANSACTION_SERIALIZABLE
+            return Connection.TRANSACTION_SERIALIZABLE;
         } else if ("RepeatableRead".equals(isolationLevel)) {
-            return Connection.TRANSACTION_REPEATABLE_READ
+            return Connection.TRANSACTION_REPEATABLE_READ;
         } else if ("ReadUncommitted".equals(isolationLevel)) {
-            return Connection.TRANSACTION_READ_UNCOMMITTED
+            return Connection.TRANSACTION_READ_UNCOMMITTED;
         } else if ("ReadCommitted".equals(isolationLevel)) {
-            return Connection.TRANSACTION_READ_COMMITTED
+            return Connection.TRANSACTION_READ_COMMITTED;
         } else if ("None".equals(isolationLevel)) {
-            return Connection.TRANSACTION_NONE
+            return Connection.TRANSACTION_NONE;
         } else {
-            return -1
+            return -1;
         }
     }
 
-    List<ResourceReference> getAllEntityFileLocations() {
-        List<ResourceReference> entityRrList = new LinkedList()
-        entityRrList.addAll(getConfEntityFileLocations())
-        entityRrList.addAll(getComponentEntityFileLocations(null))
-        return entityRrList
-    }
-    List<ResourceReference> getConfEntityFileLocations() {
-        List<ResourceReference> entityRrList = new LinkedList()
+//    public List<ResourceReference> getAllEntityFileLocations() {
+//        List<ResourceReference> entityRrList = new LinkedList();
+//        entityRrList.addAll(getConfEntityFileLocations());
+//        entityRrList.addAll(getComponentEntityFileLocations(null));
+//        return entityRrList;
+//    }
+//    public List<ResourceReference> getConfEntityFileLocations() {
+//        List<ResourceReference> entityRrList = new LinkedList();
+//
+//        // loop through all of the entity-facade.load-entity nodes, check each for "<entities>" root element
+//        for (MNode loadEntity : getEntityFacadeNode().children("load-entity")) {
+//            entityRrList.add(this.ecfi.resourceFacade.getLocationReference((String) loadEntity.attribute("location")));
+//        }
+//
+//        return entityRrList;
+//    }
+//    public List<ResourceReference> getComponentEntityFileLocations(List<String> componentNameList) {
+//        List<ResourceReference> entityRrList = new LinkedList();
+//
+//        List<String> componentBaseLocations;
+//        if (componentNameList != null && !componentNameList.isEmpty()) {
+//            componentBaseLocations = new ArrayList<>();
+//            for (String cn : componentNameList)
+//            componentBaseLocations.add(ecfi.getComponentBaseLocations().get(cn));
+//        } else {
+//            componentBaseLocations = new ArrayList(ecfi.getComponentBaseLocations().values());
+//        }
+//
+//        // loop through components look for XML files in the entity directory, check each for "<entities>" root element
+//        for (String location in componentBaseLocations) {
+//            ResourceReference entityDirRr = ecfi.resourceFacade.getLocationReference(location + "/entity")
+//            if (entityDirRr.supportsAll()) {
+//                // if directory doesn't exist skip it, component doesn't have an entity directory
+//                if (!entityDirRr.exists || !entityDirRr.isDirectory()) continue
+//                        // get all files in the directory
+//                TreeMap<String, ResourceReference> entityDirEntries = new TreeMap<String, ResourceReference>()
+//                for (ResourceReference entityRr in entityDirRr.directoryEntries) {
+//                    if (!entityRr.isFile() || !entityRr.location.endsWith(".xml")) continue
+//                    entityDirEntries.put(entityRr.getFileName(), entityRr)
+//                }
+//                for (Map.Entry<String, ResourceReference> entityDirEntry in entityDirEntries) {
+//                    entityRrList.add(entityDirEntry.getValue())
+//                }
+//            } else {
+//                // just warn here, no exception because any non-file component location would blow everything up
+//                logger.warn("Cannot load entity directory in component location [${location}] because protocol [${entityDirRr.uri.scheme}] is not supported.")
+//            }
+//        }
+//
+//        return entityRrList
+//    }
+//
+//    public Map<String, List<String>> loadAllEntityLocations() {
+//        // lock or wait for lock, this lock used here and for checking entity defined
+//        locationLoadLock.lock()
+//
+//        try {
+//            // load all entity files based on ResourceReference
+//            long startTime = System.currentTimeMillis()
+//
+//            Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
+//            // when loading all entity locations we expect this to be null, if it isn't no need to load
+//            if (entityLocationCache != null) return entityLocationCache
+//            entityLocationCache = new HashMap<>()
+//
+//            List<ResourceReference> allEntityFileLocations = getAllEntityFileLocations()
+//            for (ResourceReference entityRr in allEntityFileLocations) this.loadEntityFileLocations(entityRr, entityLocationCache)
+//            if (logger.isInfoEnabled()) logger.info("Found entities in ${allEntityFileLocations.size()} files in ${System.currentTimeMillis() - startTime}ms")
+//
+//            // put in the cache for other code to use; needed before DbViewEntity load so DB queries work
+//            entityLocationSingleCache.put(entityLocSingleEntryName, entityLocationCache)
+//
+//            // look for view-entity definitions in the database (moqui.entity.view.DbViewEntity)
+//            if (entityLocationCache.get("moqui.entity.view.DbViewEntity")) {
+//                int numDbViewEntities = 0
+//                for (EntityValue dbViewEntity in find("moqui.entity.view.DbViewEntity").list()) {
+//                    if (dbViewEntity.packageName) {
+//                        List<String> pkgList = (List<String>) entityLocationCache.get((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName)
+//                        if (pkgList == null) {
+//                            pkgList = new LinkedList<>()
+//                            entityLocationCache.put((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName, pkgList)
+//                        }
+//                        if (!pkgList.contains("_DB_VIEW_ENTITY_")) pkgList.add("_DB_VIEW_ENTITY_")
+//                    }
+//
+//                    List<String> nameList = (List<String>) entityLocationCache.get((String) dbViewEntity.dbViewEntityName)
+//                    if (nameList == null) {
+//                        nameList = new LinkedList<>()
+//                        // put in cache under both plain entityName and fullEntityName
+//                        entityLocationCache.put((String) dbViewEntity.dbViewEntityName, nameList)
+//                    }
+//                    if (!nameList.contains("_DB_VIEW_ENTITY_")) nameList.add("_DB_VIEW_ENTITY_")
+//
+//                    numDbViewEntities++
+//                }
+//                if (logger.infoEnabled) logger.info("Found ${numDbViewEntities} view-entity definitions in database (DbViewEntity records)")
+//            } else {
+//                logger.warn("Could not find view-entity definitions in database (moqui.entity.view.DbViewEntity), no location found for the moqui.entity.view.DbViewEntity entity.")
+//            }
+//
+//            /* a little code to show all entities and their locations
+//            Set<String> enSet = new TreeSet(entityLocationCache.keySet())
+//            for (String en in enSet) {
+//                List lst = entityLocationCache.get(en)
+//                entityLocationCache.put(en, Collections.unmodifiableList(lst))
+//                logger.warn("TOREMOVE entity ${en}: ${lst}")
+//            }
+//            */
+//
+//            return entityLocationCache
+//        } finally {
+//            locationLoadLock.unlock()
+//        }
+//    }
+//
+//    // NOTE: only called by loadAllEntityLocations() which is synchronized/locked, so doesn't need to be
+//    protected void loadEntityFileLocations(ResourceReference entityRr, Map<String, List<String>> entityLocationCache) {
+//        MNode entityRoot = getEntityFileRoot(entityRr)
+//        if (entityRoot.name == "entities") {
+//            // loop through all entity, view-entity, and extend-entity and add file location to List for any entity named
+//            int numEntities = 0
+//            for (MNode entity in entityRoot.children) {
+//                String entityName = entity.attribute("entity-name")
+//                String packageName = entity.attribute("package")
+//                if (packageName == null || packageName.isEmpty()) packageName = entity.attribute("package-name")
+//                String shortAlias = entity.attribute("short-alias")
+//
+//                if (entityName == null || entityName.length() == 0) {
+//                    logger.warn("Skipping entity XML file [${entityRr.getLocation()}] element with no @entity-name: ${entity}")
+//                    continue
+//                }
+//
+//                List<String> locList = (List<String>) entityLocationCache.get(entityName)
+//                if (locList == null) {
+//                    locList = new LinkedList<>()
+//                    locList.add(entityRr.location)
+//                    entityLocationCache.put(entityName, locList)
+//                } else if (!locList.contains(entityRr.location)) {
+//                    locList.add(entityRr.location)
+//                }
+//
+//                if (packageName != null && packageName.length() > 0) {
+//                    String fullEntityName = packageName.concat(".").concat(entityName)
+//                    if (!entityLocationCache.containsKey(fullEntityName)) entityLocationCache.put(fullEntityName, locList)
+//                }
+//                if (shortAlias != null && shortAlias.length() > 0) {
+//                    if (!entityLocationCache.containsKey(shortAlias)) entityLocationCache.put(shortAlias, locList)
+//                }
+//
+//                numEntities++
+//            }
+//            if (isTraceEnabled) logger.trace("Found [${numEntities}] entity definitions in [${entityRr.location}]")
+//        }
+//    }
+//
+//    protected static MNode getEntityFileRoot(ResourceReference entityRr) { return MNode.parse(entityRr) }
 
-        // loop through all of the entity-facade.load-entity nodes, check each for "<entities>" root element
-        for (MNode loadEntity in getEntityFacadeNode().children("load-entity")) {
-            entityRrList.add(this.ecfi.resourceFacade.getLocationReference((String) loadEntity.attribute("location")))
-        }
-
-        return entityRrList
-    }
-    List<ResourceReference> getComponentEntityFileLocations(List<String> componentNameList) {
-        List<ResourceReference> entityRrList = new LinkedList()
-
-        List<String> componentBaseLocations
-        if (componentNameList) {
-            componentBaseLocations = []
-            for (String cn in componentNameList)
-            componentBaseLocations.add(ecfi.getComponentBaseLocations().get(cn))
-        } else {
-            componentBaseLocations = new ArrayList(ecfi.getComponentBaseLocations().values())
-        }
-
-        // loop through components look for XML files in the entity directory, check each for "<entities>" root element
-        for (String location in componentBaseLocations) {
-            ResourceReference entityDirRr = ecfi.resourceFacade.getLocationReference(location + "/entity")
-            if (entityDirRr.supportsAll()) {
-                // if directory doesn't exist skip it, component doesn't have an entity directory
-                if (!entityDirRr.exists || !entityDirRr.isDirectory()) continue
-                        // get all files in the directory
-                TreeMap<String, ResourceReference> entityDirEntries = new TreeMap<String, ResourceReference>()
-                for (ResourceReference entityRr in entityDirRr.directoryEntries) {
-                    if (!entityRr.isFile() || !entityRr.location.endsWith(".xml")) continue
-                    entityDirEntries.put(entityRr.getFileName(), entityRr)
-                }
-                for (Map.Entry<String, ResourceReference> entityDirEntry in entityDirEntries) {
-                    entityRrList.add(entityDirEntry.getValue())
-                }
-            } else {
-                // just warn here, no exception because any non-file component location would blow everything up
-                logger.warn("Cannot load entity directory in component location [${location}] because protocol [${entityDirRr.uri.scheme}] is not supported.")
-            }
-        }
-
-        return entityRrList
-    }
-
-    Map<String, List<String>> loadAllEntityLocations() {
-        // lock or wait for lock, this lock used here and for checking entity defined
-        locationLoadLock.lock()
-
-        try {
-            // load all entity files based on ResourceReference
-            long startTime = System.currentTimeMillis()
-
-            Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
-            // when loading all entity locations we expect this to be null, if it isn't no need to load
-            if (entityLocationCache != null) return entityLocationCache
-            entityLocationCache = new HashMap<>()
-
-            List<ResourceReference> allEntityFileLocations = getAllEntityFileLocations()
-            for (ResourceReference entityRr in allEntityFileLocations) this.loadEntityFileLocations(entityRr, entityLocationCache)
-            if (logger.isInfoEnabled()) logger.info("Found entities in ${allEntityFileLocations.size()} files in ${System.currentTimeMillis() - startTime}ms")
-
-            // put in the cache for other code to use; needed before DbViewEntity load so DB queries work
-            entityLocationSingleCache.put(entityLocSingleEntryName, entityLocationCache)
-
-            // look for view-entity definitions in the database (moqui.entity.view.DbViewEntity)
-            if (entityLocationCache.get("moqui.entity.view.DbViewEntity")) {
-                int numDbViewEntities = 0
-                for (EntityValue dbViewEntity in find("moqui.entity.view.DbViewEntity").list()) {
-                    if (dbViewEntity.packageName) {
-                        List<String> pkgList = (List<String>) entityLocationCache.get((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName)
-                        if (pkgList == null) {
-                            pkgList = new LinkedList<>()
-                            entityLocationCache.put((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName, pkgList)
-                        }
-                        if (!pkgList.contains("_DB_VIEW_ENTITY_")) pkgList.add("_DB_VIEW_ENTITY_")
-                    }
-
-                    List<String> nameList = (List<String>) entityLocationCache.get((String) dbViewEntity.dbViewEntityName)
-                    if (nameList == null) {
-                        nameList = new LinkedList<>()
-                        // put in cache under both plain entityName and fullEntityName
-                        entityLocationCache.put((String) dbViewEntity.dbViewEntityName, nameList)
-                    }
-                    if (!nameList.contains("_DB_VIEW_ENTITY_")) nameList.add("_DB_VIEW_ENTITY_")
-
-                    numDbViewEntities++
-                }
-                if (logger.infoEnabled) logger.info("Found ${numDbViewEntities} view-entity definitions in database (DbViewEntity records)")
-            } else {
-                logger.warn("Could not find view-entity definitions in database (moqui.entity.view.DbViewEntity), no location found for the moqui.entity.view.DbViewEntity entity.")
-            }
-
-            /* a little code to show all entities and their locations
-            Set<String> enSet = new TreeSet(entityLocationCache.keySet())
-            for (String en in enSet) {
-                List lst = entityLocationCache.get(en)
-                entityLocationCache.put(en, Collections.unmodifiableList(lst))
-                logger.warn("TOREMOVE entity ${en}: ${lst}")
-            }
-            */
-
-            return entityLocationCache
-        } finally {
-            locationLoadLock.unlock()
-        }
-    }
-
-    // NOTE: only called by loadAllEntityLocations() which is synchronized/locked, so doesn't need to be
-    protected void loadEntityFileLocations(ResourceReference entityRr, Map<String, List<String>> entityLocationCache) {
-        MNode entityRoot = getEntityFileRoot(entityRr)
-        if (entityRoot.name == "entities") {
-            // loop through all entity, view-entity, and extend-entity and add file location to List for any entity named
-            int numEntities = 0
-            for (MNode entity in entityRoot.children) {
-                String entityName = entity.attribute("entity-name")
-                String packageName = entity.attribute("package")
-                if (packageName == null || packageName.isEmpty()) packageName = entity.attribute("package-name")
-                String shortAlias = entity.attribute("short-alias")
-
-                if (entityName == null || entityName.length() == 0) {
-                    logger.warn("Skipping entity XML file [${entityRr.getLocation()}] element with no @entity-name: ${entity}")
-                    continue
-                }
-
-                List<String> locList = (List<String>) entityLocationCache.get(entityName)
-                if (locList == null) {
-                    locList = new LinkedList<>()
-                    locList.add(entityRr.location)
-                    entityLocationCache.put(entityName, locList)
-                } else if (!locList.contains(entityRr.location)) {
-                    locList.add(entityRr.location)
-                }
-
-                if (packageName != null && packageName.length() > 0) {
-                    String fullEntityName = packageName.concat(".").concat(entityName)
-                    if (!entityLocationCache.containsKey(fullEntityName)) entityLocationCache.put(fullEntityName, locList)
-                }
-                if (shortAlias != null && shortAlias.length() > 0) {
-                    if (!entityLocationCache.containsKey(shortAlias)) entityLocationCache.put(shortAlias, locList)
-                }
-
-                numEntities++
-            }
-            if (isTraceEnabled) logger.trace("Found [${numEntities}] entity definitions in [${entityRr.location}]")
-        }
-    }
-
-    protected static MNode getEntityFileRoot(ResourceReference entityRr) { return MNode.parse(entityRr) }
-
-    int loadAllEntityDefinitions() {
-        int entityCount = 0
-        for (String en in getAllEntityNames()) {
+    public int loadAllEntityDefinitions() {
+        int entityCount = 0;
+        for (String en : getAllEntityNames()) {
             try {
-                getEntityDefinition(en)
+                getEntityDefinition(en);
             } catch (EntityException e) {
-                logger.warn("Problem finding entity definition", e)
-                continue
+                logger.warn("Problem finding entity definition", e);
+                continue;
             }
-            entityCount++
-        }
-        return entityCount
+            entityCount++;
+        };
+        return entityCount;
     }
 
 
@@ -550,55 +554,59 @@ public class EntityFacadeImpl implements EntityFacade {
         if (entityName.contains("#")) {
             // this is a relationship name, definitely not an entity name so just return null; this happens because we
             //    check if a name is an entity name or not in various places including where relationships are checked
-            return null
+            return null;
         }
 
-        EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityName)
-        if (ed != null) return ed
+        EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityName);
+        if (ed != null) return ed;
 
-        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
-        if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
+        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName);
+        if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations();
 
-        List<String> entityLocationList = (List<String>) entityLocationCache.get(entityName)
+        List<String> entityLocationList = (List<String>) entityLocationCache.get(entityName);
         if (entityLocationList == null) {
-            if (logger.isWarnEnabled()) logger.warn("No location cache found for entity-name [${entityName}], reloading ALL entity file and DB locations")
-            if (isTraceEnabled) logger.trace("Unknown entity name ${entityName} location", new BaseException("Unknown entity name location"))
+            if (logger.isWarnEnabled()) logger.warn("No location cache found for entity-name [${entityName}], reloading ALL entity file and DB locations");
+            if (isTraceEnabled) logger.trace("Unknown entity name ${entityName} location", new EntityException("Unknown entity name location"));
 
             // remove the single cache entry
-            entityLocationSingleCache.remove(entityLocSingleEntryName)
+            entityLocationSingleCache.remove(entityLocSingleEntryName);
             // reload all locations
-            entityLocationCache = this.loadAllEntityLocations()
-            entityLocationList = (List<String>) entityLocationCache.get(entityName)
+            entityLocationCache = this.loadAllEntityLocations();
+            entityLocationList = (List<String>) entityLocationCache.get(entityName);
             // no locations found for this entity, entity probably doesn't exist
             if (entityLocationList == null || entityLocationList.size() == 0) {
                 // TODO: while this is helpful, if another unknown non-existing entity is looked for this will be lost
-                entityLocationCache.put(entityName, new LinkedList<String>())
-                if (logger.isWarnEnabled()) logger.warn("No definition found for entity-name [${entityName}]")
-                throw new EntityNotFoundException("No definition found for entity-name [${entityName}]")
+                entityLocationCache.put(entityName, new LinkedList<>());
+                if (logger.isWarnEnabled()) logger.warn("No definition found for entity-name [${entityName}]");
+                throw new EntityNotFoundException("No definition found for entity-name [${entityName}]");
             }
         }
 
         if (entityLocationList.size() == 0) {
-            if (isTraceEnabled) logger.trace("Entity name [${entityName}] is a known non-entity, returning null for EntityDefinition.")
-            return null
+            if (isTraceEnabled) logger.trace("Entity name [${entityName}] is a known non-entity, returning null for EntityDefinition.");
+            return null;
         }
 
-        String packageName = null
-        if (entityName.contains('.')) {
-            packageName = entityName.substring(0, entityName.lastIndexOf("."))
-            entityName = entityName.substring(entityName.lastIndexOf(".")+1)
+        String packageName = null;
+        if (entityName.contains(".")) {
+            packageName = entityName.substring(0, entityName.lastIndexOf("."));
+            entityName = entityName.substring(entityName.lastIndexOf(".")+1);
         }
 
         // if (!packageName) logger.warn("TOREMOVE finding entity def for [${entityName}] with no packageName, entityLocationList=${entityLocationList}")
 
         // If this is a moqui.entity.view.DbViewEntity, handle that in a special way (generate the Nodes from the DB records)
         if (entityLocationList.contains("_DB_VIEW_ENTITY_")) {
-            EntityValue dbViewEntity = find("moqui.entity.view.DbViewEntity").condition("dbViewEntityName", entityName).one()
+            EntityValue dbViewEntity = find("moqui.entity.view.DbViewEntity").condition("dbViewEntityName", entityName).one();
             if (dbViewEntity == null) {
-                logger.warn("Could not find DbViewEntity with name ${entityName}")
-                return null
+                logger.warn("Could not find DbViewEntity with name ${entityName}");
+                return null;
             }
-            MNode dbViewNode = new MNode("view-entity", ["entity-name":entityName, "package":(String) dbViewEntity.packageName])
+            String finalEntityName = entityName;
+            MNode dbViewNode = new MNode("view-entity",new ConcurrentHashMap<String,String>(){{
+                put("entity-name", finalEntityName);
+                put("package",dbViewEntity.getEntityName());
+            }} );
             if (dbViewEntity.cache == "Y") dbViewNode.attributes.put("cache", "true")
             else if (dbViewEntity.cache == "N") dbViewNode.attributes.put("cache", "false")
 
@@ -747,7 +755,7 @@ public class EntityFacadeImpl implements EntityFacade {
         return ed
     }
 
-    synchronized void createAllAutoReverseManyRelationships() {
+    public synchronized void createAllAutoReverseManyRelationships() {
         int relationshipsCreated = 0
         Set<String> entityNameSet = getAllEntityNames()
         for (String entityName in entityNameSet) {
@@ -843,13 +851,13 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     // used in tools screen
-    int getEecaRuleCount() {
+    public int getEecaRuleCount() {
         int count = 0
         for (List ruleList in eecaRulesByEntityName.values()) count += ruleList.size()
         return count
     }
 
-    void loadEecaRulesAll() {
+    public void loadEecaRulesAll() {
         int numLoaded = 0
         int numFiles = 0
         HashMap<String, EntityEcaRule> ruleByIdMap = new HashMap<>()
@@ -889,7 +897,7 @@ public class EntityFacadeImpl implements EntityFacade {
         // replace entire EECA rules Map in one operation
         eecaRulesByEntityName = ruleMap
     }
-    int loadEecaRulesFile(ResourceReference rr, HashMap<String, EntityEcaRule> ruleByIdMap, LinkedList<EntityEcaRule> ruleNoIdList) {
+    public int loadEecaRulesFile(ResourceReference rr, HashMap<String, EntityEcaRule> ruleByIdMap, LinkedList<EntityEcaRule> ruleNoIdList) {
         MNode eecasRoot = MNode.parse(rr)
         int numLoaded = 0
         for (MNode eecaNode in eecasRoot.children("eeca")) {
@@ -908,8 +916,8 @@ public class EntityFacadeImpl implements EntityFacade {
         return numLoaded
     }
 
-    boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) != null }
-    void runEecaRules(String entityName, Map fieldValues, String operation, boolean before) {
+    public boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) != null }
+    public void runEecaRules(String entityName, Map fieldValues, String operation, boolean before) {
         ArrayList<EntityEcaRule> lst = (ArrayList<EntityEcaRule>) eecaRulesByEntityName.get(entityName)
         if (lst != null && lst.size() > 0) {
             // if Entity ECA rules disabled in ArtifactExecutionFacade, just return immediately
@@ -923,7 +931,7 @@ public class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    void destroy() {
+    public void destroy() {
         Set<String> groupNames = this.datasourceFactoryByGroupMap.keySet()
         for (String groupName in groupNames) {
             EntityDatasourceFactory edf = this.datasourceFactoryByGroupMap.get(groupName)
@@ -933,14 +941,14 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     // used in tools screen
-    void checkAllEntityTables(String groupName) {
+    public void checkAllEntityTables(String groupName) {
         // TODO: load framework entities first, then component/mantle/etc entities for better FKs on first pass
         EntityDatasourceFactory edf = getDatasourceFactory(groupName)
         for (String entityName in getAllEntityNamesInGroup(groupName)) edf.checkAndAddTable(entityName)
     }
 
-    Set<String> getAllEntityNames() { return getAllEntityNames(null) }
-    Set<String> getAllEntityNames(String filterRegexp) {
+    public Set<String> getAllEntityNames() { return getAllEntityNames(null) }
+    public Set<String> getAllEntityNames(String filterRegexp) {
         Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
@@ -959,7 +967,7 @@ public class EntityFacadeImpl implements EntityFacade {
         return allNames
     }
 
-    Set<String> getAllNonViewEntityNames() {
+    public Set<String> getAllNonViewEntityNames() {
         Set<String> allNames = getAllEntityNames()
         Set<String> nonViewNames = new TreeSet<>()
         for (String name in allNames) {
@@ -968,7 +976,7 @@ public class EntityFacadeImpl implements EntityFacade {
         }
         return nonViewNames
     }
-    Set<String> getAllEntityNamesWithMaster() {
+    public Set<String> getAllEntityNamesWithMaster() {
         Set<String> allNames = getAllEntityNames()
         Set<String> masterNames = new TreeSet<>()
         for (String name in allNames) {
@@ -980,7 +988,7 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     // used in tools screens
-    List<Map> getAllEntityInfo(int levels, boolean excludeViewEntities) {
+    public List<Map> getAllEntityInfo(int levels, boolean excludeViewEntities) {
         Map<String, Map> entityInfoMap = [:]
         for (String entityName in getAllEntityNames()) {
             EntityDefinition ed = getEntityDefinition(entityName)
@@ -1006,7 +1014,7 @@ public class EntityFacadeImpl implements EntityFacade {
     /** This is used mostly by the service engine to quickly determine whether a noun is an entity. Called for all
      * ServiceDefinition init to see if the noun is an entity name. Called by entity auto check if no path and verb is
      * one of the entity-auto supported verbs. */
-    boolean isEntityDefined(String entityName) {
+    public boolean isEntityDefined(String entityName) {
         if (entityName == null) return false
 
         // Special treatment for framework entities, quick Map lookup (also faster than Cache get)
@@ -1019,7 +1027,7 @@ public class EntityFacadeImpl implements EntityFacade {
         return locList != null && locList.size() > 0
     }
 
-    EntityDefinition getEntityDefinition(String entityName) {
+    public EntityDefinition getEntityDefinition(String entityName) {
         if (entityName == null) return null
         EntityDefinition ed = (EntityDefinition) frameworkEntityDefinitions.get(entityName)
         if (ed != null) return ed
@@ -1034,7 +1042,7 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     // used in tools screens
-    void clearEntityDefinitionFromCache(String entityName) {
+    public void clearEntityDefinitionFromCache(String entityName) {
         EntityDefinition ed = (EntityDefinition) this.entityDefinitionCache.get(entityName)
         if (ed != null) {
             this.entityDefinitionCache.remove(ed.entityInfo.internalEntityName)
@@ -1044,7 +1052,7 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     // used in tools screens
-    ArrayList<Map<String, Object>> getAllEntitiesInfo(String orderByField, String filterRegexp, boolean masterEntitiesOnly,
+    public ArrayList<Map<String, Object>> getAllEntitiesInfo(String orderByField, String filterRegexp, boolean masterEntitiesOnly,
                                                       boolean excludeViewEntities) {
         if (masterEntitiesOnly) createAllAutoReverseManyRelationships()
 
@@ -1070,7 +1078,7 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     // used in tools screen (EntityDbView)
-    ArrayList<Map<String, Object>> getAllEntityRelatedFields(String en, String orderByField, String dbViewEntityName) {
+    public ArrayList<Map<String, Object>> getAllEntityRelatedFields(String en, String orderByField, String dbViewEntityName) {
         // make sure reverse-one many relationships exist
         createAllAutoReverseManyRelationships()
 
@@ -1131,7 +1139,7 @@ public class EntityFacadeImpl implements EntityFacade {
         return efl
     }
 
-    MNode getDatabaseNode(String groupName) {
+    public MNode getDatabaseNode(String groupName) {
         MNode node = databaseNodeByGroupName.get(groupName)
         if (node != null) return node
         return findDatabaseNode(groupName)
@@ -1148,13 +1156,13 @@ public class EntityFacadeImpl implements EntityFacade {
         return ecfi.confXmlRoot.first("database-list")
                 .first({ MNode it -> it.name == 'database' && it.attribute("name") == confName })
     }
-    String getDatabaseConfName(String entityName) {
+    public String getDatabaseConfName(String entityName) {
         MNode dsNode = getDatasourceNode(getEntityGroupName(entityName))
         if (dsNode == null) return null
         return dsNode.attribute("database-conf-name")
     }
 
-    MNode getDatasourceNode(String groupName) {
+    public MNode getDatasourceNode(String groupName) {
         MNode node = datasourceNodeByGroupName.get(groupName)
         if (node != null) return node
         return findDatasourceNode(groupName)
@@ -1168,11 +1176,11 @@ public class EntityFacadeImpl implements EntityFacade {
         return dsNode
     }
 
-    EntityDbMeta getEntityDbMeta() { return dbMeta != null ? dbMeta : (dbMeta = new EntityDbMeta(this)) }
+    public EntityDbMeta getEntityDbMeta() { return dbMeta != null ? dbMeta : (dbMeta = new EntityDbMeta(this)) }
 
     /** Get a JDBC Connection based on xa-properties configuration. The Conf Map should contain the default entity_ds properties
      * including entity_ds_db_conf, entity_ds_host, entity_ds_port, entity_ds_database, entity_ds_user, entity_ds_password */
-    XAConnection getConfConnection(Map<String, String> confMap) {
+    public XAConnection getConfConnection(Map<String, String> confMap) {
         String confName = confMap.entity_ds_db_conf
         MNode databaseNode = getDatabaseNodeByConf(confName)
         MNode xaPropsNode = databaseNode.first("inline-jdbc")?.first("xa-properties")
@@ -1194,7 +1202,7 @@ public class EntityFacadeImpl implements EntityFacade {
         return xaDs.getXAConnection(confMap.entity_ds_user, confMap.entity_ds_password)
     }
     // used in services
-    int runSqlUpdateConf(CharSequence sql, Map<String, String> confMap) {
+    public int runSqlUpdateConf(CharSequence sql, Map<String, String> confMap) {
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
         int records = 0
         ecfi.transactionFacade.runRequireNew(30, "Error in DB meta data change", false, true, {
@@ -1231,7 +1239,7 @@ public class EntityFacadeImpl implements EntityFacade {
     }
     */
     // used in services
-    long runSqlCountConf(CharSequence from, CharSequence where, Map<String, String> confMap) {
+    public long runSqlCountConf(CharSequence from, CharSequence where, Map<String, String> confMap) {
         StringBuilder sqlSb = new StringBuilder("SELECT COUNT(*) FROM ").append(from).append(" WHERE ").append(where)
         XAConnection xacon = null
         Connection con = null
@@ -1257,13 +1265,13 @@ public class EntityFacadeImpl implements EntityFacade {
     /* ========================= */
 
     @Override
-    EntityDatasourceFactory getDatasourceFactory(String groupName) {
+    public EntityDatasourceFactory getDatasourceFactory(String groupName) {
         EntityDatasourceFactory edf = (EntityDatasourceFactory) datasourceFactoryByGroupMap.get(groupName)
         if (edf == null) edf = (EntityDatasourceFactory) datasourceFactoryByGroupMap.get(defaultGroupName)
         if (edf == null) throw new EntityException("Could not find EntityDatasourceFactory for entity group ${groupName}")
         return edf
     }
-    List<Map<String, Object>> getDataSourcesInfo() {
+    public List<Map<String, Object>> getDataSourcesInfo() {
         List<Map<String, Object>> dsiList = new LinkedList<>()
         for (String groupName in datasourceFactoryByGroupMap.keySet()) {
             EntityDatasourceFactory edf = datasourceFactoryByGroupMap.get(groupName)
@@ -1278,11 +1286,12 @@ public class EntityFacadeImpl implements EntityFacade {
         return dsiList
     }
 
-    @Override EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
-    EntityConditionFactoryImpl getConditionFactoryImpl() { return this.entityConditionFactory }
+    @Override
+    public EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
+    public EntityConditionFactoryImpl getConditionFactoryImpl() { return this.entityConditionFactory }
 
     @Override
-    EntityValue makeValue(String entityName) {
+    public EntityValue makeValue(String entityName) {
         // don't check entityName empty, getEntityDefinition() does it
         EntityDefinition ed = getEntityDefinition(entityName)
         if (ed == null) throw new EntityException("No entity found with name ${entityName}")
@@ -1290,7 +1299,7 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
-    EntityFind find(String entityName) {
+    public EntityFind find(String entityName) {
         // don't check entityName empty, getEntityDefinition() does it
         EntityDefinition ed = getEntityDefinition(entityName)
         if (ed == null) throw new EntityException("No entity found with name ${entityName}")
@@ -1302,7 +1311,7 @@ public class EntityFacadeImpl implements EntityFacade {
         return ed.makeEntityFind()
     }
     @Override
-    EntityFind find(MNode node) {
+    public EntityFind find(MNode node) {
         String entityName = node.attribute("entity-name")
         if (entityName != null && entityName.contains("\${")) entityName = ecfi.resourceFacade.expand(entityName, null)
         // don't check entityName empty, getEntityDefinition() does it
@@ -1353,8 +1362,8 @@ public class EntityFacadeImpl implements EntityFacade {
 
     /** Simple, fast find by primary key; doesn't filter find based on authz; doesn't use TransactionCache
      * For cached queries this is about 50% faster (6M/s vs 4M/s) for non-cached queries only about 10% faster (500K vs 450K) */
-    EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values) {
-        ExecutionContextImpl ec = ecfi.getEci()
+    public EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values) {
+        EntityContextImpl ec = ecfi.getEci()
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
         try {
@@ -1505,9 +1514,9 @@ public class EntityFacadeImpl implements EntityFacade {
         return newEntityValue;
     }
 
-    final static Map<String, String> operationByMethod = [get:'find', post:'create', put:'store', patch:'update', delete:'delete']
+    public final static Map<String, String> operationByMethod = [get:'find', post:'create', put:'store', patch:'update', delete:'delete']
     @Override
-    Object rest(String operation, List<String> entityPath, Map parameters, boolean masterNameInPath) {
+    public Object rest(String operation, List<String> entityPath, Map parameters, boolean masterNameInPath) {
         if (operation == null || operation.length() == 0) throw new EntityException("Operation (method) must be specified")
         operation = operationByMethod.get(operation.toLowerCase()) ?: operation
         if (!(operation in ['find', 'create', 'store', 'update', 'delete']))
@@ -1635,7 +1644,7 @@ public class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    EntityList getValueListFromPlainMap(Map value, String entityName) {
+    public EntityList getValueListFromPlainMap(Map value, String entityName) {
         if (entityName == null || entityName.length() == 0) entityName = value."_entity"
         if (entityName == null || entityName.length() == 0) throw new EntityException("No entityName passed and no _entity field in value Map")
 
@@ -1646,7 +1655,7 @@ public class EntityFacadeImpl implements EntityFacade {
         addValuesFromPlainMapRecursive(ed, value, valueList, null)
         return valueList
     }
-    void addValuesFromPlainMapRecursive(EntityDefinition ed, Map value, EntityList valueList, Map<String, Object> parentPks) {
+    public void addValuesFromPlainMapRecursive(EntityDefinition ed, Map value, EntityList valueList, Map<String, Object> parentPks) {
         // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
         //     allow them to be left out of related records
         if (parentPks != null) {
@@ -1714,7 +1723,7 @@ public class EntityFacadeImpl implements EntityFacade {
 
 
     @Override
-    EntityListIterator sqlFind(String sql, List<Object> sqlParameterList, String entityName, List<String> fieldList) {
+    public EntityListIterator sqlFind(String sql, List<Object> sqlParameterList, String entityName, List<String> fieldList) {
         if (sqlParameterList == null || fieldList == null || sqlParameterList.size() != fieldList.size())
             throw new BaseArtifactException("For sqlFind sqlParameterList and fieldList must not be null and must be the same size")
         EntityDefinition ed = this.getEntityDefinition(entityName)
@@ -1754,28 +1763,28 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
-    ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
+    public ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
                                     Timestamp thruUpdatedStamp) {
         return entityDataDocument.getDataDocuments(dataDocumentId, condition, fromUpdateStamp, thruUpdatedStamp)
     }
 
     @Override
-    ArrayList<Map> getDataFeedDocuments(String dataFeedId, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
+    public ArrayList<Map> getDataFeedDocuments(String dataFeedId, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
         return entityDataFeed.getFeedDocuments(dataFeedId, fromUpdateStamp, thruUpdatedStamp)
     }
 
-    void tempSetSequencedIdPrimary(String seqName, long nextSeqNum, long bankSize) {
+    public void tempSetSequencedIdPrimary(String seqName, long nextSeqNum, long bankSize) {
         long[] bank = new long[2]
         bank[0] = nextSeqNum
         bank[1] = nextSeqNum + bankSize
         entitySequenceBankCache.put(seqName, bank)
     }
-    void tempResetSequencedIdPrimary(String seqName) {
+    public void tempResetSequencedIdPrimary(String seqName) {
         entitySequenceBankCache.put(seqName, null)
     }
 
     @Override
-    String sequencedIdPrimary(String seqName, Long staggerMax, Long bankSize) {
+    public String sequencedIdPrimary(String seqName, Long staggerMax, Long bankSize) {
         try {
             // is the seqName an entityName?
             if (isEntityDefined(seqName)) {
@@ -1792,7 +1801,7 @@ public class EntityFacadeImpl implements EntityFacade {
         return dbSequencedIdPrimary(seqName, staggerMaxPrim, bankSizePrim)
     }
 
-    String sequencedIdPrimaryEd(EntityDefinition ed) {
+    public String sequencedIdPrimaryEd(EntityDefinition ed) {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         try {
             // is the seqName an entityName?
@@ -1881,7 +1890,7 @@ public class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    Set<String> getAllEntityNamesInGroup(String groupName) {
+    public Set<String> getAllEntityNamesInGroup(String groupName) {
         Set<String> groupEntityNames = new TreeSet<String>()
         for (String entityName in getAllEntityNames()) {
             // use the entity/group cache handled by getEntityGroupName()
@@ -1891,7 +1900,7 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
-    String getEntityGroupName(String entityName) {
+    public String getEntityGroupName(String entityName) {
         String entityGroupName = (String) entityGroupNameMap.get(entityName)
         if (entityGroupName != null) return entityGroupName
         EntityDefinition ed
@@ -1905,7 +1914,7 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
-    Connection getConnection(String groupName) {
+    public Connection getConnection(String groupName) {
         TransactionFacadeImpl tfi = ecfi.transactionFacade
         if (!tfi.isTransactionOperable()) throw new EntityException("Cannot get connection, transaction not in operable status (${tfi.getStatusString()})")
         Connection stashed = tfi.getTxConnection(groupName)
@@ -1924,11 +1933,14 @@ public class EntityFacadeImpl implements EntityFacade {
         return newCon
     }
 
-    @Override EntityDataLoader makeDataLoader() { return new EntityDataLoaderImpl(this) }
-    @Override EntityDataWriter makeDataWriter() { return new EntityDataWriterImpl(this) }
+    @Override
+    public EntityDataLoader makeDataLoader() { return new EntityDataLoaderImpl(this) }
+    @Override
+    public EntityDataWriter makeDataWriter() { return new EntityDataWriterImpl(this) }
 
-    @Override SimpleEtl.Loader makeEtlLoader() { return new EtlLoader(this) }
-    static class EtlLoader implements SimpleEtl.Loader {
+    @Override
+    public SimpleEtl.Loader makeEtlLoader() { return new EtlLoader(this) }
+    public static class EtlLoader implements SimpleEtl.Loader {
         private boolean beganTransaction = false
         private EntityFacadeImpl efi
         private boolean useTryInsert = false, dummyFks = false
@@ -1936,10 +1948,12 @@ public class EntityFacadeImpl implements EntityFacade {
         EtlLoader useTryInsert() { useTryInsert = true; return this }
         EtlLoader dummyFks() { dummyFks = true; return this }
 
-        @Override void init(Integer timeout) {
+        @Override
+        public void init(Integer timeout) {
             if (!efi.ecfi.transactionFacade.isTransactionActive()) beganTransaction = efi.ecfi.transactionFacade.begin(timeout)
         }
-        @Override void load(SimpleEtl.Entry entry) throws Exception {
+        @Override
+        public void load(SimpleEtl.Entry entry) throws Exception {
             String entityName = entry.getEtlType()
             if (!efi.isEntityDefined(entityName)) {
                 logger.info("Tried to load ETL entry with invalid entity name " + entityName)
@@ -1981,7 +1995,8 @@ public class EntityFacadeImpl implements EntityFacade {
                 if (results.size() > 0) entry.getEtlValues().putAll(results)
             }
         }
-        @Override void complete(SimpleEtl etl) {
+        @Override
+        public void complete(SimpleEtl etl) {
             if (etl.hasError()) {
                 efi.ecfi.transactionFacade.rollback(beganTransaction, "Error in ETL load", etl.getSingleErrorCause())
             } else if (beganTransaction) {
@@ -1991,7 +2006,7 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
-    EntityValue makeValue(Element element) {
+    public EntityValue makeValue(Element element) {
         if (!element) return null
 
         String entityName = element.getTagName()
@@ -2020,7 +2035,7 @@ public class EntityFacadeImpl implements EntityFacade {
     /* =============== */
 
     protected Map<String, Map<String, String>> javaTypeByGroup = [:]
-    String getFieldJavaType(String fieldType, EntityDefinition ed) {
+    public String getFieldJavaType(String fieldType, EntityDefinition ed) {
         String groupName = ed.getEntityGroupName()
         Map<String, String> javaTypeMap = javaTypeByGroup.get(groupName)
         if (javaTypeMap != null) {
@@ -2084,7 +2099,7 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     /** For pretty-print of field values based on field type */
-    String formatFieldString(String entityName, String fieldName, String value) {
+    public String formatFieldString(String entityName, String fieldName, String value) {
         if (value == null || value.isEmpty()) return ""
         EntityDefinition ed = getEntityDefinition(entityName)
         if (ed == null) return value
@@ -2133,14 +2148,14 @@ public class EntityFacadeImpl implements EntityFacade {
             "java.sql.Clob":13, "Clob":13,
             "java.util.Date":14,
             "java.util.ArrayList":15, "java.util.HashSet":15, "java.util.LinkedHashSet":15, "java.util.LinkedList":15]
-    static int getJavaTypeInt(String javaType) {
+    public static int getJavaTypeInt(String javaType) {
         Integer typeInt = (Integer) javaIntTypeMap.get(javaType)
         if (typeInt == null) throw new EntityException("Java type " + javaType + " not supported for entity fields")
         return typeInt
     }
 
-    final Map<String, EntityJavaUtil.QueryStatsInfo> queryStatsInfoMap = new HashMap<>()
-    void saveQueryStats(EntityDefinition ed, String sql, long queryTime, boolean isError) {
+    public final Map<String, EntityJavaUtil.QueryStatsInfo> queryStatsInfoMap = new HashMap<>()
+    public void saveQueryStats(EntityDefinition ed, String sql, long queryTime, boolean isError) {
         EntityJavaUtil.QueryStatsInfo qsi = queryStatsInfoMap.get(sql)
         if (qsi == null) {
             qsi = new EntityJavaUtil.QueryStatsInfo(ed.getFullEntityName(), sql)
@@ -2148,7 +2163,7 @@ public class EntityFacadeImpl implements EntityFacade {
         }
         qsi.countHit(this, queryTime, isError)
     }
-    ArrayList<Map<String, Object>> getQueryStatsList(String orderByField, String entityFilter, String sqlFilter) {
+    public ArrayList<Map<String, Object>> getQueryStatsList(String orderByField, String entityFilter, String sqlFilter) {
         ArrayList<Map<String, Object>> qsl = new ArrayList<>(queryStatsInfoMap.size())
         boolean hasEntityFilter = entityFilter != null && entityFilter.length() > 0
         boolean hasSqlFilter = sqlFilter != null && sqlFilter.length() > 0
@@ -2157,8 +2172,8 @@ public class EntityFacadeImpl implements EntityFacade {
             if (hasSqlFilter && !qsi.sql.matches("(?i).*" + sqlFilter + ".*")) continue
             qsl.add(qsi.makeDisplayMap())
         }
-        if (orderByField) CollectionUtilities.orderMapList(qsl, [orderByField])
-        return qsl
+        if (orderByField) CollectionUtil.orderMapList(qsl, [orderByField]);
+        return qsl;
     }
-    void clearQueryStats() { queryStatsInfoMap.clear() }
+    public void clearQueryStats() { queryStatsInfoMap.clear(); }
 }

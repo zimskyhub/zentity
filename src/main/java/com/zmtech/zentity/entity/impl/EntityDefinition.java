@@ -14,6 +14,7 @@
 package com.zmtech.zentity.entity.impl;
 
 import com.zmtech.zentity.entity.EntityCondition;
+import com.zmtech.zentity.entity.EntityCondition.*;
 import com.zmtech.zentity.entity.EntityFind;
 import com.zmtech.zentity.entity.EntityValue;
 import com.zmtech.zentity.exception.EntityException;
@@ -22,6 +23,8 @@ import com.zmtech.zentity.entity.impl.condition.ConditionField;
 import com.zmtech.zentity.entity.impl.condition.EntityConditionImplBase;
 import com.zmtech.zentity.util.MNode;
 import com.zmtech.zentity.entity.impl.EntityJavaUtil.*;
+import com.zmtech.zentity.util.ObjectUtil;
+import com.zmtech.zentity.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -116,16 +119,14 @@ public class EntityDefinition {
                 String joinFromAlias = memberRel.attribute("join-from-alias");
                 String relName = memberRel.attribute("relationship");
                 MNode jfme = internalEntityNode.first("member-entity", "entity-alias", joinFromAlias);
-                if (jfme == null) throw new EntityException("Could not find member-entity ${joinFromAlias} referenced in member-relationship ${memberRel.attribute('entity-alias')} of view-entity ${fullEntityName}");
+                if (jfme == null) throw new EntityException("Could not find member-entity "+joinFromAlias+" referenced in member-relationship "+memberRel.attribute("entity-alias")+" of view-entity "+fullEntityName);
                 String fromEntityName = jfme.attribute("entity-name");
                 EntityDefinition jfed = efi.getEntityDefinition(fromEntityName);
-                if (jfed == null) throw new EntityException("No definition found for member-entity ${jfme.attribute("entity-alias")} name ${fromEntityName} in view-entity ${fullEntityName}");
+                if (jfed == null) throw new EntityException("No definition found for member-entity "+jfme.attribute("entity-alias")+" name "+fromEntityName+" in view-entity "+fullEntityName);
 
                 // can't use getRelationshipInfo as not all entities loaded: RelationshipInfo relInfo = jfed.getRelationshipInfo(relName)
-                MNode relNode = jfed.internalEntityNode.first({ MNode it -> "relationship".equals(it.name) &&
-                        (relName.equals(it.attribute("short-alias")) || relName.equals(it.attribute("related")) ||
-                                relName.equals(it.attribute("related") + '#' + it.attribute("related"))) })
-                if (relNode == null) throw new EntityException("Could not find relationship ${relName} from member-entity ${joinFromAlias} referenced in member-relationship ${memberRel.attribute("entity-alias")} of view-entity ${fullEntityName}")
+                MNode relNode = jfed.internalEntityNode.first(it -> "relationship".equals(it.getName()) && (relName.equals(it.attribute("short-alias")) || relName.equals(it.attribute("related")) || relName.equals(it.attribute("related") + '#' + it.attribute("related"))));
+                if (relNode == null) throw new EntityException("Could not find relationship "+relName+" from member-entity "+joinFromAlias+" referenced in member-relationship "+memberRel.attribute("entity-alias")+" of view-entity "+fullEntityName);
 
                 // mutate the current MNode
                 memberRel.setName("member-entity");
@@ -150,7 +151,7 @@ public class EntityDefinition {
             }
 
             if (internalEntityNode.hasChild("member-relationship"))
-                logger.warn("view-entity ${fullEntityName} members: ${internalEntityNode.children("member-entity")}");
+                logger.warn("view-entity "+fullEntityName+" members: " + internalEntityNode.children("member-entity"));
 
             // get group, etc from member-entity
             Set<String> allGroupNames = new TreeSet<>();
@@ -160,7 +161,7 @@ public class EntityDefinition {
                 memberEntityAliasMap.put(memberEntity.attribute("entity-alias"), memberEntity);
                 if ("true".equals(memberEntity.attribute("sub-select"))) hasSubSelectMembers = true;
                 EntityDefinition memberEd = efi.getEntityDefinition(memberEntityName);
-                if (memberEd == null) throw new EntityException("No definition found for member-entity ${memberEntity.attribute("entity-alias")} name ${memberEntityName} in view-entity ${fullEntityName}");
+                if (memberEd == null) throw new EntityException("No definition found for member-entity "+memberEntity.attribute("entity-alias")+" name "+memberEntityName+" in view-entity " + fullEntityName);
                 MNode memberEntityNode = memberEd.getEntityNode();
                 String groupNameAttr = memberEntityNode.attribute("group") != null ? memberEntityNode.attribute("group"): memberEntityNode.attribute("group-name");
                 if (groupNameAttr == null || groupNameAttr.length() == 0) {
@@ -191,7 +192,7 @@ public class EntityDefinition {
                 EntityDefinition memberEd = efi.getEntityDefinition(memberEntity.attribute("entity-name"));
                 String fieldName = aliasNode.attribute("field") != null ? aliasNode.attribute("field") : aliasNode.attribute("name");
                 MNode fieldNode = memberEd.getFieldNode(fieldName);
-                if (fieldNode == null) throw new EntityException("In view-entity ${fullEntityName} alias ${aliasNode.attribute("name")} referred to field ${fieldName} that does not exist on entity ${memberEd.fullEntityName}.");
+                if (fieldNode == null) throw new EntityException("In view-entity "+fullEntityName+" alias "+aliasNode.attribute("name")+" referred to field "+fieldName+" that does not exist on entity "+memberEd.fullEntityName+".");
                 if (aliasNode.attribute("type") == null) aliasNode.getAttributes().put("type", fieldNode.attribute("type"));
                 if ("true".equals(fieldNode.attribute("is-pk"))) aliasNode.getAttributes().put("is-pk", "true");
                 if ("true".equals(fieldNode.attribute("enable-localization"))) aliasNode.getAttributes().put("enable-localization", "true");
@@ -305,12 +306,12 @@ public class EntityDefinition {
 
             ArrayList<MNode> whenNodeList = caseNode.children("when");
             int whenNodeListSize = whenNodeList.size();
-            if (whenNodeListSize == 0) throw new EntityException("No when element under case in alias ${fieldNode.attribute("name")} in view-entity ${getFullEntityName()}");
+            if (whenNodeListSize == 0) throw new EntityException("No when element under case in alias "+fieldNode.attribute("name")+" in view-entity " + getFullEntityName());
             for (int i = 0; i < whenNodeListSize; i++) {
                 MNode whenNode = (MNode) whenNodeList.get(i);
                 colNameBuilder.append(" WHEN ").append(whenNode.attribute("expression")).append(" THEN ");
                 MNode whenComplexAliasNode = whenNode.first("complex-alias");
-                if (whenComplexAliasNode == null) throw new EntityException("No complex-alias element under case.when in alias ${fieldNode.attribute("name")} in view-entity ${getFullEntityName()}");
+                if (whenComplexAliasNode == null) throw new EntityException("No complex-alias element under case.when in alias "+fieldNode.attribute("name")+" in view-entity " + getFullEntityName());
                 buildComplexAliasName(whenComplexAliasNode, colNameBuilder, true, includeEntityAlias);
             }
 
@@ -318,7 +319,7 @@ public class EntityDefinition {
             if (elseNode != null) {
                 colNameBuilder.append(" ELSE ");
                 MNode elseComplexAliasNode = elseNode.first("complex-alias");
-                if (elseComplexAliasNode == null) throw new EntityException("No complex-alias element under case.else in alias ${fieldNode.attribute("name")} in view-entity ${getFullEntityName()}");
+                if (elseComplexAliasNode == null) throw new EntityException("No complex-alias element under case.else in alias "+fieldNode.attribute("name")+" in view-entity " + getFullEntityName());
                 buildComplexAliasName(elseComplexAliasNode, colNameBuilder, true, includeEntityAlias);
             }
 
@@ -415,7 +416,7 @@ public class EntityDefinition {
 
             EntityDefinition aliasedEntityDefinition = efi.getEntityDefinition(memberEntity.attribute("entity-name"));
             if (aliasedEntityDefinition == null) {
-                logger.error("Entity [${memberEntity.attribute("entity-name")}] referred to in member-entity with entity-alias [${aliasAllEntityAlias}] not found, ignoring");
+                logger.error("Entity ["+memberEntity.attribute("entity-name")+"] referred to in member-entity with entity-alias ["+aliasAllEntityAlias+"] not found, ignoring");
                 continue;
             }
 
@@ -471,7 +472,10 @@ public class EntityDefinition {
                         if (isInViewLink) break;
                     }
 
-                    MNode existingAliasNode = internalEntityNode.children("alias").find({ aliasName.equals(it.attribute("name")) });
+                    String finalAliasName = aliasName;
+                    Optional<MNode> firstAlias= internalEntityNode.children("alias").stream().filter((MNode it) -> it.attribute("name").equals(finalAliasName)).findFirst();
+                    MNode existingAliasNode = null;
+                    if(firstAlias.isPresent())existingAliasNode = firstAlias.get();
                     // already exists... probably an override, but log just in case
                     String warnMsg = "Throwing out field alias in view entity " + this.getFullEntityName() +
                             " because one already exists with the alias name [" + aliasName + "] and field name [" +
@@ -504,7 +508,7 @@ public class EntityDefinition {
     public  MNode getEntityNode() { return internalEntityNode; }
 
     public Map<String, ArrayList<MNode>> getMemberFieldAliases(String memberEntityName) {
-        return memberEntityFieldAliases?.get(memberEntityName);
+        return memberEntityFieldAliases != null ? memberEntityFieldAliases.get(memberEntityName):null;
     }
     public String getEntityGroupName() { return groupName; }
 
@@ -536,7 +540,7 @@ public class EntityDefinition {
         for (int i = 0; i < size; i++) {
             String fieldName = (String) fieldNameList.get(i);
             Object fieldValue = fields.get(fieldName);
-            if (ObjectUtilities.isEmpty(fieldValue)) return false;
+            if (ObjectUtil.isEmpty(fieldValue)) return false;
         }
         return true;
     }
@@ -581,7 +585,7 @@ public class EntityDefinition {
     public MNode getMemberEntityNode(String entityAlias) { return memberEntityAliasMap.get(entityAlias); }
     public String getMemberEntityName(String entityAlias) {
         MNode memberEntityNode = memberEntityAliasMap.get(entityAlias);
-        return memberEntityNode?.attribute("entity-name");
+        return memberEntityNode != null?memberEntityNode.attribute("entity-name"):null;
     }
 
     public MNode getFieldNode(String fieldName) { return (MNode) fieldNodeMap.get(fieldName); }
@@ -720,7 +724,7 @@ public class EntityDefinition {
                 try {
                     detailList.add(new MasterDetail(ed, detailNode));
                 } catch (Exception e) {
-                    logger.error("Error adding detail ${detailNode.attribute("relationship")} to master ${name} of entity ${ed.getFullEntityName()}: ${e.toString()}");
+                    logger.error("Error adding detail "+detailNode.attribute("relationship")+" to master "+name+" of entity "+ed.getFullEntityName()+" : "+e.toString());
                 }
             }
         }
@@ -825,9 +829,9 @@ public class EntityDefinition {
 
             for (Map.Entry<String, EntityDependents> entry : dependentEntities.entrySet()) {
                 RelationshipInfo relInfo = relationshipInfos.get(entry.getKey());
-                builder.append(indent).append(relInfo.relationshipName).append(" ").append(relInfo.keyMap).append("\n")
+                builder.append(indent).append(relInfo.relationshipName).append(" ").append(relInfo.keyMap).append("\n");
                 if (level < 8 && !entitiesVisited.contains(entry.getValue().entityName)) {
-                    entry.getValue().buildString(builder, level + 1I, entitiesVisited);
+                    entry.getValue().buildString(builder, level + 1, entitiesVisited);
                     entitiesVisited.add(entry.getValue().entityName);
                 } else if (entitiesVisited.contains(entry.getValue().entityName)) {
                     builder.append(indent).append(indentBase).append("Dependants already displayed\n");
@@ -854,7 +858,7 @@ public class EntityDefinition {
             if (addParens) prettyName.append(")");
         }
         // make sure pretty name isn't empty, happens when baseName is a superset of entity name
-        if (prettyName.length() == 0) return StringUtilities.camelCaseToPretty(entityInfo.internalEntityName);
+        if (prettyName.length() == 0) return StringUtil.camelCaseToPretty(entityInfo.internalEntityName);
         return prettyName.toString();
     }
 
@@ -874,9 +878,15 @@ public class EntityDefinition {
         int pkFieldNamesSize = pkFieldNames.size();
         for (int pkIdx = 0; pkIdx < pkFieldNamesSize; pkIdx++) {
             String pkName = pkFieldNames.get(pkIdx);
-            MNode matchingAliasNode = getEntityNode().children("alias").find({
-                    it.attribute("entity-alias") == memberEntityNode.attribute("entity-alias") &&
-                            (it.attribute("field") == pkName || (!it.attribute("field") && it.attribute("name") == pkName)) });
+
+            Optional<MNode> firstMatchingAliasNode = getEntityNode().children("alias").stream().filter((MNode it)->
+                    it.attribute("entity-alias").equals(memberEntityNode.attribute("entity-alias"))  &&
+                    (it.attribute("field").equals(pkName) || ( it.attribute("field") == null && it.attribute("name").equals(pkName) ))).findFirst();
+
+            MNode matchingAliasNode = null;
+
+            if(firstMatchingAliasNode.isPresent())matchingAliasNode = firstMatchingAliasNode.get();
+
             if (matchingAliasNode != null) {
                 // found an alias Node
                 mePkFieldToAliasNameMap.put(pkName, matchingAliasNode.attribute("name"));
@@ -1049,49 +1059,49 @@ public class EntityDefinition {
         return entityCondition
     }
 
-    public Cache<EntityCondition, EntityValueBase> internalCacheOne = null
-    public Cache<EntityCondition, Set<EntityCondition>> internalCacheOneRa = null
-    public Cache<EntityCondition, Set<EntityCache.ViewRaKey>> getCacheOneViewRa = null
-    public Cache<EntityCondition, EntityListImpl> internalCacheList = null
-    public Cache<EntityCondition, Set<EntityCondition>> internalCacheListRa = null
-    public Cache<EntityCondition, Set<EntityCache.ViewRaKey>> internalCacheListViewRa = null
-    public Cache<EntityCondition, Long> internalCacheCount = null
+    public Cache<EntityCondition, EntityValueBase> internalCacheOne = null;
+    public Cache<EntityCondition, Set<EntityCondition>> internalCacheOneRa = null;
+    public Cache<EntityCondition, Set<EntityCache.ViewRaKey>> getCacheOneViewRa = null;
+    public Cache<EntityCondition, EntityListImpl> internalCacheList = null;
+    public Cache<EntityCondition, Set<EntityCondition>> internalCacheListRa = null;
+    public Cache<EntityCondition, Set<EntityCache.ViewRaKey>> internalCacheListViewRa = null;
+    public Cache<EntityCondition, Long> internalCacheCount = null;
 
     public Cache<EntityCondition, EntityValueBase> getCacheOne(EntityCache ec) {
-        if (internalCacheOne == null) internalCacheOne = ec.cfi.getCache(ec.oneKeyBase.concat(fullEntityName))
-        return internalCacheOne
+        if (internalCacheOne == null) internalCacheOne = ec.cfi.getCache(ec.oneKeyBase.concat(fullEntityName));
+        return internalCacheOne;
     }
     public Cache<EntityCondition, Set<EntityCondition>> getCacheOneRa(EntityCache ec) {
-        if (internalCacheOneRa == null) internalCacheOneRa = ec.cfi.getCache(ec.oneRaKeyBase.concat(fullEntityName))
-        return internalCacheOneRa
+        if (internalCacheOneRa == null) internalCacheOneRa = ec.cfi.getCache(ec.oneRaKeyBase.concat(fullEntityName));
+        return internalCacheOneRa;
     }
     public Cache<EntityCondition, Set<EntityCache.ViewRaKey>> getCacheOneViewRa(EntityCache ec) {
-        if (getCacheOneViewRa == null) getCacheOneViewRa = ec.cfi.getCache(ec.oneViewRaKeyBase.concat(fullEntityName))
-        return getCacheOneViewRa
+        if (getCacheOneViewRa == null) getCacheOneViewRa = ec.cfi.getCache(ec.oneViewRaKeyBase.concat(fullEntityName));
+        return getCacheOneViewRa;
     }
 
     public Cache<EntityCondition, EntityListImpl> getCacheList(EntityCache ec) {
-        if (internalCacheList == null) internalCacheList = ec.cfi.getCache(ec.listKeyBase.concat(fullEntityName))
-        return internalCacheList
+        if (internalCacheList == null) internalCacheList = ec.cfi.getCache(ec.listKeyBase.concat(fullEntityName));
+        return internalCacheList;
     }
     public Cache<EntityCondition, Set<EntityCondition>> getCacheListRa(EntityCache ec) {
-        if (internalCacheListRa == null) internalCacheListRa = ec.cfi.getCache(ec.listRaKeyBase.concat(fullEntityName))
-        return internalCacheListRa
+        if (internalCacheListRa == null) internalCacheListRa = ec.cfi.getCache(ec.listRaKeyBase.concat(fullEntityName));
+        return internalCacheListRa;
     }
     public Cache<EntityCondition, Set<EntityCache.ViewRaKey>> getCacheListViewRa(EntityCache ec) {
-        if (internalCacheListViewRa == null) internalCacheListViewRa = ec.cfi.getCache(ec.listViewRaKeyBase.concat(fullEntityName))
-        return internalCacheListViewRa
+        if (internalCacheListViewRa == null) internalCacheListViewRa = ec.cfi.getCache(ec.listViewRaKeyBase.concat(fullEntityName));
+        return internalCacheListViewRa;
     }
 
     public Cache<EntityCondition, Long> getCacheCount(EntityCache ec) {
-        if (internalCacheCount == null) internalCacheCount = ec.cfi.getCache(ec.countKeyBase.concat(fullEntityName))
-        return internalCacheCount
+        if (internalCacheCount == null) internalCacheCount = ec.cfi.getCache(ec.countKeyBase.concat(fullEntityName));
+        return internalCacheCount;
     }
 
     public boolean tableExistsDbMetaOnly() {
-        if (tableExistVerified) return true
+        if (tableExistVerified) return true;
         tableExistVerified = efi.getEntityDbMeta().tableExists(this);
-        return tableExistVerified
+        return tableExistVerified;
     }
 
     // these methods used by EntityFacadeImpl to avoid redundant lookups of entity info
@@ -1099,14 +1109,14 @@ public class EntityDefinition {
         if (entityInfo.isEntityDatasourceFactoryImpl) {
             return new EntityFindImpl(efi, this);
         } else {
-            return entityInfo.datasourceFactory.makeEntityFind(fullEntityName)
+            return entityInfo.datasourceFactory.makeEntityFind(fullEntityName);
         }
     }
     public EntityValue makeEntityValue() {
         if (entityInfo.isEntityDatasourceFactoryImpl) {
             return new EntityValueImpl(this, efi);
         } else {
-            return entityInfo.datasourceFactory.makeEntityValue(fullEntityName)
+            return entityInfo.datasourceFactory.makeEntityValue(fullEntityName);
         }
     }
 

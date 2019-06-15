@@ -28,15 +28,15 @@ public class MNode{
     private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
     public static void clearParsedNodeCache() { parsedNodeCache.clear(); }
 
-    /* ========== Factories (XML Parsing) ========== */
-    /** Parse from an InputStream and close the stream */
+    /* ========== XML 解析 ========== */
+    /** 从输入流解析并关闭流 */
     public static MNode parse(String location, InputStream is) throws EntityException {
         if (is == null) return null;
         try {
             return parse(location, new InputSource(is));
         } finally {
             try { is.close(); }
-            catch (IOException e) { logger.error("Error closing XML stream from " + location, e); }
+            catch (IOException e) { logger.error("关闭XML输入流错误,文件位置: " + location, e); }
         }
     }
 
@@ -55,10 +55,10 @@ public class MNode{
             if (node.lastModified > 0) parsedNodeCache.put(location, node);
             return node;
         } catch (Exception e) {
-            throw new EntityException("Error parsing XML file at " + fl.getPath(), e);
+            throw new EntityException("解析XML文件错误,文件位置: " + fl.getPath(), e);
         } finally {
             try { if (fr != null) fr.close(); }
-            catch (IOException e) { logger.error("Error closing XML file at " + fl.getPath(), e); }
+            catch (IOException e) { logger.error("关闭XML输入流错误,文件位置: " + fl.getPath(), e); }
         }
     }
     public static MNode parseText(String location, String text) throws EntityException {
@@ -74,7 +74,7 @@ public class MNode{
             reader.parse(isrc);
             return xmlHandler.getRootNode();
         } catch (Exception e) {
-            throw new EntityException("Error parsing XML from " + location, e);
+            throw new EntityException("解析XML文件错误,文件位置: " + location, e);
         }
     }
 
@@ -98,7 +98,7 @@ public class MNode{
             reader.parse(isrc);
             return xmlHandler.getRootNode();
         } catch (Exception e) {
-            throw new EntityException("Error parsing XML from " + location, e);
+            throw new EntityException("解析XML文件错误,文件位置: " + location, e);
         }
     }
 
@@ -155,9 +155,9 @@ public class MNode{
         if (attributes != null) attributeMap.putAll(attributes);
     }
 
-    /* ========== Get Methods ========== */
+    /* ========== 获取方法 ========== */
 
-    /** If name starts with an ampersand (@) then get an attribute, otherwise get a list of child nodes with the given name. */
+    /** 如果名称以＆符号（@）开头，则获取属性，否则获取具有给定名称的子节点列表。 */
     public Object getObject(String name) {
         if (name != null && name.length() > 0 && name.charAt(0) == '@') {
             return attribute(name.substring(1));
@@ -165,9 +165,11 @@ public class MNode{
             return children(name);
         }
     }
-    /** Groovy specific method for square brace syntax */
+
+    /** 方括号语法的Groovy特定方法 */
     public Object getAt(String name) { return getObject(name); }
 
+    /** 取节点名称 */
     public String getName() { return nodeName; }
     public void setName(String name) {
         if (parentNode != null && parentNode.childrenByName != null) {
@@ -176,7 +178,11 @@ public class MNode{
         }
         nodeName = name;
     }
+
+    /** 取节点全部属性值 */
     public Map<String, String> getAttributes() { return attributeMap; }
+
+    /** 按属性名称取节点属性值 */
     public String attribute(String attrName) {
         String attrValue = attributeMap.get(attrName);
         if (systemExpandAttributes && attrValue != null && attrValue.contains("${")) {
@@ -189,6 +195,8 @@ public class MNode{
         }
         return attrValue;
     }
+
+    /** 设置系统扩展属性 */
     public void setSystemExpandAttributes(boolean b) { systemExpandAttributes = b; }
 
     public MNode getParent() { return parentNode; }
@@ -632,7 +640,7 @@ public class MNode{
 
                 if (childMerger != null) {
                     MNode finalChildBaseNode = childBaseNode;
-                    childBaseNode = childMerger.apply(new ConcurrentHashMap<String,MNode>(){{
+                    childMerger.apply(new ConcurrentHashMap<String,MNode>(){{
                         put("baseNode", finalChildBaseNode);
                         put("overrideNode",childOverrideNode);
                     }});
