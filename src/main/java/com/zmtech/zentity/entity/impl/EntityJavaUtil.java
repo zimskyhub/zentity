@@ -4,7 +4,6 @@ package com.zmtech.zentity.entity.impl;
 import com.zmtech.zentity.entity.EntityCondition;
 import com.zmtech.zentity.entity.EntityDatasourceFactory;
 import com.zmtech.zentity.exception.EntityException;
-import com.zmtech.zentity.exception.EntityNotFoundException;
 import com.zmtech.zentity.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,6 +72,7 @@ public class EntityJavaUtil {
             byte[] outBytes = pbeCipher.doFinal(inBytes);
             return encrypt ? DatatypeConverter.printHexBinary(outBytes) : new String(outBytes);
         } catch (Exception e) {
+            // logger.warn("crypt-pass " + pwStr + " salt " + saltStr + " algo " + algo + " count " + count);
             throw new EntityException("Encryption error", e);
         }
     }
@@ -206,6 +206,7 @@ public class EntityJavaUtil {
 
 
         EntityInfo(EntityDefinition ed, boolean memberNeverCache) {
+
             this.ed = ed;
             this.efi = ed.efi;
             MNode internalEntityNode = ed.internalEntityNode;
@@ -431,7 +432,7 @@ public class EntityJavaUtil {
                             try {
                                 Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
                                 dest.putNoCheck(fieldName, converted);
-                            } catch (EntityException be) {
+                            } catch (BaseException be) {
                                 eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
                             }
                         } else {
