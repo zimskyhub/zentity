@@ -14,6 +14,7 @@
 package com.zmtech.zentity.actions;
 
 import com.zmtech.zentity.entity.impl.EntityContextFactoryImpl;
+import com.zmtech.zentity.entity.impl.EntityContextImpl;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.util.MNode;
 import com.zmtech.zentity.util.StringUtil;

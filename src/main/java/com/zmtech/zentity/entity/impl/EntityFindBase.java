@@ -1,59 +1,33 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
-package com.zmtech.zentity.entity.impl
+package com.zmtech.zentity.entity.impl;
 
-import groovy.transform.CompileStatic
-import org.moqui.BaseException
-import org.moqui.context.ArtifactExecutionInfo
-import org.moqui.entity.*
-import org.moqui.etl.SimpleEtl
-import org.moqui.etl.SimpleEtl.StopException
-import org.moqui.impl.context.ArtifactExecutionFacadeImpl
-import org.moqui.impl.context.ArtifactExecutionInfoImpl
-import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.context.TransactionCache
-import org.moqui.impl.context.TransactionFacadeImpl
-import org.moqui.impl.entity.condition.*
-import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
-import org.moqui.util.CollectionUtilities
-import org.moqui.util.MNode
-import org.moqui.util.ObjectUtilities
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import com.zmtech.zentity.entity.EntityFind;
+import com.zmtech.zentity.entity.impl.condition.EntityConditionImplBase;
+import com.zmtech.zentity.transaction.impl.TransactionCache;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import javax.cache.Cache
-import java.sql.ResultSet
-import java.sql.SQLException
-import java.sql.Timestamp
+import javax.cache.Cache;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.*;
 
 public abstract class EntityFindBase implements EntityFind {
-    protected final static Logger logger = LoggerFactory.getLogger(EntityFindBase.class)
+    protected final static Logger logger = LoggerFactory.getLogger(EntityFindBase.class);
 
     // these error strings are here for convenience for LocalizedMessage records
     // NOTE: don't change these unless there is a really good reason, will break localization
-    private static final String ONE_ERROR = 'Error finding one ${entityName} by ${condition}'
-    private static final String LIST_ERROR = 'Error finding list of ${entityName} by ${condition}'
-    private static final String COUNT_ERROR = 'Error finding count of ${entityName} by ${condition}'
+    private static final String ONE_ERROR = "Error finding one ${entityName} by ${condition}";
+    private static final String LIST_ERROR = "Error finding list of ${entityName} by ${condition}";
+    private static final String COUNT_ERROR = "Error finding count of ${entityName} by ${condition}";
 
-    final static int defaultResultSetType = ResultSet.TYPE_FORWARD_ONLY
+    final static int defaultResultSetType = ResultSet.TYPE_FORWARD_ONLY;
 
-    public final EntityFacadeImpl efi
-    public final TransactionCache txCache
+    public final EntityFacadeImpl efi;
+    public final TransactionCache txCache;
 
-    protected String entityName
-    protected EntityDefinition entityDef = (EntityDefinition) null
+    protected String entityName;
+    protected EntityDefinition entityDef = (EntityDefinition) null;
     protected EntityDynamicViewImpl dynamicView = (EntityDynamicViewImpl) null
 
     protected String singleCondField = (String) null

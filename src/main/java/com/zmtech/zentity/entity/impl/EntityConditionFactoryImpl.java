@@ -95,7 +95,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
     }
     @Override
     public EntityCondition makeCondition(List<EntityCondition> conditionList, JoinOperator operator) {
-        if (conditionList == null || conditionList.size() == 0) return null;
+        if (conditionList == null || conditionList.isEmpty()) return null;
         ArrayList<EntityConditionImplBase> newList = new ArrayList<>();
 
         if (conditionList instanceof RandomAccess) {
@@ -118,7 +118,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
                 else throw new EntityException("EntityCondition of type [${curCond.getClass().getName()}] not supported");
             }
         }
-        if (newList == null || newList.size() == 0) return null;
+        if (newList == null || newList.isEmpty()) return null;
         if (newList.size() == 1) {
             return (EntityCondition) newList.get(0);
         } else {
@@ -128,7 +128,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
 
     @Override
     public EntityCondition makeCondition(List<Object> conditionList, String listOperator, String mapComparisonOperator, String mapJoinOperator) {
-        if (conditionList == null || conditionList.size() == 0) return null;
+        if (conditionList == null || conditionList.isEmpty()) return null;
 
         JoinOperator listJoin = listOperator != null ? getJoinOperator(listOperator) : JoinOperator.AND;
         ComparisonOperator mapComparison = mapComparisonOperator != null ? getComparisonOperator(mapComparisonOperator) : ComparisonOperator.EQUALS;
@@ -141,7 +141,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
             if (curObj == null) continue;
             if (curObj instanceof Map) {
                 Map curMap = (Map) curObj;
-                if (curMap.size() == 0) continue;
+                if (curMap.isEmpty()) continue;
                 EntityCondition curCond = makeCondition(curMap, mapComparison, mapJoin);
                 newList.add((EntityConditionImplBase) curCond);
                 continue;
@@ -153,7 +153,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
             }
             throw new EntityException("The conditionList parameter must contain only Map and EntityCondition objects, found entry of type [${curObj.getClass().getName()}]");
         }
-        if (newList.size() == 0) return null;
+        if (newList.isEmpty()) return null;
         if (newList.size() == 1) {
             return newList.get(0);
         } else {
@@ -167,7 +167,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
     }
     EntityConditionImplBase makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator,
                                           JoinOperator joinOperator, EntityDefinition findEd, Map<String, ArrayList<MNode>> memberFieldAliases, boolean excludeNulls) {
-        if (fieldMap == null || fieldMap.size() == 0) return  null;
+        if (fieldMap == null || fieldMap.isEmpty()) return  null;
 
         JoinOperator joinOp = joinOperator != null ? joinOperator : JoinOperator.AND;
         ComparisonOperator compOp = comparisonOperator != null ? comparisonOperator : ComparisonOperator.EQUALS;
@@ -214,17 +214,17 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
         }
 
         // has fields? make conditions for them
-        if (fieldList.size() > 0) {
+        if (!fieldList.isEmpty()) {
             int fieldListSize = fieldList.size();
             for (int i = 0; i < fieldListSize; i++) {
                 KeyValue fieldValue = (KeyValue) fieldList.get(i);
                 String fieldName = fieldValue.key;
                 Object value = fieldValue.value;
 
-                if (memberFieldAliases != null && memberFieldAliases.size() > 0) {
+                if (memberFieldAliases != null && !memberFieldAliases.isEmpty()) {
                     // we have a view entity, more complex
                     ArrayList<MNode> aliases = memberFieldAliases.get(fieldName);
-                    if (aliases == null || aliases.size() == 0)
+                    if (aliases == null || aliases.isEmpty())
                         throw new EntityException("Tried to filter on field ${fieldName} which is not included in view-entity ${findEd.fullEntityName}");
 
                     for (int k = 0; k < aliases.size(); k++) {
@@ -260,7 +260,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
             }
         }
 
-        if (condList.size() == 0) return null;
+        if (condList.isEmpty()) return null;
 
         if (condList.size() == 1) {
             return condList.get(0);
@@ -409,7 +409,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
                 if (curObj == null) continue
                 if (curObj instanceof Map) {
                     Map curMap = (Map) curObj
-                    if (curMap.size() == 0) continue
+                    if (curMap.isEmpty()) continue
                     EntityCondition curCond = makeCondition(curMap, ComparisonOperator.EQUALS, JoinOperator.AND)
                     condList.add((EntityConditionImplBase) curCond)
                     continue

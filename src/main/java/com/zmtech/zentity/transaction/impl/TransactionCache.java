@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * See notes on limitations in the JavaDoc for ServiceCallSync.useTransactionCache()
  *
  */
-class TransactionCache implements Synchronization {
+public class TransactionCache implements Synchronization {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionCache.class);
 
     protected EntityContextFactoryImpl ecfi;
@@ -31,10 +31,10 @@ class TransactionCache implements Synchronization {
     private Set<Map> knownLocked = new HashSet<>();
     private Map<String, Map<EntityCondition, EntityListImpl>> readListCache = new ConcurrentHashMap<>();
 
-    private Map<Map, EntityWriteInfo> firstWriteInfoMap = new HashMap<Map, EntityWriteInfo>()
-    private Map<Map, EntityWriteInfo> lastWriteInfoMap = new HashMap<Map, EntityWriteInfo>()
-    private ArrayList<EntityWriteInfo> writeInfoList = new ArrayList<EntityWriteInfo>(50)
-    private LinkedHashMap<String, LinkedHashMap<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<>()
+    private Map<Map, EntityWriteInfo> firstWriteInfoMap = new HashMap<Map, EntityWriteInfo>();
+    private Map<Map, EntityWriteInfo> lastWriteInfoMap = new HashMap<Map, EntityWriteInfo>();
+    private ArrayList<EntityWriteInfo> writeInfoList = new ArrayList<EntityWriteInfo>(50);
+    private LinkedHashMap<String, LinkedHashMap<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<>();
 
     public TransactionCache(EntityContextFactoryImpl ecfi, boolean readOnly) {
         this.ecfi = ecfi;
@@ -93,16 +93,16 @@ class TransactionCache implements Synchronization {
                 throw new EntityException("Tried to create a value that already exists in write cache, entity ${evb.getEntityName()}, PK ${evb.getPrimaryKeys()}");
 
             EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.CREATE);
-            addWriteInfo(key, newEwi)
+            addWriteInfo(key, newEwi);
             if (currentEwi == null || currentEwi.writeMode != WriteMode.DELETE) {
                 getCreateByEntityMap(evb.getEntityName()).put(evb.getPrimaryKeys(), evb);
             }
         }
 
         // add to readCache after so we don't think it already exists
-        readOneCache.put(key, evb)
+        readOneCache.put(key, evb);
         // add to any matching list cache entries
-        Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName())
+        Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName());
         if (entityListCache != null) {
             for (Map.Entry<EntityCondition, EntityListImpl> entry : entityListCache.entrySet()) {
                 if (entry.getKey().mapMatches(evb)) entry.getValue().add(evb);
@@ -191,7 +191,7 @@ class TransactionCache implements Synchronization {
                 for (int i = 0; i < writeInfoList.size(); ) {
                     EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i);
                     if (key.equals(makeKey(ewi.evb))) { writeInfoList.remove(i); }
-                    else { i++ }
+                    else { i++; }
                 }
                 getCreateByEntityMap(evb.getEntityName()).remove(evb.getPrimaryKeys());
             } else {
@@ -203,7 +203,7 @@ class TransactionCache implements Synchronization {
         // remove from readCache if needed
         readOneCache.remove(key);
         // remove any matching list cache entries
-        Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName())
+        Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName());
         if (entityListCache != null) {
             for (Map.Entry<EntityCondition, EntityListImpl> entry : entityListCache.entrySet()) {
                 if (entry.getKey().mapMatches(evb)) {
@@ -220,14 +220,14 @@ class TransactionCache implements Synchronization {
     }
     public boolean refresh(EntityValueBase evb) {
         Map<String, Object> key = makeKey(evb);
-        if (key == null) return false
+        if (key == null) return false;
         EntityValueBase curEvb = readOneCache.get(key);
         if (curEvb != null) {
             ArrayList<String> nonPkFieldList = evb.getEntityDefinition().getNonPkFieldNames();
             int nonPkSize = nonPkFieldList.size();
             for (int j = 0; j < nonPkSize; j++) {
                 String fieldName = nonPkFieldList.get(j);
-                evb.getValueMap().put(fieldName, curEvb.getValueMap().get(fieldName))
+                evb.getValueMap().put(fieldName, curEvb.getValueMap().get(fieldName));
             }
             evb.setSyncedWithDb();
             return true;
@@ -245,7 +245,7 @@ class TransactionCache implements Synchronization {
     protected boolean isTxCreate(Map key) {
         if (readOnly || writeInfoList.size() == 0) return false;
         EntityWriteInfo currentEwi = firstWriteInfoMap.get(key);
-        if (currentEwi == null) return false
+        if (currentEwi == null) return false;
         return currentEwi.writeMode == WriteMode.CREATE;
     }
 
@@ -342,7 +342,7 @@ class TransactionCache implements Synchronization {
             }
         }
 
-        if (cacheList!=null && cacheList.size() >0 && orderByExpanded != null && orderByExpanded.size() >0 ) cacheList.orderByFields(orderByExpanded)
+        if (cacheList!=null && cacheList.size() >0 && orderByExpanded != null && orderByExpanded.size() >0 ) cacheList.orderByFields(orderByExpanded);
         return cacheList;
     }
     public Map<EntityCondition, EntityListImpl> getEntityListCache(String entityName) {
@@ -372,7 +372,7 @@ class TransactionCache implements Synchronization {
             return null;
         }
         if (WriteMode.CREATE.equals(firstEwi.writeMode)) {
-            throw new EntityException("Found value from database that matches a value created in the write-through transaction cache, throwing error now instead of waiting to fail on commit")
+            throw new EntityException("Found value from database that matches a value created in the write-through transaction cache, throwing error now instead of waiting to fail on commit");
         }
         if (WriteMode.UPDATE.equals(currentEwi.writeMode)) {
             if (fai != null && ((fai.econd != null && !fai.econd.mapMatches(currentEwi.evb)) || fai.foundUpdated.contains(currentEwi.evb.getPrimaryKeys()))) {

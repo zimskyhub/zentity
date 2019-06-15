@@ -24,17 +24,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Interface definition for object used throughout the Moqui Framework to manage contextual execution information and
- * tool interfaces. One instance of this object will exist for each thread running code and will be applicable for that
- * thread only.
+ * 整个ZEntity框架中用于管理上下文执行信息和工具接口的对象的接口定义。
+ * 对于运行代码的每个线程，将存在此对象的一个实例，并且仅适用于该线程。
  */
 @SuppressWarnings("unused")
 public interface EntityContext {
-    /** Get the EntityContextFactory this came from. */
+    /** 取EntityContextFactory。. */
     @Nonnull
     EntityContextFactory getFactory();
 
-    /** Returns a Map that represents the current local variable space (context) in whatever is being run. */
+    /**
+     * 返回一个Map，
+     * 表示正在运行的任何内容中的当前局部变量（context）。
+     */
     @Nonnull
     ContextStack getContext();
     @Nonnull
