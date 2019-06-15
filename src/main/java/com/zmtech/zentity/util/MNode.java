@@ -1,7 +1,6 @@
 package com.zmtech.zentity.util;
 
 import com.zmtech.zentity.exception.EntityException;
-import groovy.lang.Closure;
 import groovy.util.Node;
 import groovy.util.NodeList;
 import org.slf4j.Logger;
@@ -16,6 +15,8 @@ import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -239,13 +240,13 @@ public class MNode{
         }
         return filteredList;
     }
-    public ArrayList<MNode> children(Closure<Boolean> condition) {
+    public ArrayList<MNode> children(Function<MNode,Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         if (childList == null) return curList;
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
-            if (condition == null || condition.call(curChild)) curList.add(curChild);
+            if (condition == null || condition.apply(curChild)) curList.add(curChild);
         }
         return curList;
     }
@@ -341,12 +342,12 @@ public class MNode{
         }
     }
 
-    public ArrayList<MNode> depthFirst(Closure<Boolean> condition) {
+    public ArrayList<MNode> depthFirst(Function<MNode,Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         depthFirstInternal(condition, curList);
         return curList;
     }
-    private void depthFirstInternal(Closure<Boolean> condition, ArrayList<MNode> curList) {
+    private void depthFirstInternal(Function<MNode,Boolean> condition, ArrayList<MNode> curList) {
         if (childList == null) return;
 
         int childListSize = childList.size();
@@ -358,22 +359,22 @@ public class MNode{
         // then children
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
-            if (condition == null || condition.call(curChild)) curList.add(curChild);
+            if (condition == null || condition.apply(curChild)) curList.add(curChild);
         }
     }
-    public ArrayList<MNode> breadthFirst(Closure<Boolean> condition) {
+    public ArrayList<MNode> breadthFirst(Function<MNode,Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         breadthFirstInternal(condition, curList);
         return curList;
     }
-    private void breadthFirstInternal(Closure<Boolean> condition, ArrayList<MNode> curList) {
+    private void breadthFirstInternal(Function<MNode,Boolean> condition, ArrayList<MNode> curList) {
         if (childList == null) return;
 
         int childListSize = childList.size();
         // direct children first
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
-            if (condition == null || condition.call(curChild)) curList.add(curChild);
+            if (condition == null || condition.apply(curChild)) curList.add(curChild);
         }
         // then grand-children
         for (int i = 0; i < childListSize; i++) {
@@ -413,13 +414,13 @@ public class MNode{
         if (nameChildren.size() > 0) return nameChildren.get(0);
         return null;
     }
-    public MNode first(Closure<Boolean> condition) {
+    public MNode first(Function<MNode,Boolean> condition) {
         if (childList == null) return null;
         if (condition == null) return first();
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
-            if (condition.call(curChild)) return curChild;
+            if (condition.apply(curChild)) return curChild;
         }
         return null;
     }
@@ -433,13 +434,13 @@ public class MNode{
         }
         return -1;
     }
-    public int firstIndex(Closure<Boolean> condition) {
+    public int firstIndex(Function<MNode,Boolean> condition) {
         if (childList == null) return -1;
         if (condition == null) return childList.size() - 1;
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
-            if (condition.call(curChild)) return i;
+            if (condition.apply(curChild)) return i;
         }
         return -1;
     }
@@ -526,12 +527,12 @@ public class MNode{
         }
         return removed;
     }
-    public boolean remove(Closure<Boolean> condition) {
+    public boolean remove(Function<MNode,Boolean> condition) {
         if (childList == null) return false;
         boolean removed = false;
         for (int i = 0; i < childList.size(); ) {
             MNode curChild = childList.get(i);
-            if (condition.call(curChild)) {
+            if (condition.apply(curChild)) {
                 if (childrenByName != null) childrenByName.remove(curChild.nodeName);
                 childList.remove(i);
                 removed = true;
@@ -575,7 +576,7 @@ public class MNode{
         }
     }
 
-    public void mergeChildWithChildKey(MNode overrideNode, String childName, String grandchildName, String keyAttributeName, Closure grandchildMerger) {
+    public void mergeChildWithChildKey(MNode overrideNode, String childName, String grandchildName, String keyAttributeName, Function<Map<String,MNode>,MNode> grandchildMerger) {
         MNode overrideChildNode = overrideNode.first(childName);
         if (overrideChildNode == null) return;
         MNode baseChildNode = first(childName);
@@ -594,7 +595,7 @@ public class MNode{
      * if null the default merge of removing all children under the child of this node and appending copies of the
      * children of the override child node.
      */
-    public void mergeNodeWithChildKey(MNode overrideNode, String childNodesName, String keyAttributeName, Closure childMerger) {
+    public void mergeNodeWithChildKey(MNode overrideNode, String childNodesName, String keyAttributeName, Function<Map<String,MNode>,MNode> childMerger) {
         if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeNodeWithChildKey");
         if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeNodeWithChildKey");
 
@@ -603,7 +604,7 @@ public class MNode{
 
         mergeChildrenByKey(overrideNode, childNodesName, keyAttributeName, childMerger);
     }
-    public void mergeChildrenByKey(MNode overrideNode, String childNodesName, String keyAttributeName, Closure childMerger) {
+    public void mergeChildrenByKey(MNode overrideNode, String childNodesName, String keyAttributeName, Function<Map<String,MNode>,MNode> childMerger) {
         if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeChildrenByKey");
         if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeChildrenByKey");
 
@@ -630,7 +631,11 @@ public class MNode{
                 childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
 
                 if (childMerger != null) {
-                    childMerger.call(childBaseNode, childOverrideNode);
+                    MNode finalChildBaseNode = childBaseNode;
+                    childBaseNode = childMerger.apply(new ConcurrentHashMap<String,MNode>(){{
+                        put("baseNode", finalChildBaseNode);
+                        put("overrideNode",childOverrideNode);
+                    }});
                 } else {
                     // do the default child merge: remove current nodes children and replace with a copy of the override node's children
                     if (childBaseNode.childList != null) {
