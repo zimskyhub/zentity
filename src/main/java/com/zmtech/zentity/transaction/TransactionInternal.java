@@ -14,6 +14,7 @@
 package com.zmtech.zentity.transaction;
 
 
+import com.zmtech.zentity.entity.EntityContextFactory;
 import com.zmtech.zentity.entity.EntityFacade;
 import com.zmtech.zentity.util.MNode;
 
@@ -23,8 +24,7 @@ import javax.transaction.UserTransaction;
 
 public interface TransactionInternal {
 
-//    TransactionInternal init(ExecutionContextFactory ecf);
-
+    TransactionInternal init(EntityContextFactory ecf);
     TransactionManager getTransactionManager();
     UserTransaction getUserTransaction();
     DataSource getDataSource(EntityFacade ef, MNode datasourceNode);
