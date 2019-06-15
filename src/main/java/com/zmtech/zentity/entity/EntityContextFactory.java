@@ -23,7 +23,7 @@ public interface EntityContextFactory {
 
     /** Get the path of the runtime directory */
     @Nonnull String getRuntimePath();
-    @Nonnull String getMoquiVersion();
+    @Nonnull String getZEntityVersion();
 
 //    /** Get the named ToolFactory instance (loaded by configuration) */
 //    <V> ToolFactory<V> getToolFactory(@Nonnull String toolName);

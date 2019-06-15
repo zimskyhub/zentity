@@ -1,4 +1,7 @@
 package com.zmtech.zentity.transaction.impl;
 
-public class TransactionFacadeImpl {
+import com.zmtech.zentity.transaction.TransactionFacade;
+
+public class TransactionFacadeImpl implements TransactionFacade {
+
 }
