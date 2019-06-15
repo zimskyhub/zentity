@@ -1,7 +1,9 @@
 package com.zmtech.zentity.entity.impl;
 
 import com.zmtech.zentity.entity.EntityContextFactory;
+import com.zmtech.zentity.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zentity.util.MNode;
+import com.zmtech.zentity.util.ZClassLoader;
 import groovy.lang.GroovyClassLoader;
 import org.codehaus.groovy.control.CompilationUnit;
 import org.codehaus.groovy.control.CompilerConfiguration;
@@ -32,18 +34,11 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
 
     private AtomicBoolean destroyed = new AtomicBoolean(false);
-
-    protected String runtimePath;
-    @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath;
-    @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot;
-    protected MNode serverStatsNode;
-    protected String moquiVersion = "";
-    protected Map versionMap = null;
-    protected InetAddress localhostAddress = null;
-
-    protected MClassLoader moquiClassLoader;
+    protected ZClassLoader zClassLoader;
     protected GroovyClassLoader groovyClassLoader;
     protected CompilerConfiguration groovyCompilerConf;
+    public final ThreadLocal<EntityContextImpl> activeContext = new ThreadLocal<>();
+    protected final Map<Long, EntityContextImpl> activeContextMap = new HashMap<>();
     // NOTE: this is experimental, don't set to true! still issues with unique class names, etc
     // also issue with how to support recompile of actions on change, could just use for expressions but that only helps so much
     // maybe some way to load from disk only if timestamp newer for XmlActions and GroovyScriptRunner
@@ -51,324 +46,335 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
     // also need to clean out runtime/script-classes in gradle cleanAll
     protected boolean groovyCompileCacheToDisk = false;
 
-    protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>();
-    public final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>();
-    protected final Map<Long, ExecutionContextImpl> activeContextMap = new HashMap<>();
-    protected final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>()
+    protected String runtimePath;
+//    @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath;
+//    @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot;
+//    protected MNode serverStatsNode;
+//    protected String moquiVersion = "";
+//    protected Map versionMap = null;
 
-    protected final Map<String, WebappInfo> webappInfoMap = new HashMap<>()
-    protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
+    @SuppressWarnings("GrFinalVariableAccess") public final EntityFacadeImpl entityFacade;
+    @SuppressWarnings("GrFinalVariableAccess") public final TransactionFacadeImpl transactionFacade;
+//    protected InetAddress localhostAddress = null;
 
-    protected final Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>()
-    public final Map<ArtifactType, Boolean> artifactTypeAuthzEnabled = new EnumMap<>(ArtifactType.class)
-    public final Map<ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<>(ArtifactType.class)
 
-    protected String skipStatsCond
-    protected long hitBinLengthMillis = 900000 // 15 minute default
-    private final EnumMap<ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<>(ArtifactType.class)
-    private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<>(ArtifactType.class)
-    final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
+//    protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>();
+
+
+//    protected final Map<String, WebappInfo> webappInfoMap = new HashMap<>()
+//    protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
+
+//    protected final Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>()
+//    public final Map<ArtifactType, Boolean> artifactTypeAuthzEnabled = new EnumMap<>(ArtifactType.class)
+//    public final Map<ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<>(ArtifactType.class)
+
+//    protected String skipStatsCond
+//    protected long hitBinLengthMillis = 900000 // 15 minute default
+//    private final EnumMap<ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<>(ArtifactType.class)
+//    private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<>(ArtifactType.class)
+//    final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
 
     /** The SecurityManager for Apache Shiro */
-    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
+//    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
     /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
-    protected ServletContext internalServletContext = null
+//    protected ServletContext internalServletContext = null
     /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
-    protected ServerContainer internalServerContainer = null
+//    protected ServerContainer internalServerContainer = null
 
     /** Notification Message Topic (for distributed notifications) */
-    private SimpleTopic<NotificationMessageImpl> notificationMessageTopic = null
-    private NotificationWebSocketListener notificationWebSocketListener = new NotificationWebSocketListener()
+//    private SimpleTopic<NotificationMessageImpl> notificationMessageTopic = null
+//    private NotificationWebSocketListener notificationWebSocketListener = new NotificationWebSocketListener()
 
-    protected ArrayList<LogEventSubscriber> logEventSubscribers = new ArrayList<>()
+//    protected ArrayList<LogEventSubscriber> logEventSubscribers = new ArrayList<>()
 
     // ======== Permanent Delegated Facades ========
-    @SuppressWarnings("GrFinalVariableAccess") public final CacheFacadeImpl cacheFacade
-    @SuppressWarnings("GrFinalVariableAccess") public final LoggerFacadeImpl loggerFacade
-    @SuppressWarnings("GrFinalVariableAccess") public final ResourceFacadeImpl resourceFacade
-    @SuppressWarnings("GrFinalVariableAccess") public final TransactionFacadeImpl transactionFacade
-    @SuppressWarnings("GrFinalVariableAccess") public final EntityFacadeImpl entityFacade
-    @SuppressWarnings("GrFinalVariableAccess") public final ServiceFacadeImpl serviceFacade
-    @SuppressWarnings("GrFinalVariableAccess") public final ScreenFacadeImpl screenFacade
+//    @SuppressWarnings("GrFinalVariableAccess") public final CacheFacadeImpl cacheFacade
+//    @SuppressWarnings("GrFinalVariableAccess") public final LoggerFacadeImpl loggerFacade
+//    @SuppressWarnings("GrFinalVariableAccess") public final ResourceFacadeImpl resourceFacade
+
+
+//    @SuppressWarnings("GrFinalVariableAccess") public final ServiceFacadeImpl serviceFacade
+//    @SuppressWarnings("GrFinalVariableAccess") public final ScreenFacadeImpl screenFacade
 
     /** The main worker pool for services, running async closures and runnables, etc */
-    @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool
+//    @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool
     /** An executor for the scheduled job runner */
     // TODO: make the scheduled thread pool size configurable
-    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(16)
+//    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(16)
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
      * it can initialize on its own. This is the constructor to be used by the ServiceLoader in the Moqui.java file,
      * or by init methods in a servlet or context filter or OSGi component or Spring component or whatever.
      */
-    ExecutionContextFactoryImpl() {
-        long initStartTime = System.currentTimeMillis()
+    public EntityContextFactoryImpl() {
+
+        long initStartTime = System.currentTimeMillis();
 
         // get the MoquiInit.properties file
-        Properties moquiInitProperties = new Properties()
-        URL initProps = this.class.getClassLoader().getResource("MoquiInit.properties")
-        if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close() }
+        Properties moquiInitProperties = new Properties();
+        URL initProps = this.class.getClassLoader().getResource("MoquiInit.properties");
+        if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
 
         // if there is a system property use that, otherwise from the properties file
-        runtimePath = System.getProperty("moqui.runtime")
-        if (!runtimePath) {
-            runtimePath = moquiInitProperties.getProperty("moqui.runtime")
-            // if there was no system property set one, make sure at least something is always set for conf files/etc
-            if (runtimePath) System.setProperty("moqui.runtime", runtimePath)
-        }
-        if (!runtimePath) throw new IllegalArgumentException("No moqui.runtime property found in MoquiInit.properties or in a system property (with: -Dmoqui.runtime=... on the command line)")
-        if (runtimePath.endsWith("/")) runtimePath = runtimePath.substring(0, runtimePath.length()-1)
+//        runtimePath = System.getProperty("moqui.runtime")
+//        if (!runtimePath) {
+//            runtimePath = moquiInitProperties.getProperty("moqui.runtime")
+//            // if there was no system property set one, make sure at least something is always set for conf files/etc
+//            if (runtimePath) System.setProperty("moqui.runtime", runtimePath)
+//        }
+//        if (!runtimePath) throw new IllegalArgumentException("No moqui.runtime property found in MoquiInit.properties or in a system property (with: -Dmoqui.runtime=... on the command line)")
+//        if (runtimePath.endsWith("/")) runtimePath = runtimePath.substring(0, runtimePath.length()-1)
 
         // check the runtime directory via File
-        File runtimeFile = new File(runtimePath)
-        if (runtimeFile.exists()) { runtimePath = runtimeFile.getCanonicalPath() }
-        else { throw new IllegalArgumentException("The moqui.runtime path [${runtimePath}] was not found.") }
+//        File runtimeFile = new File(runtimePath)
+//        if (runtimeFile.exists()) { runtimePath = runtimeFile.getCanonicalPath() }
+//        else { throw new IllegalArgumentException("The moqui.runtime path [${runtimePath}] was not found.") }
 
         // get the moqui configuration file path
-        String confPartialPath = System.getProperty("moqui.conf")
-        if (!confPartialPath) confPartialPath = moquiInitProperties.getProperty("moqui.conf")
-        if (!confPartialPath) throw new IllegalArgumentException("No moqui.conf property found in MoquiInit.properties or in a system property (with: -Dmoqui.conf=... on the command line)")
+//        String confPartialPath = System.getProperty("moqui.conf")
+//        if (!confPartialPath) confPartialPath = moquiInitProperties.getProperty("moqui.conf")
+//        if (!confPartialPath) throw new IllegalArgumentException("No moqui.conf property found in MoquiInit.properties or in a system property (with: -Dmoqui.conf=... on the command line)")
 
-        String confFullPath
-        if (confPartialPath.startsWith("/")) {
-            confFullPath = confPartialPath
-        } else {
-            confFullPath = runtimePath + "/" + confPartialPath
-        }
-        // setup the confFile
-        File confFile = new File(confFullPath)
-        if (confFile.exists()) {
-            runtimeConfPath = confFullPath
-        } else {
-            runtimeConfPath = null
-            throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
-        }
+//        String confFullPath
+//        if (confPartialPath.startsWith("/")) {
+//            confFullPath = confPartialPath
+//        } else {
+//            confFullPath = runtimePath + "/" + confPartialPath
+//        }
+//        // setup the confFile
+//        File confFile = new File(confFullPath)
+//        if (confFile.exists()) {
+//            runtimeConfPath = confFullPath
+//        } else {
+//            runtimeConfPath = null
+//            throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
+//        }
 
         // sleep here to attach profiler before init: sleep(30000)
 
         // initialize all configuration, get various conf files merged and load components
-        MNode runtimeConfXmlRoot = MNode.parse(confFile)
-        MNode baseConfigNode = initBaseConfig(runtimeConfXmlRoot)
-        // init components before initConfig() so component configuration files can be incorporated
-        initComponents(baseConfigNode)
-        // init the configuration (merge from component and runtime conf files)
-        confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
+//        MNode runtimeConfXmlRoot = MNode.parse(confFile)
+//        MNode baseConfigNode = initBaseConfig(runtimeConfXmlRoot)
+//        // init components before initConfig() so component configuration files can be incorporated
+//        initComponents(baseConfigNode)
+//        // init the configuration (merge from component and runtime conf files)
+//        confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
-        reconfigureLog4j()
-        workerPool = makeWorkerPool()
-        preFacadeInit()
+//        reconfigureLog4j()
+//        workerPool = makeWorkerPool()
+        preFacadeInit();
 
         // this init order is important as some facades will use others
-        cacheFacade = new CacheFacadeImpl(this)
-        logger.info("Cache Facade initialized")
-        loggerFacade = new LoggerFacadeImpl(this)
+//        cacheFacade = new CacheFacadeImpl(this)
+//        logger.info("Cache Facade initialized")
+//        loggerFacade = new LoggerFacadeImpl(this)
         // logger.info("Logger Facade initialized")
-        resourceFacade = new ResourceFacadeImpl(this)
-        logger.info("Resource Facade initialized")
+//        resourceFacade = new ResourceFacadeImpl(this)
+//        logger.info("Resource Facade initialized")
 
-        transactionFacade = new TransactionFacadeImpl(this)
-        logger.info("Transaction Facade initialized")
-        entityFacade = new EntityFacadeImpl(this)
-        logger.info("Entity Facade initialized")
-        serviceFacade = new ServiceFacadeImpl(this)
-        logger.info("Service Facade initialized")
-        screenFacade = new ScreenFacadeImpl(this)
-        logger.info("Screen Facade initialized")
+        transactionFacade = new TransactionFacadeImpl(this);
+        logger.info("Transaction Facade initialized");
+        entityFacade = new EntityFacadeImpl(this);
+        logger.info("Entity Facade initialized");
+//        serviceFacade = new ServiceFacadeImpl(this)
+//        logger.info("Service Facade initialized")
+//        screenFacade = new ScreenFacadeImpl(this)
+//        logger.info("Screen Facade initialized")
 
-        postFacadeInit()
+        postFacadeInit();
 
-        logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
+        logger.info("Execution Context Factory initialized in "+(System.currentTimeMillis() - initStartTime)/1000+" seconds");
     }
 
     /** This constructor takes the runtime directory path and conf file path directly. */
-    ExecutionContextFactoryImpl(String runtimePathParm, String confPathParm) {
+    public ExecutionContextFactoryImpl(String runtimePathParm, String confPathParm) {
         long initStartTime = System.currentTimeMillis()
 
-        // setup the runtimeFile
-        File runtimeFile = new File(runtimePathParm)
-        if (!runtimeFile.exists()) throw new IllegalArgumentException("The moqui.runtime path [${runtimePathParm}] was not found.")
-
-        // setup the confFile
-        if (runtimePathParm.endsWith('/')) runtimePathParm = runtimePathParm.substring(0, runtimePathParm.length()-1)
-        if (confPathParm.startsWith('/')) confPathParm = confPathParm.substring(1)
-        String confFullPath = runtimePathParm + '/' + confPathParm
-        File confFile = new File(confFullPath)
-        if (!confFile.exists()) throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
-
-        runtimePath = runtimePathParm
-        runtimeConfPath = confFullPath
+//        // setup the runtimeFile
+//        File runtimeFile = new File(runtimePathParm)
+//        if (!runtimeFile.exists()) throw new IllegalArgumentException("The moqui.runtime path [${runtimePathParm}] was not found.")
+//
+//        // setup the confFile
+//        if (runtimePathParm.endsWith('/')) runtimePathParm = runtimePathParm.substring(0, runtimePathParm.length()-1)
+//        if (confPathParm.startsWith('/')) confPathParm = confPathParm.substring(1)
+//        String confFullPath = runtimePathParm + '/' + confPathParm
+//        File confFile = new File(confFullPath)
+//        if (!confFile.exists()) throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
+//
+//        runtimePath = runtimePathParm
+//        runtimeConfPath = confFullPath
 
         // initialize all configuration, get various conf files merged and load components
-        MNode runtimeConfXmlRoot = MNode.parse(confFile)
-        MNode baseConfigNode = initBaseConfig(runtimeConfXmlRoot)
+//        MNode runtimeConfXmlRoot = MNode.parse(confFile)
+//        MNode baseConfigNode = initBaseConfig(runtimeConfXmlRoot)
         // init components before initConfig() so component configuration files can be incorporated
-        initComponents(baseConfigNode)
+//        initComponents(baseConfigNode)
         // init the configuration (merge from component and runtime conf files)
-        confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
+//        confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
-        reconfigureLog4j()
-        workerPool = makeWorkerPool()
-        preFacadeInit()
+//        reconfigureLog4j()
+//        workerPool = makeWorkerPool()
+        preFacadeInit();
 
         // this init order is important as some facades will use others
-        cacheFacade = new CacheFacadeImpl(this)
-        logger.info("Cache Facade initialized")
-        loggerFacade = new LoggerFacadeImpl(this)
+//        cacheFacade = new CacheFacadeImpl(this)
+//        logger.info("Cache Facade initialized")
+//        loggerFacade = new LoggerFacadeImpl(this)
         // logger.info("LoggerFacadeImpl initialized")
-        resourceFacade = new ResourceFacadeImpl(this)
-        logger.info("Resource Facade initialized")
+//        resourceFacade = new ResourceFacadeImpl(this)
+//        logger.info("Resource Facade initialized")
 
-        transactionFacade = new TransactionFacadeImpl(this)
-        logger.info("Transaction Facade initialized")
-        entityFacade = new EntityFacadeImpl(this)
+        transactionFacade = new TransactionFacadeImpl(this);
+        logger.info("Transaction Facade initialized");
+        entityFacade = new EntityFacadeImpl(this);
         logger.info("Entity Facade initialized")
-        serviceFacade = new ServiceFacadeImpl(this)
-        logger.info("Service Facade initialized")
-        screenFacade = new ScreenFacadeImpl(this)
-        logger.info("Screen Facade initialized")
+//        serviceFacade = new ServiceFacadeImpl(this)
+//        logger.info("Service Facade initialized")
+//        screenFacade = new ScreenFacadeImpl(this)
+//        logger.info("Screen Facade initialized")
 
-        postFacadeInit()
+        postFacadeInit();
 
-        logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
+        logger.info("Execution Context Factory initialized in "+(System.currentTimeMillis() - initStartTime)/1000+" seconds");
     }
 
-    protected void reconfigureLog4j() {
-        URL log4j2Url = this.class.getClassLoader().getResource("log4j2.xml")
-        if (log4j2Url == null) {
-            logger.warn("No log4j2.xml file found on the classpath, no reconfiguring Log4J")
-            return
-        }
-        final LoggerContext ctx = (LoggerContext) LogManager.getContext(true)
-        ctx.setConfigLocation(log4j2Url.toURI())
-    }
+//    protected void reconfigureLog4j() {
+//        URL log4j2Url = this.class.getClassLoader().getResource("log4j2.xml")
+//        if (log4j2Url == null) {
+//            logger.warn("No log4j2.xml file found on the classpath, no reconfiguring Log4J")
+//            return
+//        }
+//        final LoggerContext ctx = (LoggerContext) LogManager.getContext(true)
+//        ctx.setConfigLocation(log4j2Url.toURI())
+//    }
 
-    protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
-        Enumeration<URL> resources = getClass().getClassLoader().getResources("META-INF/MANIFEST.MF")
-        while (resources.hasMoreElements()) {
-            try {
-                Manifest manifest = new Manifest(resources.nextElement().openStream())
-                Attributes attributes = manifest.getMainAttributes()
-                String implTitle = attributes.getValue("Implementation-Title")
-                String implVendor = attributes.getValue("Implementation-Vendor")
-                if ("Moqui Framework".equals(implTitle) && "Moqui Ecosystem".equals(implVendor)) {
-                    moquiVersion = attributes.getValue("Implementation-Version")
-                    break
-                }
-            } catch (IOException e) {
-                logger.info("Error reading manifest files", e)
-            }
-        }
-        System.setProperty("moqui.version", moquiVersion)
-
-        // don't set the moqui.runtime and moqui.conf system properties as before, causes conflict with multiple moqui instances in one JVM
-        // NOTE: moqui.runtime is set in MoquiStart and in MoquiContextListener (if there is an embedded runtime directory)
-        // System.setProperty("moqui.runtime", runtimePath)
-        // System.setProperty("moqui.conf", runtimeConfPath)
-
-        logger.info("Initializing Moqui Framework version ${moquiVersion ?: 'Unknown'}\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
-
-        URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
-        if (defaultConfUrl == null) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
-        MNode newConfigXmlRoot = MNode.parse(defaultConfUrl.toString(), defaultConfUrl.newInputStream())
-
-        // just merge the component configuration, needed before component init is done
-        mergeConfigComponentNodes(newConfigXmlRoot, runtimeConfXmlRoot)
-
-        return newConfigXmlRoot
-    }
-    protected void initComponents(MNode baseConfigNode) {
-        File versionJsonFile = new File(runtimePath + "/version.json")
-        if (versionJsonFile.exists()) {
-            try {
-                versionMap = (Map) new JsonSlurper().parse(versionJsonFile)
-            } catch (Exception e) {
-                logger.warn("Error parsion runtime/version.json", e)
-            }
-        }
-
-        // init components referred to in component-list.component and component-dir elements in the conf file
-        for (MNode childNode in baseConfigNode.first("component-list").children) {
-            if ("component".equals(childNode.name)) {
-                addComponent(new ComponentInfo(null, childNode, this))
-            } else if ("component-dir".equals(childNode.name)) {
-                addComponentDir(childNode.attribute("location"))
-            }
-        }
-        checkSortDependentComponents()
-    }
-    protected MNode initConfig(MNode baseConfigNode, MNode runtimeConfXmlRoot) {
-        // merge any config files in components
-        for (ComponentInfo ci in componentInfoMap.values()) {
-            ResourceReference compXmlRr = ci.componentRr.getChild("MoquiConf.xml")
-            if (compXmlRr.getExists()) {
-                logger.info("Merging MoquiConf.xml file from component ${ci.name}")
-                MNode compXmlNode = MNode.parse(compXmlRr)
-                mergeConfigNodes(baseConfigNode, compXmlNode)
-            }
-        }
-
-        // merge the runtime conf file into the default one to override any settings (they both have the same root node, go from there)
-        logger.info("Merging runtime configuration at ${runtimeConfPath}")
-        mergeConfigNodes(baseConfigNode, runtimeConfXmlRoot)
-
-        // set default System properties now that all is merged
-        for (MNode defPropNode in baseConfigNode.children("default-property")) {
-            String propName = defPropNode.attribute("name")
-            if (System.getProperty(propName)) {
-                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
-                    logger.info("Found pw/key property ${propName}, not setting from env var or default")
-                } else {
-                    logger.info("Found property ${propName} with value [${System.getProperty(propName)}], not setting from env var or default")
-                }
-                continue
-            }
-            if (System.getenv(propName) && !System.getProperty(propName)) {
-                // make env vars available as Java System properties
-                System.setProperty(propName, System.getenv(propName))
-                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
-                    logger.info("Setting pw/key property ${propName} from env var")
-                } else {
-                    logger.info("Setting property ${propName} from env var with value [${System.getProperty(propName)}]")
-                }
-            }
-            if (!System.getProperty(propName) && !System.getenv(propName)) {
-                String valueAttr = defPropNode.attribute("value")
-                if (valueAttr != null && !valueAttr.isEmpty()) {
-                    System.setProperty(propName, SystemBinding.expand(valueAttr))
-                    if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
-                        logger.info("Setting pw/key property ${propName} from default")
-                    } else {
-                        logger.info("Setting property ${propName} from default with value [${System.getProperty(propName)}]")
-                    }
-                }
-            }
-        }
-
-        // if there are default_locale or default_time_zone Java props or system env vars set defaults
-        String localeStr = SystemBinding.getPropOrEnv("default_locale")
-        if (localeStr) {
-            try {
-                int usIdx = localeStr.indexOf("_")
-                Locale.setDefault(usIdx < 0 ? new Locale(localeStr) :
-                        new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase()))
-            } catch (Throwable t) {
-                logger.error("Error setting default locale to ${localeStr}: ${t.toString()}")
-            }
-        }
-        String tzStr = SystemBinding.getPropOrEnv("default_time_zone")
-        if (tzStr) {
-            try {
-                logger.info("Found default_time_zone ${tzStr}: ${TimeZone.getTimeZone(tzStr)}")
-                TimeZone.setDefault(TimeZone.getTimeZone(tzStr))
-            } catch (Throwable t) {
-                logger.error("Error setting default time zone to ${tzStr}: ${t.toString()}")
-            }
-        }
-        logger.info("Default locale ${Locale.getDefault()}, time zone ${TimeZone.getDefault()}")
-
-        return baseConfigNode
-    }
+//    protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
+//        Enumeration<URL> resources = getClass().getClassLoader().getResources("META-INF/MANIFEST.MF");
+//        while (resources.hasMoreElements()) {
+//            try {
+//                Manifest manifest = new Manifest(resources.nextElement().openStream())
+//                Attributes attributes = manifest.getMainAttributes()
+//                String implTitle = attributes.getValue("Implementation-Title")
+//                String implVendor = attributes.getValue("Implementation-Vendor")
+//                if ("Moqui Framework".equals(implTitle) && "Moqui Ecosystem".equals(implVendor)) {
+//                    moquiVersion = attributes.getValue("Implementation-Version")
+//                    break
+//                }
+//            } catch (IOException e) {
+//                logger.info("Error reading manifest files", e)
+//            }
+//        }
+//        System.setProperty("moqui.version", moquiVersion)
+//
+//        // don't set the moqui.runtime and moqui.conf system properties as before, causes conflict with multiple moqui instances in one JVM
+//        // NOTE: moqui.runtime is set in MoquiStart and in MoquiContextListener (if there is an embedded runtime directory)
+//        // System.setProperty("moqui.runtime", runtimePath)
+//        // System.setProperty("moqui.conf", runtimeConfPath)
+//
+//        logger.info("Initializing Moqui Framework version ${moquiVersion ?: 'Unknown'}\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
+//
+//        URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
+//        if (defaultConfUrl == null) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
+//        MNode newConfigXmlRoot = MNode.parse(defaultConfUrl.toString(), defaultConfUrl.newInputStream())
+//
+//        // just merge the component configuration, needed before component init is done
+//        mergeConfigComponentNodes(newConfigXmlRoot, runtimeConfXmlRoot)
+//
+//        return newConfigXmlRoot
+//    }
+//    protected void initComponents(MNode baseConfigNode) {
+//        File versionJsonFile = new File(runtimePath + "/version.json")
+//        if (versionJsonFile.exists()) {
+//            try {
+//                versionMap = (Map) new JsonSlurper().parse(versionJsonFile)
+//            } catch (Exception e) {
+//                logger.warn("Error parsion runtime/version.json", e)
+//            }
+//        }
+//
+//        // init components referred to in component-list.component and component-dir elements in the conf file
+//        for (MNode childNode in baseConfigNode.first("component-list").children) {
+//            if ("component".equals(childNode.name)) {
+//                addComponent(new ComponentInfo(null, childNode, this))
+//            } else if ("component-dir".equals(childNode.name)) {
+//                addComponentDir(childNode.attribute("location"))
+//            }
+//        }
+//        checkSortDependentComponents()
+//    }
+//    protected MNode initConfig(MNode baseConfigNode, MNode runtimeConfXmlRoot) {
+//        // merge any config files in components
+//        for (ComponentInfo ci in componentInfoMap.values()) {
+//            ResourceReference compXmlRr = ci.componentRr.getChild("MoquiConf.xml")
+//            if (compXmlRr.getExists()) {
+//                logger.info("Merging MoquiConf.xml file from component ${ci.name}")
+//                MNode compXmlNode = MNode.parse(compXmlRr)
+//                mergeConfigNodes(baseConfigNode, compXmlNode)
+//            }
+//        }
+//
+//        // merge the runtime conf file into the default one to override any settings (they both have the same root node, go from there)
+//        logger.info("Merging runtime configuration at ${runtimeConfPath}")
+//        mergeConfigNodes(baseConfigNode, runtimeConfXmlRoot)
+//
+//        // set default System properties now that all is merged
+//        for (MNode defPropNode in baseConfigNode.children("default-property")) {
+//            String propName = defPropNode.attribute("name")
+//            if (System.getProperty(propName)) {
+//                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
+//                    logger.info("Found pw/key property ${propName}, not setting from env var or default")
+//                } else {
+//                    logger.info("Found property ${propName} with value [${System.getProperty(propName)}], not setting from env var or default")
+//                }
+//                continue
+//            }
+//            if (System.getenv(propName) && !System.getProperty(propName)) {
+//                // make env vars available as Java System properties
+//                System.setProperty(propName, System.getenv(propName))
+//                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
+//                    logger.info("Setting pw/key property ${propName} from env var")
+//                } else {
+//                    logger.info("Setting property ${propName} from env var with value [${System.getProperty(propName)}]")
+//                }
+//            }
+//            if (!System.getProperty(propName) && !System.getenv(propName)) {
+//                String valueAttr = defPropNode.attribute("value")
+//                if (valueAttr != null && !valueAttr.isEmpty()) {
+//                    System.setProperty(propName, SystemBinding.expand(valueAttr))
+//                    if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
+//                        logger.info("Setting pw/key property ${propName} from default")
+//                    } else {
+//                        logger.info("Setting property ${propName} from default with value [${System.getProperty(propName)}]")
+//                    }
+//                }
+//            }
+//        }
+//
+//        // if there are default_locale or default_time_zone Java props or system env vars set defaults
+//        String localeStr = SystemBinding.getPropOrEnv("default_locale")
+//        if (localeStr) {
+//            try {
+//                int usIdx = localeStr.indexOf("_")
+//                Locale.setDefault(usIdx < 0 ? new Locale(localeStr) :
+//                        new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase()))
+//            } catch (Throwable t) {
+//                logger.error("Error setting default locale to ${localeStr}: ${t.toString()}")
+//            }
+//        }
+//        String tzStr = SystemBinding.getPropOrEnv("default_time_zone")
+//        if (tzStr) {
+//            try {
+//                logger.info("Found default_time_zone ${tzStr}: ${TimeZone.getTimeZone(tzStr)}")
+//                TimeZone.setDefault(TimeZone.getTimeZone(tzStr))
+//            } catch (Throwable t) {
+//                logger.error("Error setting default time zone to ${tzStr}: ${t.toString()}")
+//            }
+//        }
+//        logger.info("Default locale ${Locale.getDefault()}, time zone ${TimeZone.getDefault()}")
+//
+//        return baseConfigNode
+//    }
 
     private ThreadPoolExecutor makeWorkerPool() {
         MNode toolsNode = confXmlRoot.first('tools')
@@ -526,26 +532,26 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
         MClassLoader.addCommonClass("EntityList", EntityList.class)
 
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
-                moquiClassLoader = new MClassLoader(pcl)
+                zClassLoader = new MClassLoader(pcl)
         // NOTE: initialized here but NOT used as currentThread ClassLoader
-        groovyClassLoader = new GroovyClassLoader(moquiClassLoader)
+        groovyClassLoader = new GroovyClassLoader(zClassLoader)
 
         File scriptClassesDir = new File(runtimePath + "/script-classes")
         scriptClassesDir.mkdirs()
-        if (groovyCompileCacheToDisk) moquiClassLoader.addClassesDirectory(scriptClassesDir)
+        if (groovyCompileCacheToDisk) zClassLoader.addClassesDirectory(scriptClassesDir)
         groovyCompilerConf = new CompilerConfiguration()
         groovyCompilerConf.setTargetDirectory(scriptClassesDir)
 
         // add runtime/classes jar files to the class loader
         File runtimeClassesFile = new File(runtimePath + "/classes")
         if (runtimeClassesFile.exists()) {
-            moquiClassLoader.addClassesDirectory(runtimeClassesFile)
+            zClassLoader.addClassesDirectory(runtimeClassesFile)
         }
         // add runtime/lib jar files to the class loader
         File runtimeLibFile = new File(runtimePath + "/lib")
         if (runtimeLibFile.exists()) for (File jarFile: runtimeLibFile.listFiles()) {
             if (jarFile.getName().endsWith(".jar")) {
-                moquiClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
+                zClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
@@ -554,7 +560,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
         for (ComponentInfo ci in componentInfoMap.values()) {
             ResourceReference classesRr = ci.componentRr.getChild("classes")
             if (classesRr.exists && classesRr.supportsDirectory() && classesRr.isDirectory()) {
-                moquiClassLoader.addClassesDirectory(new File(classesRr.getUrl().getPath()))
+                zClassLoader.addClassesDirectory(new File(classesRr.getUrl().getPath()))
             }
 
             ResourceReference libRr = ci.componentRr.getChild("lib")
@@ -563,7 +569,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
-                            moquiClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
+                            zClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
                             jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
@@ -575,9 +581,9 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
         }
 
         // clear not found info just in case anything was falsely added
-        moquiClassLoader.clearNotFoundInfo()
+        zClassLoader.clearNotFoundInfo()
         // set as context classloader
-        Thread.currentThread().setContextClassLoader(moquiClassLoader)
+        Thread.currentThread().setContextClassLoader(zClassLoader)
 
         logger.info("Initialized ClassLoader in ${System.currentTimeMillis() - startTime}ms")
     }
@@ -858,7 +864,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 
         Thread currentThread = Thread.currentThread()
         if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${currentThread.id}:${currentThread.name}]")
-        if (!currentThread.getContextClassLoader().is(moquiClassLoader)) currentThread.setContextClassLoader(moquiClassLoader)
+        if (!currentThread.getContextClassLoader().is(zClassLoader)) currentThread.setContextClassLoader(zClassLoader)
         ec = new ExecutionContextImpl(this, currentThread)
         this.activeContext.set(ec)
         this.activeContextMap.put(currentThread.id, ec)
@@ -908,7 +914,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
     @Override @Nonnull ServiceFacade getService() { serviceFacade }
     @Override @Nonnull ScreenFacade getScreen() { screenFacade }
 
-    @Override @Nonnull ClassLoader getClassLoader() { moquiClassLoader }
+    @Override @Nonnull ClassLoader getClassLoader() { zClassLoader }
     @Override @Nonnull GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
 
     synchronized Class compileGroovy(String script, String className) {
