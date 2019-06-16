@@ -16,16 +16,21 @@ public class ZCacheConfiguration<K, V> extends MutableConfiguration<K, V> {
     int maxEntries = 0;
     long maxCheckSeconds = 30;
 
-    /** Set maximum number of entries in the cache, 0 means no limit (default). Limit is enforced in a scheduled worker, not on put operations. */
+    /**
+     * 设置缓存中的最大条目数，0表示无限制（默认）。 限制在计划的工作程序中执行，而不是在执行操作中执行。
+     */
     public ZCacheConfiguration<K, V> setMaxEntries(int elements) {
         maxEntries = elements;
         return this;
     }
+
     public int getMaxEntries() {
         return maxEntries;
     }
 
-    /** Set maximum number of entries in the cache, 0 means no limit (default). */
+    /**
+     * 设置缓存中的最大条目数，0表示无限制（默认）。
+     */
     public ZCacheConfiguration<K, V> setMaxCheckSeconds(long seconds) {
         maxCheckSeconds = seconds;
         return this;

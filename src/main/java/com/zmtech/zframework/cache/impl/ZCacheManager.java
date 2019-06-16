@@ -13,7 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
 
-/** This class does not completely support the javax.cache.CacheManager spec, it is just enough to use as a factory for ZCache instances. */
+/** 该类不完全支持javax.cache.CacheManager规范，它足以用作ZCache实例的工厂。 */
 public class ZCacheManager implements CacheManager {
     private static final Logger logger = LoggerFactory.getLogger(ZCacheManager.class);
 
@@ -28,7 +28,7 @@ public class ZCacheManager implements CacheManager {
 
     private ZCacheManager() {
         try { cmUri = new URI("ZCacheManager"); }
-        catch (URISyntaxException e) { logger.error("URI Syntax error initializing ZCacheManager", e); }
+        catch (URISyntaxException e) { logger.error("初始化 ZCacheManager 的 URI 错误", e); }
         localClassLoader = Thread.currentThread().getContextClassLoader();
     }
 
@@ -44,7 +44,7 @@ public class ZCacheManager implements CacheManager {
     @Override
     @SuppressWarnings("unchecked")
     public synchronized <K, V, C extends Configuration<K, V>> Cache<K, V> createCache(String cacheName, C configuration) throws IllegalArgumentException {
-        if (isClosed) throw new IllegalStateException("ZCacheManager is closed");
+        if (isClosed) throw new IllegalStateException("ZCacheManager 已经关闭!");
         if (cacheMap.containsKey(cacheName)) {
             // not per spec, but be more friendly and just return the existing cache: throw new CacheException("Cache with name " + cacheName + " already exists");
             return cacheMap.get(cacheName);
@@ -58,40 +58,40 @@ public class ZCacheManager implements CacheManager {
     @Override
     @SuppressWarnings("unchecked")
     public <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType) {
-        if (isClosed) throw new IllegalStateException("ZCacheManager is closed");
+        if (isClosed) throw new IllegalStateException("ZCacheManager 已经关闭!");
         return cacheMap.get(cacheName);
     }
     @Override
     @SuppressWarnings("unchecked")
     public <K, V> Cache<K, V> getCache(String cacheName) {
-        if (isClosed) throw new IllegalStateException("ZCacheManager is closed");
+        if (isClosed) throw new IllegalStateException("ZCacheManager 已经关闭!");
         return cacheMap.get(cacheName);
     }
 
     @Override
     public Iterable<String> getCacheNames() {
-        if (isClosed) throw new IllegalStateException("ZCacheManager is closed");
+        if (isClosed) throw new IllegalStateException("ZCacheManager 已经关闭!");
         return cacheMap.keySet();
     }
 
     @Override
     public void destroyCache(String cacheName) {
-        if (isClosed) throw new IllegalStateException("ZCacheManager is closed");
+        if (isClosed) throw new IllegalStateException("ZCacheManager 已经关闭!");
         ZCache cache = cacheMap.get(cacheName);
         if (cache != null) {
             cacheMap.remove(cacheName);
             cache.close();
         } else {
-            throw new IllegalStateException("Cache with name " + cacheName + " does not exist, cannot be destroyed");
+            throw new IllegalStateException("名称为: [" + cacheName + "] 的缓存不存在,无法销毁!");
         }
     }
 
     @Override
     public void enableManagement(String cacheName, boolean enabled) {
-        throw new UnsupportedOperationException("ZCacheManager does not support CacheMXBean"); }
+        throw new UnsupportedOperationException("ZCacheManager 暂时不支持 CacheMXBean!"); }
     @Override
     public void enableStatistics(String cacheName, boolean enabled) {
-        throw new UnsupportedOperationException("ZCacheManager does not support registered statistics; use the ZCache.getStats() or getMStats() methods"); }
+        throw new UnsupportedOperationException("ZCacheManager 暂时不支持registered statistics; 请使用 ZCache.getStats() 或者 getMStats() 方法!"); }
 
     @Override
     public void close() {
@@ -104,6 +104,6 @@ public class ZCacheManager implements CacheManager {
     @Override
     public <T> T unwrap(Class<T> clazz) {
         if (clazz.isAssignableFrom(this.getClass())) return clazz.cast(this);
-        throw new IllegalArgumentException("Class " + clazz.getName() + " not compatible with ZCacheManager");
+        throw new IllegalArgumentException("类型: [" + clazz.getName() + "] 不是ZCacheManager类型!");
     }
 }
