@@ -1,12 +1,16 @@
 package com.zmtech.zframework.resource.impl;
 
+import com.zmtech.zframework.cache.impl.ZCache;
 import com.zmtech.zframework.context.ScriptRunner;
 import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zframework.context.reference.BaseResourceReference;
 import com.zmtech.zframework.context.runner.JavaxScriptRunner;
 import com.zmtech.zframework.context.runner.XmlActionsScriptRunner;
+import com.zmtech.zframework.exception.BaseException;
 import com.zmtech.zframework.resource.ResourceFacade;
 import com.zmtech.zframework.tools.ToolFactory;
 import com.zmtech.zframework.util.MNode;
+import com.zmtech.zframework.util.ObjectUtil;
 import groovy.lang.Script;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,7 +73,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.cacheFacade.getCache("resource.groovy.expression")
         resourceReferenceByLocation = ecfi.getCache().getCache("resource.reference.location", String.class, ResourceReference.class);
 
-        MNode resourceFacadeNode = ecfi.confXmlRoot.first("resource-facade");
+        MNode resourceFacadeNode = ecfi.getConfXmlRoot().first("resource-facade");
 
         // Setup resource reference classes
         for (MNode rrNode : resourceFacadeNode.children("resource-reference")) {
@@ -91,190 +95,191 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 ScriptRunner sr = new JavaxScriptRunner(scriptRunnerNode.attribute("engine")).init(ecfi);
                 scriptRunners.put(scriptRunnerNode.attribute("extension"), sr);
             } else {
-                logger.error("Configured script-runner for extension [${scriptRunnerNode.attribute("extension")}] must have either a class or engine attribute and has neither.");
+                logger.error("Configured script-runner for extension ["+scriptRunnerNode.attribute("extension")+"] must have either a class or engine attribute and has neither.");
             }
         }
 
         // Get XSL-FO Handler Factory
-        if (resourceFacadeNode.attribute("xsl-fo-handler-factory")) {
-            xslFoHandlerFactory = ecfi.getToolFactory(resourceFacadeNode.attribute("xsl-fo-handler-factory"))
+        if (resourceFacadeNode.attribute("xsl-fo-handler-factory") != null) {
+            xslFoHandlerFactory = ecfi.getToolFactory(resourceFacadeNode.attribute("xsl-fo-handler-factory"));
             if (xslFoHandlerFactory != null) {
-                logger.info("Using xsl-fo-handler-factory ${resourceFacadeNode.attribute("xsl-fo-handler-factory")} (${xslFoHandlerFactory.class.name})")
+                logger.info("Using xsl-fo-handler-factory "+resourceFacadeNode.attribute("xsl-fo-handler-factory")+" ("+xslFoHandlerFactory.getClass().getName()+")");
             } else {
-                logger.warn("Could not find xsl-fo-handler-factory with name ${resourceFacadeNode.attribute("xsl-fo-handler-factory")}")
+                logger.warn("Could not find xsl-fo-handler-factory with name "+resourceFacadeNode.attribute("xsl-fo-handler-factory"));
             }
         } else {
-            xslFoHandlerFactory = null
+            xslFoHandlerFactory = null;
         }
 
         // Setup content repositories
-        for (MNode repositoryNode in ecfi.confXmlRoot.first("repository-list").children("repository")) {
-            String repoName = repositoryNode.attribute("name")
-            Repository repo = null
-            Map parameters = new HashMap()
-            for (MNode paramNode in repositoryNode.children("init-param"))
-            parameters.put(paramNode.attribute("name"), paramNode.attribute("value"))
+        for (MNode repositoryNode : ecfi.getConfXmlRoot().first("repository-list").children("repository")) {
+            String repoName = repositoryNode.attribute("name");
+            Repository repo = null;
+            Map parameters = new HashMap();
+            for (MNode paramNode : repositoryNode.children("init-param"))
+            parameters.put(paramNode.attribute("name"), paramNode.attribute("value"));
 
             try {
                 for (RepositoryFactory factory : ServiceLoader.load(RepositoryFactory.class)) {
-                    repo = factory.getRepository(parameters)
+                    repo = factory.getRepository(parameters);
                     // factory accepted parameters
-                    if (repo != null) break
+                    if (repo != null) break;
                 }
                 if (repo != null) {
-                    contentRepositories.put(repoName, repo)
-                    logger.info("Added JCR Repository ${repoName} of type ${repo.class.name} for workspace ${repositoryNode.attribute("workspace")} using parameters: ${parameters}")
+                    contentRepositories.put(repoName, repo);
+                    logger.info("Added JCR Repository "+repoName+" of type "+repo.getClass().getName()+" for workspace "+repositoryNode.attribute("workspace")+" using parameters: "+parameters);
                 } else {
-                    logger.error("Could not find JCR RepositoryFactory for repository ${repoName} using parameters: ${parameters}")
+                    logger.error("Could not find JCR RepositoryFactory for repository ${repoName} using parameters: ${parameters}");
                 }
             } catch (Exception e) {
-                logger.error("Error getting JCR Repository ${repositoryNode.attribute("name")}: ${e.toString()}")
+                logger.error("Error getting JCR Repository "+repositoryNode.attribute("name")+": "+e.toString());
             }
         }
     }
 
-    void destroyAllInThread() {
-        Map<String, Session> sessionMap = contentSessions.get()
-        if (sessionMap) for (Session openSession in sessionMap.values()) openSession.logout()
-        contentSessions.remove()
+    public void destroyAllInThread() {
+        Map<String, Session> sessionMap = contentSessions.get();
+        if (sessionMap != null && !sessionMap.isEmpty()) for (Session openSession : sessionMap.values()) openSession.logout();
+        contentSessions.remove();
     }
 
-    ExecutionContextFactoryImpl getEcfi() { ecfi }
+    public ExecutionContextFactoryImpl getEcfi() { return this.ecfi; }
 
-    Map<String, TemplateRenderer> getTemplateRenderers() { Collections.unmodifiableMap(templateRenderers) }
 
-    TreeSet<String> getTemplateRendererExtensionSet() { new TreeSet(templateRendererExtensions) }
 
-    Repository getContentRepository(String name) { contentRepositories.get(name) }
+    public Repository getContentRepository(String name) { return contentRepositories.get(name); }
 
     /** Get the active JCR Session for the context/thread, making sure it is live, and make one if needed. */
-    Session getContentRepositorySession(String name) {
-        Map<String, Session> sessionMap = contentSessions.get()
+    public Session getContentRepositorySession(String name) {
+        Map<String, Session> sessionMap = contentSessions.get();
         if (sessionMap == null) {
-            sessionMap = new HashMap()
-            contentSessions.set(sessionMap)
+            sessionMap = new HashMap<>();
+            contentSessions.set(sessionMap);
         }
-        Session newSession = sessionMap[name]
+        Session newSession = sessionMap.get(name);
         if (newSession != null) {
             if (newSession.isLive()) {
-                return newSession
+                return newSession;
             } else {
-                sessionMap.remove(name)
+                sessionMap.remove(name);
                 // newSession = null
             }
         }
 
-        Repository rep = contentRepositories[name]
-        if (!rep) return null
-        MNode repositoryNode = ecfi.confXmlRoot.first("repository-list")
+        Repository rep = contentRepositories.get(name);
+        if (rep == null) return null;
+        MNode repositoryNode = ecfi.getConfXmlRoot().first("repository-list")
                 .first({ MNode it -> it.name == "repository" && it.attribute("name") == name })
         SimpleCredentials credentials = new SimpleCredentials(repositoryNode.attribute("username") ?: "anonymous",
                 (repositoryNode.attribute("password") ?: "").toCharArray())
-        if (repositoryNode.attribute("workspace")) {
-            newSession = rep.login(credentials, repositoryNode.attribute("workspace"))
+        if (repositoryNode.attribute("workspace") != null) {
+            newSession = rep.login(credentials, repositoryNode.attribute("workspace"));
         } else {
-            newSession = rep.login(credentials)
+            newSession = rep.login(credentials);
         }
 
-        if (newSession != null) sessionMap.put(name, newSession)
-        return newSession
+        if (newSession != null) sessionMap.put(name, newSession);
+        return newSession;
     }
 
-    @Override ResourceReference getLocationReference(String location) {
-        if (location == null) return null
+    @Override
+    public ResourceReference getLocationReference(String location) {
+        if (location == null) return null;
 
         // version ignored for this call, just strip it
-        int hashIdx = location.indexOf("#")
-        if (hashIdx > 0) location = location.substring(0, hashIdx)
+        int hashIdx = location.indexOf("#");
+        if (hashIdx > 0) location = location.substring(0, hashIdx);
 
-        ResourceReference cachedRr = resourceReferenceByLocation.get(location)
-        if (cachedRr != null) return cachedRr
+        ResourceReference cachedRr = resourceReferenceByLocation.get(location);
+        if (cachedRr != null) return cachedRr;
 
-        String scheme = getLocationScheme(location)
-        Class rrClass = resourceReferenceClasses.get(scheme)
-        if (rrClass == null) throw new BaseArtifactException("Prefix (${scheme}) not supported for location [${location}]")
+        String scheme = getLocationScheme(location);
+        Class rrClass = resourceReferenceClasses.get(scheme);
+        if (rrClass == null) throw new BaseException("Prefix (${scheme}) not supported for location [${location}]");
 
-        ResourceReference rr = (ResourceReference) rrClass.newInstance()
+        ResourceReference rr = (ResourceReference) rrClass.newInstance();
         if (rr instanceof BaseResourceReference) {
-            ((BaseResourceReference) rr).init(location, ecfi)
+            ((BaseResourceReference) rr).init(location, ecfi);
         } else {
-            rr.init(location)
+            rr.init(location);
         }
-        resourceReferenceByLocation.put(location, rr)
-        return rr
+        resourceReferenceByLocation.put(location, rr);
+        return rr;
     }
-    static String getLocationScheme(String location) {
-        String scheme = "file"
+    public static String getLocationScheme(String location) {
+        String scheme = "file";
         // Q: how to get the scheme for windows? the Java URI class doesn't like spaces, the if we look for the first ":"
         //    it may be a drive letter instead of a scheme/protocol
         // A: ignore colon if only one character before it
         if (location.indexOf(":") > 1) {
-            String prefix = location.substring(0, location.indexOf(":"))
-            if (!prefix.contains("/") && prefix.length() > 2) scheme = prefix
+            String prefix = location.substring(0, location.indexOf(":"));
+            if (!prefix.contains("/") && prefix.length() > 2) scheme = prefix;
         }
-        return scheme
+        return scheme;
     }
 
     @Override
-    InputStream getLocationStream(String location) {
-        int hashIdx = location.indexOf("#")
-        String versionName = null
+    public InputStream getLocationStream(String location) {
+        int hashIdx = location.indexOf("#");
+        String versionName = null;
         if (hashIdx > 0) {
-            if ((hashIdx+1) < location.length()) versionName = location.substring(hashIdx+1)
-            location = location.substring(0, hashIdx)
+            if ((hashIdx+1) < location.length()) versionName = location.substring(hashIdx+1);
+            location = location.substring(0, hashIdx);
         }
 
-        ResourceReference rr = getLocationReference(location)
-        if (rr == null) return null
-        return rr.openStream(versionName)
+        ResourceReference rr = getLocationReference(location);
+        if (rr == null) return null;
+        return rr.openStream(versionName);
     }
 
-    @Override String getLocationText(String location, boolean cache) {
-        int hashIdx = location.indexOf("#")
-        String versionName = (hashIdx > 0 && (hashIdx+1) < location.length()) ? location.substring(hashIdx+1) : null
+    @Override
+    public String getLocationText(String location, boolean cache) {
+        int hashIdx = location.indexOf("#");
+        String versionName = (hashIdx > 0 && (hashIdx+1) < location.length()) ? location.substring(hashIdx+1) : null;
 
-        ResourceReference textRr = getLocationReference(location)
+        ResourceReference textRr = getLocationReference(location);
         if (textRr == null) {
-            logger.info("Cound not get resource reference for location [${location}], returning empty location text String")
-            return ""
+            logger.info("Cound not get resource reference for location [${location}], returning empty location text String");
+            return "";
         }
         // don't cache when getting by version
-        if (versionName != null) cache = false
+        if (versionName != null) cache = false;
         if (cache) {
-            String cachedText
-            if (textLocationCache instanceof MCache) {
-                MCache<String, String> mCache = (MCache) textLocationCache
+            String cachedText;
+            if (textLocationCache instanceof ZCache) {
+                ZCache<String, String> ZCache = (ZCache) textLocationCache;
                 // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
                 //     updated time is older/less than rr.lastModified)
-                cachedText = (String) mCache.get(location, textRr.getLastModified())
+                cachedText = (String) ZCache.get(location, textRr.getLastModified());
             } else {
                 // TODO: doesn't support on the fly reloading without cache expire/clear!
-                cachedText = (String) textLocationCache.get(location)
+                cachedText = (String) textLocationCache.get(location);
             }
-            if (cachedText != null) return cachedText
+            if (cachedText != null) return cachedText;
         }
-        InputStream locStream = textRr.openStream(versionName)
-        if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]")
-        String text = ObjectUtilities.getStreamText(locStream)
-        if (cache) textLocationCache.put(location, text)
+        InputStream locStream = textRr.openStream(versionName);
+        if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]");
+        String text = ObjectUtil.getStreamText(locStream);
+        if (cache) textLocationCache.put(location, text);
         // logger.warn("==== getLocationText at ${location} version ${versionName} text ${text.length() > 100 ? text.substring(0, 100) : text}")
-        return text
+        return text;
     }
 
-    @Override DataSource getLocationDataSource(String location) {
-        int hashIdx = location.indexOf("#")
-        String versionName = null
+    @Override
+    public DataSource getLocationDataSource(String location) {
+        int hashIdx = location.indexOf("#");
+        String versionName = null;
         if (hashIdx > 0) {
-            if ((hashIdx+1) < location.length()) versionName = location.substring(hashIdx+1)
-            location = location.substring(0, hashIdx)
+            if ((hashIdx+1) < location.length()) versionName = location.substring(hashIdx+1);
+            location = location.substring(0, hashIdx);
         }
 
-        ResourceReference fileResourceRef = getLocationReference(location)
-        TemplateRenderer tr = getTemplateRendererByLocation(fileResourceRef.location)
+        ResourceReference fileResourceRef = getLocationReference(location);
+        TemplateRenderer tr = getTemplateRendererByLocation(fileResourceRef.location);
 
-        String fileName = fileResourceRef.fileName
+        String fileName = fileResourceRef.fileName;
         // strip template extension(s) to avoid problems with trying to find content types based on them
-        String fileContentType = getContentType(tr != null ? tr.stripTemplateExtension(fileName) : fileName)
+        String fileContentType = getContentType(tr != null ? tr.stripTemplateExtension(fileName) : fileName);
 
         boolean isBinary = ResourceReference.isBinaryContentType(fileContentType)
 
@@ -297,7 +302,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @Override void template(String location, Writer writer) {
+    @Override
+    public void template(String location, Writer writer) {
         // NOTE: let version fall through to tr.render() and getLocationText()
         TemplateRenderer tr = getTemplateRendererByLocation(location)
         if (tr != null) {
@@ -309,8 +315,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    static final Set<String> binaryExtensions = new HashSet<>(["png", "jpg", "jpeg", "gif", "pdf", "doc", "docx", "xsl", "xslx"])
-    TemplateRenderer getTemplateRendererByLocation(String location) {
+    public static final Set<String> binaryExtensions = new HashSet<>(["png", "jpg", "jpeg", "gif", "pdf", "doc", "docx", "xsl", "xslx"])
+    public TemplateRenderer getTemplateRendererByLocation(String location) {
         int hashIdx = location.indexOf("#")
         if (hashIdx > 0) location = location.substring(0, hashIdx)
 
@@ -348,7 +354,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return tr
     }
 
-    @Override Object script(String location, String method) {
+    @Override
+    public Object script(String location, String method) {
         int hashIdx = location.indexOf("#")
         if (hashIdx > 0) location = location.substring(0, hashIdx)
         // NOTE: version ignored here
@@ -366,7 +373,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
             return JavaxScriptRunner.bindAndRun(location, ec, engine, ecfi.cacheFacade.getCache("resource.script${extension}.location"))
         }
     }
-    @Override Object script(String location, String method, Map additionalContext) {
+    @Override
+    public Object script(String location, String method, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
@@ -383,7 +391,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    Object setInContext(String field, String from, String value, String defaultValue, String type, String setIfEmpty) {
+    public Object setInContext(String field, String from, String value, String defaultValue, String type, String setIfEmpty) {
         def tempValue = getValueFromContext(from, value, defaultValue, type)
         ecfi.getEci().contextStack.put("_tempValue", tempValue)
         if (tempValue || setIfEmpty) expression("${field} = _tempValue", "")
@@ -391,14 +399,15 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return tempValue
     }
 
-    Object getValueFromContext(String from, String value, String defaultValue, String type) {
+    public Object getValueFromContext(String from, String value, String defaultValue, String type) {
         def tempValue = from ? expression(from, "") : expand(value, "", null, false)
         if (!tempValue && defaultValue) tempValue = expand(defaultValue, "", null, false)
         if (type) tempValue = ObjectUtilities.basicConvert(tempValue, type)
         return tempValue
     }
 
-    @Override boolean condition(String expression, String debugLocation) {
+    @Override
+    public boolean condition(String expression, String debugLocation) {
         return conditionInternal(expression, debugLocation, ecfi.getEci())
     }
     protected boolean conditionInternal(String expression, String debugLocation, ExecutionContextImpl ec) {
@@ -412,7 +421,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
             throw new BaseArtifactException("Error in condition [${expression}] from [${debugLocation}]", e)
         }
     }
-    @Override boolean condition(String expression, String debugLocation, Map additionalContext) {
+    @Override
+    public boolean condition(String expression, String debugLocation, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
@@ -429,7 +439,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @Override Object expression(String expression, String debugLocation) {
+    @Override
+    public Object expression(String expression, String debugLocation) {
         return expressionInternal(expression, debugLocation, ecfi.getEci()) }
     protected Object expressionInternal(String expression, String debugLocation, ExecutionContextImpl ec) {
         if (expression == null || expression.isEmpty()) return null
@@ -442,7 +453,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
             throw new BaseArtifactException("Error in field expression [${expression}] from [${debugLocation}]", e)
         }
     }
-    @Override Object expression(String expr, String debugLocation, Map additionalContext) {
+    @Override
+    public Object expression(String expr, String debugLocation, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
@@ -460,11 +472,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
 
-    @Override String expandNoL10n(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, false) }
-    @Override String expand(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, true) }
-    @Override String expand(String inputString, String debugLocation, Map additionalContext) {
+    @Override public String expandNoL10n(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, false) }
+    @Override public String expand(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, true) }
+    @Override public String expand(String inputString, String debugLocation, Map additionalContext) {
         return expand(inputString, debugLocation, additionalContext, true) }
-    @Override String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
+    @Override public String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
         if (inputString == null) return ""
         int inputStringLength = inputString.length()
         if (inputStringLength == 0) return ""
@@ -505,7 +517,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    Script getGroovyScript(String expression, ExecutionContextImpl eci) {
+    public Script getGroovyScript(String expression, ExecutionContextImpl eci) {
         ContextBinding curBinding = eci.contextBindingInternal
 
         Map<String, Script> curScriptByExpr = (Map<String, Script>) threadScriptByExpression.get()
@@ -525,7 +537,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return script
     }
 
-    Class getGroovyClass(String expression) {
+    public Class getGroovyClass(String expression) {
         if (expression == null || expression.isEmpty()) return null
         Class groovyClass = (Class) scriptGroovyExpressionCache.get(expression)
         if (groovyClass == null) {
@@ -536,10 +548,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return groovyClass
     }
 
-    @Override String getContentType(String filename) { return ResourceReference.getContentType(filename) }
+    @Override public String getContentType(String filename) { return ResourceReference.getContentType(filename) }
 
     @Override
-    void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
+    public void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
         if (xslFoHandlerFactory == null) throw new BaseArtifactException("No XSL-FO Handler ToolFactory found (from resource-facade.@xsl-fo-handler-factory)")
 
         TransformerFactory factory = TransformerFactory.newInstance()
@@ -564,8 +576,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         if (transformException != null) throw transformException
     }
 
-    @CompileStatic
-    static class LocalResolver implements URIResolver {
+    public static class LocalResolver implements URIResolver {
         protected ExecutionContextFactoryImpl ecfi
         protected URIResolver defaultResolver
 

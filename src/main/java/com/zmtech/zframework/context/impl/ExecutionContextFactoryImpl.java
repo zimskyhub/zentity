@@ -47,7 +47,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     protected String runtimePath;
 //    @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath;
-//    @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot;
+    @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot;
 //    protected MNode serverStatsNode;
 //    protected String moquiVersion = "";
 //    protected Map versionMap = null;
@@ -779,7 +779,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 //    @Override @Nonnull String getMoquiVersion() { return moquiVersion }
 //    Map getVersionMap() { return versionMap }
-//    MNode getConfXmlRoot() { return confXmlRoot }
+    public MNode getConfXmlRoot() { return confXmlRoot; }
 //    MNode getServerStatsNode() { return serverStatsNode }
 
 //    public MNode getArtifactExecutionNode(String artifactTypeEnumId) {
