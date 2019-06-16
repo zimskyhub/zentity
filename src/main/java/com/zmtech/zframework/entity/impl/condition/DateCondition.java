@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class DateCondition implements EntityConditionImplBase, Externalizable {
+
     protected String fromFieldName;
     protected String thruFieldName;
     protected Timestamp compareStamp;
@@ -24,7 +25,7 @@ public class DateCondition implements EntityConditionImplBase, Externalizable {
     public DateCondition(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
         this.fromFieldName = fromFieldName != null ? fromFieldName : "fromDate";
         this.thruFieldName = thruFieldName != null ? thruFieldName : "thruDate";
-        if (compareStamp == (Timestamp) null) compareStamp = new Timestamp(System.currentTimeMillis());
+        if (compareStamp == null) compareStamp = new Timestamp(System.currentTimeMillis());
         this.compareStamp = compareStamp;
         conditionInternal = makeConditionInternal();
         hashCodeInternal = createHashCode();
@@ -68,7 +69,7 @@ public class DateCondition implements EntityConditionImplBase, Externalizable {
 
     @Override
     public EntityCondition ignoreCase() {
-        throw new EntityException("Ignore case not supported for DateCondition.");
+        throw new EntityException("DateCondition 不可以被忽略.");
     }
 
     @Override

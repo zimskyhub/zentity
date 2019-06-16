@@ -19,13 +19,13 @@ public class ConditionField implements Externalizable {
     }
 
     public ConditionField(String fieldName) {
-        if (fieldName == null) throw new EntityException("Empty fieldName not allowed");
+        if (fieldName == null) throw new EntityException("字段名称不能为空!");
         this.fieldName = fieldName.intern();
         curHashCode = this.fieldName.hashCode();
     }
 
     public ConditionField(FieldInfo fi) {
-        if (fi == null) throw new EntityException("FieldInfo required");
+        if (fi == null) throw new EntityException("字段信息不能为空!");
         fieldInfo = fi;
         // fi.name is interned in makeFieldInfo()
         fieldName = fi.name;
@@ -60,12 +60,12 @@ public class ConditionField implements Externalizable {
     @Override
     public boolean equals(Object o) {
         if (o == null) return false;
-        // because of reuse from EntityDefinition this may be the same object, so check that first
+        // 因为从EntityDefinition重用，这可能是同一个对象，所以先检查一下
         if (this == o) return true;
         if (o.getClass() != thisClass) return false;
         ConditionField that = (ConditionField) o;
         // intern'ed String to use == operator
-        return fieldName == that.fieldName;
+        return fieldName.equals(that.fieldName);
     }
 
     @Override

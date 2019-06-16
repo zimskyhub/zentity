@@ -28,6 +28,9 @@ public class BasicJoinCondition implements EntityConditionImplBase {
         curHashCode = createHashCode();
     }
 
+    public BasicJoinCondition() {
+    }
+
     public JoinOperator getOperator() {
         return operator;
     }
@@ -55,13 +58,13 @@ public class BasicJoinCondition implements EntityConditionImplBase {
     public boolean mapMatches(Map<String, Object> map) {
         boolean lhsMatches = lhsInternal.mapMatches(map);
 
-        // handle cases where we don't need to evaluate rhs
+        // 处理我们不需要评估rhs的情况
         if (lhsMatches && operator == OR) return true;
         if (!lhsMatches && operator == AND) return false;
 
-        // handle opposite cases since we know cases above aren't true (ie if OR then lhs=false, if AND then lhs=true
-        // if rhs then result is true whether AND or OR
-        // if !rhs then result is false whether AND or OR
+        // 处理相反的情况因为我们知道上面的情况不正确（即如果OR然后lhs = false，如果AND然后lhs = true
+        // 如果匹配rhs则结果为真，无论是AND还是OR
+        // 如果不匹配rhs则结果为假，无论是AND还是OR
         return rhsInternal.mapMatches(map);
     }
 
@@ -123,7 +126,7 @@ public class BasicJoinCondition implements EntityConditionImplBase {
         if (o == null || o.getClass() != thisClass) return false;
         BasicJoinCondition that = (BasicJoinCondition) o;
         if (!this.lhsInternal.equals(that.lhsInternal)) return false;
-        // NOTE: for Java Enums the != is WAY faster than the .equals
+        // 注意：对于Java 枚举情况，！= 比.equals 更快
         return this.operator == that.operator && this.rhsInternal.equals(that.rhsInternal);
     }
 

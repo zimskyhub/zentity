@@ -93,12 +93,12 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         // this will only be called for view-entity, so we'll either have a entityAlias or an aliased fieldName
         if (field instanceof ConditionAlias) {
-            entityAliasSet.add(((ConditionAlias) field).entityAlias);
+            entityAliasSet.add(((ConditionAlias) field).getEntityAlias());
         } else {
             fieldAliasSet.add(field.fieldName);
         }
         if (toField instanceof ConditionAlias) {
-            entityAliasSet.add(((ConditionAlias) toField).entityAlias);
+            entityAliasSet.add(((ConditionAlias) toField).getEntityAlias());
         } else {
             fieldAliasSet.add(toField.fieldName);
         }

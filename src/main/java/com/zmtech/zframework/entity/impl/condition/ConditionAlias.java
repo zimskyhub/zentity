@@ -1,16 +1,3 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
 package com.zmtech.zframework.entity.impl.condition;
 
 import com.zmtech.zframework.entity.impl.FieldInfo;
@@ -26,8 +13,8 @@ import java.io.ObjectOutput;
 public class ConditionAlias extends ConditionField implements Externalizable {
     private static final Class thisClass = ConditionAlias.class;
 
-    String fieldName;
-    String entityAlias = null;
+    private String fieldName;
+    private String entityAlias = null;
     private String aliasEntityName = null;
     private transient EntityDefinition aliasEntityDefTransient = null;
     private int curHashCode;
@@ -36,9 +23,9 @@ public class ConditionAlias extends ConditionField implements Externalizable {
     }
 
     public ConditionAlias(String entityAlias, String fieldName, EntityDefinition aliasEntityDef) {
-        if (fieldName == null) throw new EntityException("Empty fieldName not allowed");
-        if (entityAlias == null) throw new EntityException("Empty entityAlias not allowed");
-        if (aliasEntityDef == null) throw new EntityException("Null aliasEntityDef not allowed");
+        if (fieldName == null) throw new EntityException("字段名称不能为空!");
+        if (entityAlias == null) throw new EntityException("字段别名不能为空!");
+        if (aliasEntityDef == null) throw new EntityException("实体别名不能为空!");
         this.fieldName = fieldName.intern();
         this.entityAlias = entityAlias.intern();
 
@@ -68,8 +55,7 @@ public class ConditionAlias extends ConditionField implements Externalizable {
 
     public String getColumnName(EntityDefinition ed) {
         StringBuilder colName = new StringBuilder();
-        // NOTE: this could have issues with view-entities as member entities where they have functions/etc; we may
-        // have to pass the prefix in to have it added inside functions/etc
+        // 注意：这可能会导致视图实体成为具有函数或其他的成员实体; 我们可能必须传递前缀才能在函数或其他中添加它
         colName.append(entityAlias).append('.');
         EntityDefinition memberEd = getAliasEntityDef(ed);
         if (memberEd.isViewEntity) {

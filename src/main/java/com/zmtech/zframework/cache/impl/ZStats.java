@@ -25,7 +25,7 @@ public class ZStats implements CacheStatisticsMXBean {
     long evictions = 0;
     private long expires = 0;
 
-    // long totalGetMicros = 0, totalPutMicros = 0, totalRemoveMicros = 0;
+    // long 获取总数 = 0, 存放总数 = 0, 删除总数 = 0;
 
     @Override
     public void clear() {
@@ -81,23 +81,23 @@ public class ZStats implements CacheStatisticsMXBean {
     @Override
     public float getAverageGetTime() {
         return 0;
-    } // totalGetMicros / gets
+    } // 平均获取时间
 
     @Override
     public float getAveragePutTime() {
         return 0;
-    } // totalPutMicros / puts
+    } // 平均存放时间
 
     @Override
     public float getAverageRemoveTime() {
         return 0;
-    } // totalRemoveMicros / removals
+    } // 平均删除时间
 
     public long getCacheExpires() {
         return expires;
     }
 
-    /* have callers access fields directly for performance reasons:
+    /* 由于性能原因，让调用者直接访问字段：
     void countHit() {
         gets++; hits++;
         // totalGetMicros += micros;
@@ -113,7 +113,6 @@ public class ZStats implements CacheStatisticsMXBean {
     */
     void countRemoval() {
         removals++;
-        // totalRemoveMicros += micros;
     }
 
     void countBulkRemoval(long entries) {
