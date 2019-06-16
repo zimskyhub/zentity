@@ -39,26 +39,26 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     protected final ExecutionContextFactoryImpl ecfi;
 
-    public final FtlTemplateRenderer ftlTemplateRenderer;
-    public final XmlActionsScriptRunner xmlActionsScriptRunner;
+    private final FtlTemplateRenderer ftlTemplateRenderer;
+    private final XmlActionsScriptRunner xmlActionsScriptRunner;
 
     // the groovy Script object is not thread safe, so have one per thread per expression; can be reused as thread is reused
-    protected final ThreadLocal<Map<String, Script>> threadScriptByExpression = new ThreadLocal<>();
-    protected final Map<String, Class> scriptGroovyExpressionCache = new HashMap<>();
+    private final ThreadLocal<Map<String, Script>> threadScriptByExpression = new ThreadLocal<>();
+    private final Map<String, Class> scriptGroovyExpressionCache = new HashMap<>();
 
-    protected final Cache<String, String> textLocationCache;
-    protected final Cache<String, ResourceReference> resourceReferenceByLocation;
+    private final Cache<String, String> textLocationCache;
+    private final Cache<String, ResourceReference> resourceReferenceByLocation;
 
-    protected final Map<String, Class> resourceReferenceClasses = new HashMap<>();
-    protected final Map<String, TemplateRenderer> templateRenderers = new HashMap<>();
-    protected final ArrayList<String> templateRendererExtensions = new ArrayList<>();
-    protected final ArrayList<Integer> templateRendererExtensionsDots = new ArrayList<>();
-    protected final Map<String, ScriptRunner> scriptRunners = new HashMap<>();
-    protected final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
-    protected final ToolFactory<org.xml.sax.ContentHandler> xslFoHandlerFactory;
+    private final Map<String, Class> resourceReferenceClasses = new HashMap<>();
+    private final Map<String, TemplateRenderer> templateRenderers = new HashMap<>();
+    private final ArrayList<String> templateRendererExtensions = new ArrayList<>();
+    private final ArrayList<Integer> templateRendererExtensionsDots = new ArrayList<>();
+    private final Map<String, ScriptRunner> scriptRunners = new HashMap<>();
+    private final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
+    private final ToolFactory<org.xml.sax.ContentHandler> xslFoHandlerFactory;
 
-    protected final Map<String, Repository> contentRepositories = new HashMap<>();
-    protected final ThreadLocal<Map<String, Session>> contentSessions = new ThreadLocal<>();
+    private final Map<String, Repository> contentRepositories = new HashMap<>();
+    private final ThreadLocal<Map<String, Session>> contentSessions = new ThreadLocal<>();
 
     public ResourceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi;
@@ -518,6 +518,14 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 cs.pop();
             }
         }
+    }
+
+    public FtlTemplateRenderer getFtlTemplateRenderer() {
+        return ftlTemplateRenderer;
+    }
+
+    public XmlActionsScriptRunner getXmlActionsScriptRunner() {
+        return xmlActionsScriptRunner;
     }
 
     @Override

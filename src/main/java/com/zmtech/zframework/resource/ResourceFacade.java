@@ -13,6 +13,8 @@
  */
 package com.zmtech.zframework.resource;
 
+import com.zmtech.zframework.context.renderer.FtlTemplateRenderer;
+import com.zmtech.zframework.context.runner.XmlActionsScriptRunner;
 import com.zmtech.zframework.resource.impl.ResourceReference;
 
 import javax.activation.DataSource;
@@ -81,6 +83,8 @@ public interface ResourceFacade {
     String expand(String inputString, String debugLocation, Map<String,Object> additionalContext, boolean localize);
     String expandNoL10n(String inputString, String debugLocation);
 
+    FtlTemplateRenderer getFtlTemplateRenderer();
+    XmlActionsScriptRunner getXmlActionsScriptRunner();
     void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType);
 
     String getContentType(String filename);

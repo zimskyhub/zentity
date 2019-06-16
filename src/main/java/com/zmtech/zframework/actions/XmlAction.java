@@ -25,7 +25,7 @@ public class XmlAction {
 
     private final MNode xmlNode;
     protected final String location;
-    /** The Groovy class compiled from the script transformed from the XML actions text using the FTL template. */
+    /** 使用FTL模板的XML action 已完成编译的Groovy类.*/
     private Class groovyClassInternal = null;
 
     public XmlAction(ExecutionContextFactoryImpl ecfi, MNode xmlNode, String location) {
@@ -44,11 +44,11 @@ public class XmlAction {
         }
     }
 
-    /** Run the XML actions in the current context of the ExecutionContext */
+    /** 在 ExecutionContext 的当前上下文中运行XML操作 */
     public Object run(ExecutionContextImpl eci) {
         Class curClass = getGroovyClass();
-        if (curClass == null) throw new IllegalStateException("No Groovy class in place for XML actions, look earlier in log for the error in init");
-        if (isDebugEnabled) logger.debug("Running groovy script: \n" + writeGroovyWithLines() + "\n");
+        if (curClass == null) throw new IllegalStateException("没有适用于XML操作的Groovy类，请在日志中查看初始化的错误");
+        if (isDebugEnabled) logger.debug("运行groovy脚本: \n" + writeGroovyWithLines() + "\n");
 
         Script script = InvokerHelper.createScript(curClass, eci.contextBindingInternal);
         try {
@@ -57,7 +57,7 @@ public class XmlAction {
             // NOTE: not logging full stack trace, only needed when lots of threads are running to pin down error (always logged later)
             String tString = t.toString();
             if (!tString.contains("org.eclipse.jetty.io.EofException"))
-                logger.error("Error running groovy script (" + t.toString() + "): \n" + writeGroovyWithLines() + "\n");
+                logger.error("运行groovy脚本时出错: (" + t.toString() + "): \n" + writeGroovyWithLines() + "\n");
             throw t;
         }
     }
@@ -68,8 +68,8 @@ public class XmlAction {
         return DefaultGroovyMethods.asType(run(eci), Boolean.class);
     }
 
-    // used in tools screens, must be public
-    public String writeGroovyWithLines() {
+    // 用于工具屏幕，必须是公开的
+    private String writeGroovyWithLines() {
         String groovyString = getGroovyString();
         StringBuilder groovyWithLines = new StringBuilder();
         int lineNo = 1;
@@ -77,11 +77,11 @@ public class XmlAction {
         return groovyWithLines.toString();
     }
 
-    public Class getGroovyClass() {
+    private Class getGroovyClass() {
         if (groovyClassInternal != null) return groovyClassInternal;
         return makeGroovyClass();
     }
-    protected synchronized Class makeGroovyClass() {
+    private synchronized Class makeGroovyClass() {
         if (groovyClassInternal != null) return groovyClassInternal;
         String curGroovy = getGroovyString();
         // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${curGroovy}")
@@ -89,13 +89,13 @@ public class XmlAction {
             groovyClassInternal = ecfi.compileGroovy(curGroovy, StringUtil.cleanStringForJavaName(location));
         } catch (Throwable t) {
             groovyClassInternal = null;
-            logger.error("Error parsing groovy String at [" + location + "]:\n" + writeGroovyWithLines() + "\n");
+            logger.error("解析 groovy 时出错,位于: [" + location + "]:\n" + writeGroovyWithLines() + "\n");
             throw t;
         }
         return groovyClassInternal;
     }
 
-    public String getGroovyString() {
+    private String getGroovyString() {
         // transform XML to groovy
         String groovyString;
         try {
@@ -108,11 +108,11 @@ public class XmlAction {
 
             groovyString = outWriter.toString();
         } catch (Exception e) {
-            logger.error("Error reading XML actions from [" + location + "], text: " + xmlNode.toString());
-            throw new EntityException("Error reading XML actions from [" + location + "]", e);
+            logger.error("读取 XML action时出错,位于: [" + location + "], text: " + xmlNode.toString());
+            throw new EntityException("读取 XML action 作时出错,位于: [" + location + "]", e);
         }
 
-        if (logger.isTraceEnabled()) logger.trace("XML actions at [" + location + "] produced groovy script:\n" + groovyString + "\nFrom xmlNode:" + xmlNode.toString());
+        if (logger.isTraceEnabled()) logger.trace("XML actions 位于: [" + location + "] "+"\n从 xml节点: " + xmlNode.toString() +" 输出了groovy脚本:\n" + groovyString);
 
         return groovyString;
     }
