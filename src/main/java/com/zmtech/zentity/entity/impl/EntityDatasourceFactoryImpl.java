@@ -18,7 +18,7 @@ import java.util.Hashtable;
 
 import static java.lang.Thread.sleep;
 
-class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
+public class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDatasourceFactoryImpl.class);
     protected final static int DS_RETRY_COUNT = 5;
     protected final static long DS_RETRY_SLEEP = 5000;

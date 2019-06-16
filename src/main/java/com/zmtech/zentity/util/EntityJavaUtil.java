@@ -23,7 +23,7 @@ public class EntityJavaUtil {
     private static final String PLACEHOLDER = "PLHLDR";
 
     private static final int saltBytes = 8;
-    static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
+    public static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
         MNode entityFacadeNode = efi.ecfi.getConfXmlRoot().first("entity-facade");
         String pwStr = entityFacadeNode.attribute("crypt-pass");
         if (pwStr == null || pwStr.length() == 0)
@@ -211,7 +211,7 @@ public class EntityJavaUtil {
             this.efi = ed.getEfi();
             MNode internalEntityNode = ed.internalEntityNode;
             EntityFacadeImpl efi = ed.getEfi();
-            ArrayList<FieldInfo> allFieldInfoList = ed.getAllFieldNames();
+            ArrayList<FieldInfo> allFieldInfoList = ed.getAllFieldInfoList();
 
             internalEntityName = internalEntityNode.attribute("entity-name");
             String packageName = internalEntityNode.attribute("package");

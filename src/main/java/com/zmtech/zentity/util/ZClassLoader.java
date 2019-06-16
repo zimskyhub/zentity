@@ -1,12 +1,12 @@
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -28,10 +28,10 @@ import java.util.jar.Manifest;
 
 /**
  * A caching ClassLoader that allows addition of JAR files and class directories to the classpath at runtime.
- *
+ * <p>
  * This loads resources from its class directories and JAR files first, then tries the parent. This is not the standard
  * approach, but needed for configuration in moqui/runtime and components to override other classpath resources.
- *
+ * <p>
  * This loads classes from the parent first, then its class directories and JAR files.
  */
 public class ZClassLoader extends ClassLoader {
@@ -43,45 +43,82 @@ public class ZClassLoader extends ClassLoader {
     private static boolean trackKnown = false;
 
     private static final Map<String, Class<?>> commonJavaClassesMap = createCommonJavaClassesMap();
+
     private static Map<String, Class<?>> createCommonJavaClassesMap() {
         Map<String, Class<?>> m = new HashMap<>();
-        m.put("java.lang.String", String.class); m.put("String", String.class);
-        m.put("java.lang.CharSequence", CharSequence.class); m.put("CharSequence", CharSequence.class);
-        m.put("java.sql.Timestamp", java.sql.Timestamp.class); m.put("Timestamp", java.sql.Timestamp.class);
-        m.put("java.sql.Time", java.sql.Time.class); m.put("Time", java.sql.Time.class);
-        m.put("java.sql.Date", java.sql.Date.class); m.put("Date", java.sql.Date.class);
-        m.put("java.util.Locale", Locale.class); m.put("java.util.TimeZone", TimeZone.class);
-        m.put("java.lang.Byte", Byte.class); m.put("java.lang.Character", Character.class);
-        m.put("java.lang.Integer", Integer.class); m.put("Integer", Integer.class);
-        m.put("java.lang.Long", Long.class); m.put("Long", Long.class);
+        m.put("java.lang.String", String.class);
+        m.put("String", String.class);
+        m.put("java.lang.CharSequence", CharSequence.class);
+        m.put("CharSequence", CharSequence.class);
+        m.put("java.sql.Timestamp", java.sql.Timestamp.class);
+        m.put("Timestamp", java.sql.Timestamp.class);
+        m.put("java.sql.Time", java.sql.Time.class);
+        m.put("Time", java.sql.Time.class);
+        m.put("java.sql.Date", java.sql.Date.class);
+        m.put("Date", java.sql.Date.class);
+        m.put("java.util.Locale", Locale.class);
+        m.put("java.util.TimeZone", TimeZone.class);
+        m.put("java.lang.Byte", Byte.class);
+        m.put("java.lang.Character", Character.class);
+        m.put("java.lang.Integer", Integer.class);
+        m.put("Integer", Integer.class);
+        m.put("java.lang.Long", Long.class);
+        m.put("Long", Long.class);
         m.put("java.lang.Short", Short.class);
-        m.put("java.lang.Float", Float.class); m.put("Float", Float.class);
-        m.put("java.lang.Double", Double.class); m.put("Double", Double.class);
-        m.put("java.math.BigDecimal", java.math.BigDecimal.class); m.put("BigDecimal", java.math.BigDecimal.class);
-        m.put("java.math.BigInteger", java.math.BigInteger.class); m.put("BigInteger", java.math.BigInteger.class);
-        m.put("java.lang.Boolean", Boolean.class); m.put("Boolean", Boolean.class);
-        m.put("java.lang.Object", Object.class); m.put("Object", Object.class);
-        m.put("java.sql.Blob", java.sql.Blob.class); m.put("Blob", java.sql.Blob.class);
+        m.put("java.lang.Float", Float.class);
+        m.put("Float", Float.class);
+        m.put("java.lang.Double", Double.class);
+        m.put("Double", Double.class);
+        m.put("java.math.BigDecimal", java.math.BigDecimal.class);
+        m.put("BigDecimal", java.math.BigDecimal.class);
+        m.put("java.math.BigInteger", java.math.BigInteger.class);
+        m.put("BigInteger", java.math.BigInteger.class);
+        m.put("java.lang.Boolean", Boolean.class);
+        m.put("Boolean", Boolean.class);
+        m.put("java.lang.Object", Object.class);
+        m.put("Object", Object.class);
+        m.put("java.sql.Blob", java.sql.Blob.class);
+        m.put("Blob", java.sql.Blob.class);
         m.put("java.nio.ByteBuffer", java.nio.ByteBuffer.class);
-        m.put("java.sql.Clob", java.sql.Clob.class); m.put("Clob", java.sql.Clob.class);
+        m.put("java.sql.Clob", java.sql.Clob.class);
+        m.put("Clob", java.sql.Clob.class);
         m.put("java.util.Date", Date.class);
-        m.put("java.util.Collection", Collection.class); m.put("Collection", Collection.class);
-        m.put("java.util.List", List.class); m.put("List", List.class);
-        m.put("java.util.ArrayList", ArrayList.class); m.put("ArrayList", ArrayList.class);
-        m.put("java.util.Map", Map.class); m.put("Map", Map.class); m.put("java.util.HashMap", HashMap.class);
-        m.put("java.util.Set", Set.class); m.put("Set", Set.class); m.put("java.util.HashSet", HashSet.class);
-        m.put("groovy.util.Node", groovy.util.Node.class); m.put("Node", groovy.util.Node.class);
-        m.put("org.moqui.util.MNode", com.zmtech.zentity.util.MNode.class); m.put("MNode", com.zmtech.zentity.util.MNode.class);
-        m.put(Boolean.TYPE.getName(), Boolean.TYPE); m.put(Short.TYPE.getName(), Short.TYPE);
-        m.put(Integer.TYPE.getName(), Integer.TYPE); m.put(Long.TYPE.getName(), Long.TYPE);
-        m.put(Float.TYPE.getName(), Float.TYPE); m.put(Double.TYPE.getName(), Double.TYPE);
-        m.put(Byte.TYPE.getName(), Byte.TYPE); m.put(Character.TYPE.getName(), Character.TYPE);
-        m.put("long[]", long[].class); m.put("char[]", char[].class);
+        m.put("java.util.Collection", Collection.class);
+        m.put("Collection", Collection.class);
+        m.put("java.util.List", List.class);
+        m.put("List", List.class);
+        m.put("java.util.ArrayList", ArrayList.class);
+        m.put("ArrayList", ArrayList.class);
+        m.put("java.util.Map", Map.class);
+        m.put("Map", Map.class);
+        m.put("java.util.HashMap", HashMap.class);
+        m.put("java.util.Set", Set.class);
+        m.put("Set", Set.class);
+        m.put("java.util.HashSet", HashSet.class);
+        m.put("groovy.util.Node", groovy.util.Node.class);
+        m.put("Node", groovy.util.Node.class);
+        m.put("org.moqui.util.MNode", com.zmtech.zentity.util.MNode.class);
+        m.put("MNode", com.zmtech.zentity.util.MNode.class);
+        m.put(Boolean.TYPE.getName(), Boolean.TYPE);
+        m.put(Short.TYPE.getName(), Short.TYPE);
+        m.put(Integer.TYPE.getName(), Integer.TYPE);
+        m.put(Long.TYPE.getName(), Long.TYPE);
+        m.put(Float.TYPE.getName(), Float.TYPE);
+        m.put(Double.TYPE.getName(), Double.TYPE);
+        m.put(Byte.TYPE.getName(), Byte.TYPE);
+        m.put(Character.TYPE.getName(), Character.TYPE);
+        m.put("long[]", long[].class);
+        m.put("char[]", char[].class);
         return m;
     }
 
-    public static Class<?> getCommonClass(String className) { return commonJavaClassesMap.get(className); }
-    public static void addCommonClass(String className, Class<?> cls) { commonJavaClassesMap.putIfAbsent(className, cls); }
+    public static Class<?> getCommonClass(String className) {
+        return commonJavaClassesMap.get(className);
+    }
+
+    public static void addCommonClass(String className, Class<?> cls) {
+        commonJavaClassesMap.putIfAbsent(className, cls);
+    }
 
     private final ArrayList<JarFile> jarFileList = new ArrayList<>();
     private final Map<String, URL> jarLocationByJarName = new HashMap<>();
@@ -90,9 +127,17 @@ public class ZClassLoader extends ClassLoader {
 
     private final HashMap<String, File> knownClassFiles = new HashMap<>();
     private final HashMap<String, JarEntryInfo> knownClassJarEntries = new HashMap<>();
+
     private static class JarEntryInfo {
-        JarEntry entry; JarFile file; URL jarLocation;
-        JarEntryInfo(JarEntry je, JarFile jf, URL loc) { entry = je; file = jf; jarLocation = loc; }
+        JarEntry entry;
+        JarFile file;
+        URL jarLocation;
+
+        JarEntryInfo(JarEntry je, JarFile jf, URL loc) {
+            entry = je;
+            file = jf;
+            jarLocation = loc;
+        }
     }
 
 
@@ -113,7 +158,7 @@ public class ZClassLoader extends ClassLoader {
 
         pd = getClass().getProtectionDomain();
 
-        for (Map.Entry<String, Class<?>> commonClassEntry: commonJavaClassesMap.entrySet())
+        for (Map.Entry<String, Class<?>> commonClassEntry : commonJavaClassesMap.entrySet())
             classCache.put(commonClassEntry.getKey(), commonClassEntry.getValue());
     }
 
@@ -159,11 +204,14 @@ public class ZClassLoader extends ClassLoader {
     //Map<String, URL> getResourceCache() { return resourceCache; }
 
     public void addClassesDirectory(File classesDir) {
-        if (!classesDir.exists()) throw new IllegalArgumentException("Classes directory [" + classesDir + "] does not exist.");
-        if (!classesDir.isDirectory()) throw new IllegalArgumentException("Classes directory [" + classesDir + "] is not a directory.");
+        if (!classesDir.exists())
+            throw new IllegalArgumentException("Classes directory [" + classesDir + "] does not exist.");
+        if (!classesDir.isDirectory())
+            throw new IllegalArgumentException("Classes directory [" + classesDir + "] is not a directory.");
         classesDirectoryList.add(classesDir);
         findClassFiles("", classesDir);
     }
+
     private void findClassFiles(String pathSoFar, File dir) {
         File[] children = dir.listFiles();
         if (children == null) return;
@@ -195,19 +243,25 @@ public class ZClassLoader extends ClassLoader {
     }
 
 
-    /** @see ClassLoader#getResource(String) */
+    /**
+     * @see ClassLoader#getResource(String)
+     */
     @Override
     public URL getResource(String name) {
         return findResource(name);
     }
 
-    /** @see ClassLoader#getResources(String) */
+    /**
+     * @see ClassLoader#getResources(String)
+     */
     @Override
     public Enumeration<URL> getResources(String name) throws IOException {
         return findResources(name);
     }
 
-    /** @see ClassLoader#findResource(String) */
+    /**
+     * @see ClassLoader#findResource(String)
+     */
     @Override
     protected URL findResource(String resourceName) {
         URL cachedUrl = resourceCache.get(resourceName);
@@ -267,7 +321,9 @@ public class ZClassLoader extends ClassLoader {
         }
     }
 
-    /** @see ClassLoader#findResources(String) */
+    /**
+     * @see ClassLoader#findResources(String)
+     */
     @Override
     public Enumeration<URL> findResources(String resourceName) throws IOException {
         ArrayList<URL> cachedUrls = resourceAllCache.get(resourceName);
@@ -306,7 +362,9 @@ public class ZClassLoader extends ClassLoader {
         return Collections.enumeration(urlList);
     }
 
-    /** @see ClassLoader#getResourceAsStream(String) */
+    /**
+     * @see ClassLoader#getResourceAsStream(String)
+     */
     @Override
     public InputStream getResourceAsStream(String name) {
         URL resourceUrl = findResource(name);
@@ -323,7 +381,9 @@ public class ZClassLoader extends ClassLoader {
     }
 
     @Override
-    public Class<?> loadClass(String name) throws ClassNotFoundException { return loadClass(name, false); }
+    public Class<?> loadClass(String name) throws ClassNotFoundException {
+        return loadClass(name, false);
+    }
 
     @Override
     protected Class<?> loadClass(String className, boolean resolve) throws ClassNotFoundException {
@@ -358,7 +418,7 @@ public class ZClassLoader extends ClassLoader {
             try {
                 ClassLoader cl = getParent();
                 c = cl.loadClass(className);
-            } catch (ClassNotFoundException|NoClassDefFoundError e) {
+            } catch (ClassNotFoundException | NoClassDefFoundError e) {
                 // do nothing, common that class won't be found if expected in additional JARs and class directories
             } catch (RuntimeException e) {
                 e.printStackTrace();
@@ -411,6 +471,7 @@ public class ZClassLoader extends ClassLoader {
     }
 
     private ConcurrentHashMap<URL, ProtectionDomain> protectionDomainByUrl = new ConcurrentHashMap<>();
+
     private ProtectionDomain getProtectionDomain(URL jarLocation) {
         ProtectionDomain curPd = protectionDomainByUrl.get(jarLocation);
         if (curPd != null) return curPd;
@@ -433,6 +494,7 @@ public class ZClassLoader extends ClassLoader {
             return null;
         }
     }
+
     private Class<?> makeClass(String className, JarFile file, JarEntry entry, URL jarLocation) {
         try {
             definePackage(className, file);
@@ -449,6 +511,7 @@ public class ZClassLoader extends ClassLoader {
             return null;
         }
     }
+
     @SuppressWarnings("ThrowFromFinallyBlock")
     private byte[] getJarEntryBytes(JarFile jarFile, JarEntry je) throws IOException {
         DataInputStream dis = null;
@@ -473,10 +536,10 @@ public class ZClassLoader extends ClassLoader {
         byte[] jeBytes = null;
         try {
             long lSize = classFile.length();
-            if (lSize <= 0  ||  lSize >= Integer.MAX_VALUE) {
+            if (lSize <= 0 || lSize >= Integer.MAX_VALUE) {
                 throw new IllegalArgumentException("Size [" + lSize + "] not valid for classpath file [" + classFile + "]");
             }
-            jeBytes = new byte[(int)lSize];
+            jeBytes = new byte[(int) lSize];
             InputStream is = new FileInputStream(classFile);
             dis = new DataInputStream(is);
             dis.readFully(jeBytes);

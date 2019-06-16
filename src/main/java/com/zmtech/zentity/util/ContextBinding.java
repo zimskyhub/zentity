@@ -4,6 +4,7 @@ import groovy.lang.Binding;
 
 public class ContextBinding extends Binding {
     private ContextStack contextStack;
+
     public ContextBinding(ContextStack variables) {
         super(variables);
         contextStack = variables;

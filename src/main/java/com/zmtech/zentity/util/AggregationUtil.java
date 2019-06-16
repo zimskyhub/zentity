@@ -25,7 +25,8 @@ public class AggregationUtil {
     /**
      * 聚合方法
      */
-    public enum AggregateFunction { MIN, MAX, SUM, AVG, COUNT, FIRST, LAST }
+    public enum AggregateFunction {MIN, MAX, SUM, AVG, COUNT, FIRST, LAST}
+
     private static final BigDecimal BIG_DECIMAL_TWO = new BigDecimal(2);
 
     /**
@@ -45,17 +46,20 @@ public class AggregationUtil {
         public final Class fromExpr;
 
         /**
-         *
-         * @param fn 聚合字段名称
+         * @param fn   聚合字段名称
          * @param func 聚合方法
-         * @param gb 是否排序
-         * @param sl 是否使用子列表
-         * @param st 汇总方法
+         * @param gb   是否排序
+         * @param sl   是否使用子列表
+         * @param st   汇总方法
          * @param from 聚合后的类型
          */
         public AggregateField(String fn, AggregateFunction func, boolean gb, boolean sl, String st, Class from) {
             if ("false".equals(st)) st = null;
-            fieldName = fn; function = func; groupBy = gb; subList = sl; fromExpr = from;
+            fieldName = fn;
+            function = func;
+            groupBy = gb;
+            subList = sl;
+            fromExpr = from;
             showTotal = st != null ? AggregateFunction.valueOf(st.toUpperCase()) : null;
         }
     }
@@ -126,7 +130,7 @@ public class AggregationUtil {
             int listSize = listArray.length;
             for (int i = 0; i < listSize; i++) {
                 Object curObject = listArray[i];
-                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList,eci);
+                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
                 originalCount++;
             }
         } else {
@@ -146,7 +150,8 @@ public class AggregationUtil {
         }
         if (totalsMap.size() > 0) resultList.add(new HashMap<>(totalsMap));
 
-        if (logger.isTraceEnabled()) logger.trace("Processed list " + listName + ", from " + originalCount + " items to " + resultList.size() + " items, in " + (System.currentTimeMillis() - startTime) + "ms");
+        if (logger.isTraceEnabled())
+            logger.trace("Processed list " + listName + ", from " + originalCount + " items to " + resultList.size() + " items, in " + (System.currentTimeMillis() - startTime) + "ms");
         // for (Map<String, Object> result : resultList) logger.warn("Aggregate Result: " + result.toString());
 
         return resultList;
@@ -166,7 +171,11 @@ public class AggregationUtil {
 
         ContextStack context = eci.contextStack;
         Map<String, Object> contextTopMap;
-        if (curMap != null) { contextTopMap = new HashMap<>(curMap); } else { contextTopMap = new HashMap<>(); }
+        if (curMap != null) {
+            contextTopMap = new HashMap<>(curMap);
+        } else {
+            contextTopMap = new HashMap<>();
+        }
         context.push(contextTopMap);
 
         if (listEntryName != null) {
@@ -298,7 +307,8 @@ public class AggregationUtil {
                 value = DefaultGroovyMethods.getAt(curObject, fieldName);
             } catch (MissingPropertyException e) {
                 // ignore exception, we know this may not be a real property of the object
-                if (isTraceEnabled) logger.trace("Field " + fieldName + " is not a property of list-entry " + listEntryName + " in list " + listName + ": " + e.toString());
+                if (isTraceEnabled)
+                    logger.trace("Field " + fieldName + " is not a property of list-entry " + listEntryName + " in list " + listName + ": " + e.toString());
             }
         }
         return value;

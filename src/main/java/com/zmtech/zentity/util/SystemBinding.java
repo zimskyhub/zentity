@@ -8,12 +8,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("unused")
-public class SystemBinding extends Binding{
+public class SystemBinding extends Binding {
 
     private final static Logger logger = LoggerFactory.getLogger(SystemBinding.class);
     private final static boolean isTraceEnabled = logger.isTraceEnabled();
 
-    private SystemBinding() { super(); }
+    private SystemBinding() {
+        super();
+    }
 
     public static String getPropOrEnv(String name) {
         // start with System properties

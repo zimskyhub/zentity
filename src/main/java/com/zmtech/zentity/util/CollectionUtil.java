@@ -22,13 +22,20 @@ public class CollectionUtil {
     public static class KeyValue {
         public String key;
         public Object value;
-        public KeyValue(String key, Object value) { this.key = key; this.value = value; }
+
+        public KeyValue(String key, Object value) {
+            this.key = key;
+            this.value = value;
+        }
     }
 
     public static void filterMapList(List<Map> theList, Map<String, Object> fieldValues) {
         filterMapList(theList, fieldValues, false);
     }
-    /** Filter theList (of Map) using fieldValues; if exclude=true remove matching items, else keep only matching items */
+
+    /**
+     * Filter theList (of Map) using fieldValues; if exclude=true remove matching items, else keep only matching items
+     */
     public static void filterMapList(List<Map> theList, Map<String, Object> fieldValues, boolean exclude) {
         if (theList == null || fieldValues == null) return;
         int listSize = theList.size();
@@ -52,7 +59,9 @@ public class CollectionUtil {
                 if (checkRemove(curMap, fieldNameArray, fieldValueArray, numFields, exclude)) {
                     theList.remove(li);
                     listSize--;
-                } else { li++; }
+                } else {
+                    li++;
+                }
             }
         } else {
             Iterator<Map> theIterator = theList.iterator();
@@ -62,14 +71,24 @@ public class CollectionUtil {
             }
         }
     }
+
     private static boolean checkRemove(Map curMap, String[] fieldNameArray, Object[] fieldValueArray, int numFields, boolean exclude) {
         boolean remove = exclude;
         for (int i = 0; i < numFields; i++) {
             String fieldName = fieldNameArray[i];
             Object compareObj = fieldValueArray[i];
             Object curObj = curMap.get(fieldName);
-            if (compareObj == null) { if (curObj != null) { remove = !exclude; break; } }
-            else { if (!compareObj.equals(curObj)) { remove = !exclude; break; } }
+            if (compareObj == null) {
+                if (curObj != null) {
+                    remove = !exclude;
+                    break;
+                }
+            } else {
+                if (!compareObj.equals(curObj)) {
+                    remove = !exclude;
+                    break;
+                }
+            }
         }
         return remove;
     }
@@ -105,7 +124,8 @@ public class CollectionUtil {
      * Order list elements in place (modifies the list passed in), returns the list for convenience
      */
     public static List<Map<String, Object>> orderMapList(List<Map<String, Object>> theList, List<? extends CharSequence> fieldNames) {
-        if (fieldNames == null) throw new IllegalArgumentException("Cannot order List of Maps with null order by field list");
+        if (fieldNames == null)
+            throw new IllegalArgumentException("Cannot order List of Maps with null order by field list");
         if (theList != null && fieldNames.size() > 0) theList.sort(new MapOrderByComparator(fieldNames));
         return theList;
     }
@@ -133,7 +153,8 @@ public class CollectionUtil {
         }
 
         @SuppressWarnings("unchecked")
-        @Override public int compare(Map map1, Map map2) {
+        @Override
+        public int compare(Map map1, Map map2) {
             if (map1 == null) return -1;
             if (map2 == null) return 1;
             for (int i = 0; i < fieldNameArray.length; i++) {
@@ -180,11 +201,15 @@ public class CollectionUtil {
             return 0;
         }
 
-        @Override public boolean equals(Object obj) {
+        @Override
+        public boolean equals(Object obj) {
             return obj instanceof MapOrderByComparator && Arrays.equals(fieldNameArray, ((MapOrderByComparator) obj).fieldNameArray);
         }
 
-        @Override public String toString() { return Arrays.toString(fieldNameArray); }
+        @Override
+        public String toString() {
+            return Arrays.toString(fieldNameArray);
+        }
     }
 
     /**
@@ -293,6 +318,7 @@ public class CollectionUtil {
             baseMap.put(entry.getKey(), baseVal.add(addVal));
         }
     }
+
     public static void divideBigDecimalsInMap(Map<String, Object> baseMap, BigDecimal divisor) {
         if (baseMap == null || divisor == null || divisor.doubleValue() == 0.0) return;
         for (Map.Entry<String, Object> entry : baseMap.entrySet()) {
@@ -302,8 +328,10 @@ public class CollectionUtil {
         }
     }
 
-    /** Returns Map with total, squaredTotal, count, average, stdDev, maximum; fieldName field in Maps must have type BigDecimal;
-     * if count of non-null fields is less than 2 returns null as cannot calculate a standard deviation */
+    /**
+     * Returns Map with total, squaredTotal, count, average, stdDev, maximum; fieldName field in Maps must have type BigDecimal;
+     * if count of non-null fields is less than 2 returns null as cannot calculate a standard deviation
+     */
     public static Map<String, BigDecimal> stdDevMaxFromMapField(List<Map<String, Object>> dataList, String fieldName, BigDecimal stdDevMultiplier) {
         BigDecimal total = BigDecimal.ZERO;
         BigDecimal squaredTotal = BigDecimal.ZERO;
@@ -321,18 +349,23 @@ public class CollectionUtil {
         BigDecimal countBd = new BigDecimal(count);
         BigDecimal average = total.divide(countBd, BigDecimal.ROUND_HALF_UP);
         double totalDouble = total.doubleValue();
-        BigDecimal stdDev = new BigDecimal(Math.sqrt(Math.abs(squaredTotal.doubleValue() - ((totalDouble*totalDouble) / count)) / (count - 1)));
+        BigDecimal stdDev = new BigDecimal(Math.sqrt(Math.abs(squaredTotal.doubleValue() - ((totalDouble * totalDouble) / count)) / (count - 1)));
 
         Map<String, BigDecimal> retMap = new HashMap<>(6);
-        retMap.put("total", total); retMap.put("squaredTotal", squaredTotal); retMap.put("count", countBd);
-        retMap.put("average", average); retMap.put("stdDev", stdDev);
+        retMap.put("total", total);
+        retMap.put("squaredTotal", squaredTotal);
+        retMap.put("count", countBd);
+        retMap.put("average", average);
+        retMap.put("stdDev", stdDev);
 
         if (stdDevMultiplier != null) retMap.put("maximum", average.add(stdDev.multiply(stdDevMultiplier)));
 
         return retMap;
     }
 
-    /** Find a field value in a nested Map containing fields, Maps, and Collections of Maps (Lists, etc) */
+    /**
+     * Find a field value in a nested Map containing fields, Maps, and Collections of Maps (Lists, etc)
+     */
     public static Object findFieldNestedMap(String key, Map theMap) {
         if (theMap.containsKey(key)) return theMap.get(key);
         for (Object value : theMap.values()) {
@@ -352,7 +385,9 @@ public class CollectionUtil {
         return null;
     }
 
-    /** Find all values of a named field in a nested Map containing fields, Maps, and Collections of Maps (Lists, etc) */
+    /**
+     * Find all values of a named field in a nested Map containing fields, Maps, and Collections of Maps (Lists, etc)
+     */
     public static void findAllFieldsNestedMap(String key, Map theMap, Set<Object> valueSet) {
         Object localValue = theMap.get(key);
         if (localValue != null) valueSet.add(localValue);
@@ -368,7 +403,9 @@ public class CollectionUtil {
         }
     }
 
-    /** Creates a single Map with fields from the passed in Map and all nested Maps (for Map and Collection of Map entry values) */
+    /**
+     * Creates a single Map with fields from the passed in Map and all nested Maps (for Map and Collection of Map entry values)
+     */
     @SuppressWarnings("unchecked")
     public static Map flattenNestedMap(Map theMap) {
         if (theMap == null) return null;
@@ -432,11 +469,15 @@ public class CollectionUtil {
     }
 
     public final static Collection<Object> singleNullCollection;
+
     static {
         singleNullCollection = new ArrayList<>();
         singleNullCollection.add(null);
     }
-    /** Removes entries with a null value from the Map, returns the passed in Map for convenience (does not clone before removes!). */
+
+    /**
+     * Removes entries with a null value from the Map, returns the passed in Map for convenience (does not clone before removes!).
+     */
     @SuppressWarnings("unchecked")
     public static Map removeNullsFromMap(Map theMap) {
         if (theMap == null) return null;
@@ -457,7 +498,9 @@ public class CollectionUtil {
         return true;
     }
 
-    public static Node deepCopyNode(Node original) { return deepCopyNode(original, null); }
+    public static Node deepCopyNode(Node original) {
+        return deepCopyNode(original, null);
+    }
 
     @SuppressWarnings("unchecked")
     public static Node deepCopyNode(Node original, Node parent) {

@@ -35,8 +35,6 @@ import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.sun.tools.internal.xjc.reader.Ring.add;
-
 public class EntityDefinition {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDefinition.class);
 
@@ -589,8 +587,9 @@ public class EntityDefinition {
         return memberEntityNode != null?memberEntityNode.attribute("entity-name"):null;
     }
 
-    public MNode getFieldNode(String fieldName) { return (MNode) fieldNodeMap.get(fieldName); }
-    public FieldInfo getFieldInfo(String fieldName) { return (FieldInfo) fieldInfoMap.get(fieldName); }
+    public MNode getFieldNode(String fieldName) { return fieldNodeMap.get(fieldName); }
+    public FieldInfo getFieldInfo(String fieldName) { return fieldInfoMap.get(fieldName); }
+    public ArrayList<FieldInfo> getAllFieldInfoList(){ return this.allFieldInfoList; }
 
     public static Map<String, String> getRelationshipExpandedKeyMapInternal(MNode relationship, EntityDefinition relEd) {
         Map<String, String> eKeyMap = new ConcurrentHashMap<>();

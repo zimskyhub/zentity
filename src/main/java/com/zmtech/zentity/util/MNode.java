@@ -21,22 +21,31 @@ import java.util.function.Function;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @SuppressWarnings("unused")
-public class MNode{
+public class MNode {
 
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
 
     private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
-    public static void clearParsedNodeCache() { parsedNodeCache.clear(); }
+
+    public static void clearParsedNodeCache() {
+        parsedNodeCache.clear();
+    }
 
     /* ========== XML 解析 ========== */
-    /** 从输入流解析并关闭流 */
+
+    /**
+     * 从输入流解析并关闭流
+     */
     public static MNode parse(String location, InputStream is) throws EntityException {
         if (is == null) return null;
         try {
             return parse(location, new InputSource(is));
         } finally {
-            try { is.close(); }
-            catch (IOException e) { logger.error("关闭XML输入流错误,文件位置: " + location, e); }
+            try {
+                is.close();
+            } catch (IOException e) {
+                logger.error("关闭XML输入流错误,文件位置: " + location, e);
+            }
         }
     }
 
@@ -57,10 +66,14 @@ public class MNode{
         } catch (Exception e) {
             throw new EntityException("解析XML文件错误,文件位置: " + fl.getPath(), e);
         } finally {
-            try { if (fr != null) fr.close(); }
-            catch (IOException e) { logger.error("关闭XML输入流错误,文件位置: " + fl.getPath(), e); }
+            try {
+                if (fr != null) fr.close();
+            } catch (IOException e) {
+                logger.error("关闭XML输入流错误,文件位置: " + fl.getPath(), e);
+            }
         }
     }
+
     public static MNode parseText(String location, String text) throws EntityException {
         if (text == null || text.length() == 0) return null;
         return parse(location, new InputSource(new StringReader(text)));
@@ -78,7 +91,7 @@ public class MNode{
         }
     }
 
-//    public static MNode parseRootOnly(ResourceReference rr) {
+    //    public static MNode parseRootOnly(ResourceReference rr) {
 //        InputStream is = rr.openStream();
 //        if (is == null) return null;
 //        try {
@@ -118,11 +131,12 @@ public class MNode{
     public MNode(Node node) {
         nodeName = (String) node.name();
         Set attrEntries = node.attributes().entrySet();
-        for (Object entryObj : attrEntries) if (entryObj instanceof Map.Entry) {
-            Map.Entry entry = (Map.Entry) entryObj;
-            if (entry.getKey() != null)
-                attributeMap.put(entry.getKey().toString(), entry.getValue() != null ? entry.getValue().toString() : null);
-        }
+        for (Object entryObj : attrEntries)
+            if (entryObj instanceof Map.Entry) {
+                Map.Entry entry = (Map.Entry) entryObj;
+                if (entry.getKey() != null)
+                    attributeMap.put(entry.getKey().toString(), entry.getValue() != null ? entry.getValue().toString() : null);
+            }
         for (Object childObj : node.children()) {
             if (childObj instanceof Node) {
                 append((Node) childObj);
@@ -140,6 +154,7 @@ public class MNode{
 
         // if ("entity".equals(nodeName)) logger.info("Groovy Node:\n" + node + "\n MNode:\n" + toString());
     }
+
     public MNode(String name, Map<String, String> attributes, MNode parent, List<MNode> children, String text) {
         nodeName = name;
         if (attributes != null) attributeMap.putAll(attributes);
@@ -150,6 +165,7 @@ public class MNode{
         }
         if (text != null && text.trim().length() > 0) childText = text;
     }
+
     public MNode(String name, Map<String, String> attributes) {
         nodeName = name;
         if (attributes != null) attributeMap.putAll(attributes);
@@ -157,7 +173,9 @@ public class MNode{
 
     /* ========== 获取方法 ========== */
 
-    /** 如果名称以＆符号（@）开头，则获取属性，否则获取具有给定名称的子节点列表。 */
+    /**
+     * 如果名称以＆符号（@）开头，则获取属性，否则获取具有给定名称的子节点列表。
+     */
     public Object getObject(String name) {
         if (name != null && name.length() > 0 && name.charAt(0) == '@') {
             return attribute(name.substring(1));
@@ -166,11 +184,20 @@ public class MNode{
         }
     }
 
-    /** 方括号语法的Groovy特定方法 */
-    public Object getAt(String name) { return getObject(name); }
+    /**
+     * 方括号语法的Groovy特定方法
+     */
+    public Object getAt(String name) {
+        return getObject(name);
+    }
 
-    /** 取节点名称 */
-    public String getName() { return nodeName; }
+    /**
+     * 取节点名称
+     */
+    public String getName() {
+        return nodeName;
+    }
+
     public void setName(String name) {
         if (parentNode != null && parentNode.childrenByName != null) {
             parentNode.childrenByName.remove(name);
@@ -179,10 +206,16 @@ public class MNode{
         nodeName = name;
     }
 
-    /** 取节点全部属性值 */
-    public Map<String, String> getAttributes() { return attributeMap; }
+    /**
+     * 取节点全部属性值
+     */
+    public Map<String, String> getAttributes() {
+        return attributeMap;
+    }
 
-    /** 按属性名称取节点属性值 */
+    /**
+     * 按属性名称取节点属性值
+     */
     public String attribute(String attrName) {
         String attrValue = attributeMap.get(attrName);
         if (systemExpandAttributes && attrValue != null && attrValue.contains("${")) {
@@ -190,20 +223,26 @@ public class MNode{
             // system properties and environment variables don't generally change once initial init is done, so save expanded value
             attributeMap.put(attrName, attrValue);
         }
-        if (attrValue != null && attrValue.equals("")){
-            attrValue = null;
-        }
+        if (attrValue != null && attrValue.isEmpty()) { attrValue = null; }
         return attrValue;
     }
 
-    /** 设置系统扩展属性 */
-    public void setSystemExpandAttributes(boolean b) { systemExpandAttributes = b; }
+    /**
+     * 设置系统扩展属性
+     */
+    public void setSystemExpandAttributes(boolean b) {
+        systemExpandAttributes = b;
+    }
 
-    public MNode getParent() { return parentNode; }
+    public MNode getParent() {
+        return parentNode;
+    }
+
     public ArrayList<MNode> getChildren() {
         if (childList == null) childList = new ArrayList<>();
         return childList;
     }
+
     public ArrayList<MNode> children(String name) {
         if (childList == null) childList = new ArrayList<>();
         if (childrenByName == null) childrenByName = new HashMap<>();
@@ -220,9 +259,11 @@ public class MNode{
         childrenByName.put(name, curList);
         return curList;
     }
+
     public ArrayList<MNode> children(String name, String... attrNamesValues) {
         int attrNvLength = attrNamesValues.length;
-        if (attrNvLength % 2 != 0) throw new IllegalArgumentException("Must pass an even number of attribute name/value strings");
+        if (attrNvLength % 2 != 0)
+            throw new IllegalArgumentException("Must pass an even number of attribute name/value strings");
         ArrayList<MNode> fullList = children(name);
         ArrayList<MNode> filteredList = new ArrayList<>();
         int fullListSize = fullList.size();
@@ -231,7 +272,7 @@ public class MNode{
             boolean allEqual = true;
             for (int j = 0; j < attrNvLength; j += 2) {
                 String attrValue = node.attribute(attrNamesValues[j]);
-                String argValue = attrNamesValues[j+1];
+                String argValue = attrNamesValues[j + 1];
                 if (attrValue == null) {
                     if (argValue != null) {
                         allEqual = false;
@@ -248,7 +289,8 @@ public class MNode{
         }
         return filteredList;
     }
-    public ArrayList<MNode> children(Function<MNode,Boolean> condition) {
+
+    public ArrayList<MNode> children(Function<MNode, Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         if (childList == null) return curList;
         int childListSize = childList.size();
@@ -258,6 +300,7 @@ public class MNode{
         }
         return curList;
     }
+
     public boolean hasChild(String name) {
         if (childList == null) return false;
         if (name == null) return false;
@@ -273,8 +316,13 @@ public class MNode{
         }
         return false;
     }
-    /** Get child at index, will throw an exception if index out of bounds */
-    public MNode child(int index) { return childList.get(index); }
+
+    /**
+     * Get child at index, will throw an exception if index out of bounds
+     */
+    public MNode child(int index) {
+        return childList.get(index);
+    }
 
     public Map<String, ArrayList<MNode>> getChildrenByName() {
         Map<String, ArrayList<MNode>> allByName = new HashMap<>();
@@ -311,14 +359,17 @@ public class MNode{
         return allByName;
     }
 
-    /** Search all descendants for nodes matching any of the names, return a Map with a List for each name with nodes
-     * found or empty List if no nodes found */
+    /**
+     * Search all descendants for nodes matching any of the names, return a Map with a List for each name with nodes
+     * found or empty List if no nodes found
+     */
     public Map<String, ArrayList<MNode>> descendants(Set<String> names) {
         Map<String, ArrayList<MNode>> nodes = new HashMap<>();
         for (String name : names) nodes.put(name, new ArrayList<>());
         descendantsInternal(names, nodes);
         return nodes;
     }
+
     private void descendantsInternal(Set<String> names, Map<String, ArrayList<MNode>> nodes) {
         if (childList == null) return;
 
@@ -332,11 +383,13 @@ public class MNode{
             curChild.descendantsInternal(names, nodes);
         }
     }
+
     public ArrayList<MNode> descendants(String name) {
         ArrayList<MNode> nodes = new ArrayList<>();
         descendantsInternal(name, nodes);
         return nodes;
     }
+
     private void descendantsInternal(String name, ArrayList<MNode> nodes) {
         if (childList == null) return;
 
@@ -350,12 +403,13 @@ public class MNode{
         }
     }
 
-    public ArrayList<MNode> depthFirst(Function<MNode,Boolean> condition) {
+    public ArrayList<MNode> depthFirst(Function<MNode, Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         depthFirstInternal(condition, curList);
         return curList;
     }
-    private void depthFirstInternal(Function<MNode,Boolean> condition, ArrayList<MNode> curList) {
+
+    private void depthFirstInternal(Function<MNode, Boolean> condition, ArrayList<MNode> curList) {
         if (childList == null) return;
 
         int childListSize = childList.size();
@@ -370,12 +424,14 @@ public class MNode{
             if (condition == null || condition.apply(curChild)) curList.add(curChild);
         }
     }
-    public ArrayList<MNode> breadthFirst(Function<MNode,Boolean> condition) {
+
+    public ArrayList<MNode> breadthFirst(Function<MNode, Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         breadthFirstInternal(condition, curList);
         return curList;
     }
-    private void breadthFirstInternal(Function<MNode,Boolean> condition, ArrayList<MNode> curList) {
+
+    private void breadthFirstInternal(Function<MNode, Boolean> condition, ArrayList<MNode> curList) {
         if (childList == null) return;
 
         int childListSize = childList.size();
@@ -391,12 +447,17 @@ public class MNode{
         }
     }
 
-    /** Get the first child node */
+    /**
+     * Get the first child node
+     */
     public MNode first() {
         if (childList == null) return null;
         return childList.size() > 0 ? childList.get(0) : null;
     }
-    /** Get the first child node with the given name */
+
+    /**
+     * Get the first child node with the given name
+     */
     public MNode first(String name) {
         if (childList == null) return null;
         if (name == null) return first();
@@ -414,6 +475,7 @@ public class MNode{
         return null;
         */
     }
+
     public MNode first(String name, String... attrNamesValues) {
         if (childList == null) return null;
         if (name == null) return first();
@@ -422,7 +484,8 @@ public class MNode{
         if (nameChildren.size() > 0) return nameChildren.get(0);
         return null;
     }
-    public MNode first(Function<MNode,Boolean> condition) {
+
+    public MNode first(Function<MNode, Boolean> condition) {
         if (childList == null) return null;
         if (condition == null) return first();
         int childListSize = childList.size();
@@ -432,6 +495,7 @@ public class MNode{
         }
         return null;
     }
+
     public int firstIndex(String name) {
         if (childList == null) return -1;
         if (name == null) return childList.size() - 1;
@@ -442,7 +506,8 @@ public class MNode{
         }
         return -1;
     }
-    public int firstIndex(Function<MNode,Boolean> condition) {
+
+    public int firstIndex(Function<MNode, Boolean> condition) {
         if (childList == null) return -1;
         if (condition == null) return childList.size() - 1;
         int childListSize = childList.size();
@@ -453,7 +518,9 @@ public class MNode{
         return -1;
     }
 
-    public String getText() { return childText; }
+    public String getText() {
+        return childText;
+    }
 
     public MNode deepCopy(MNode parent) {
         MNode newNode = new MNode(nodeName, attributeMap, parent, null, childText);
@@ -479,6 +546,7 @@ public class MNode{
         childList.add(child);
         child.parentNode = this;
     }
+
     public void append(MNode child, int index) {
         if (childrenByName != null) childrenByName.remove(child.nodeName);
         if (childList == null) childList = new ArrayList<>();
@@ -486,16 +554,19 @@ public class MNode{
         childList.add(index, child);
         child.parentNode = this;
     }
+
     public MNode append(Node child) {
         MNode newNode = new MNode(child);
         append(newNode);
         return newNode;
     }
+
     public MNode append(String name, Map<String, String> attributes, List<MNode> children, String text) {
         MNode newNode = new MNode(name, attributes, this, children, text);
         append(newNode);
         return newNode;
     }
+
     public MNode append(String name, Map<String, String> attributes) {
         MNode newNode = new MNode(name, attributes, this, null, null);
         append(newNode);
@@ -507,6 +578,7 @@ public class MNode{
             throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
         return childList.set(index, child);
     }
+
     public MNode replace(int index, String name, Map<String, String> attributes) {
         if (childList == null || childList.size() < index)
             throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
@@ -520,6 +592,7 @@ public class MNode{
             throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
         childList.remove(index);
     }
+
     public boolean remove(String name) {
         if (childrenByName != null) childrenByName.remove(name);
         if (childList == null) return false;
@@ -535,7 +608,8 @@ public class MNode{
         }
         return removed;
     }
-    public boolean remove(Function<MNode,Boolean> condition) {
+
+    public boolean remove(Function<MNode, Boolean> condition) {
         if (childList == null) return false;
         boolean removed = false;
         for (int i = 0; i < childList.size(); ) {
@@ -551,11 +625,12 @@ public class MNode{
         return removed;
     }
 
-    /** Merge a single child node with the given name from overrideNode if it has a child with that name.
-     *
+    /**
+     * Merge a single child node with the given name from overrideNode if it has a child with that name.
+     * <p>
      * If this node has a child with the same name copies/overwrites attributes from the overrideNode's child and if
      * overrideNode's child has children the children of this node's child will be replaced by them.
-     *
+     * <p>
      * Otherwise appends a copy of the override child as a child of the current node.
      */
     public void mergeSingleChild(MNode overrideNode, String childNodeName) {
@@ -584,7 +659,7 @@ public class MNode{
         }
     }
 
-    public void mergeChildWithChildKey(MNode overrideNode, String childName, String grandchildName, String keyAttributeName, Function<Map<String,MNode>,MNode> grandchildMerger) {
+    public void mergeChildWithChildKey(MNode overrideNode, String childName, String grandchildName, String keyAttributeName, Function<Map<String, MNode>, MNode> grandchildMerger) {
         MNode overrideChildNode = overrideNode.first(childName);
         if (overrideChildNode == null) return;
         MNode baseChildNode = first(childName);
@@ -596,25 +671,31 @@ public class MNode{
         }
     }
 
-    /** Merge attributes and child nodes from overrideNode into this node, matching on childNodesName and optionally the value of the
+    /**
+     * Merge attributes and child nodes from overrideNode into this node, matching on childNodesName and optionally the value of the
      * attribute in each named by keyAttributeName.
-     *
+     * <p>
      * Always copies/overwrites attributes from override child node, and merges their child nodes using childMerger or
      * if null the default merge of removing all children under the child of this node and appending copies of the
      * children of the override child node.
      */
-    public void mergeNodeWithChildKey(MNode overrideNode, String childNodesName, String keyAttributeName, Function<Map<String,MNode>,MNode> childMerger) {
-        if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeNodeWithChildKey");
-        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeNodeWithChildKey");
+    public void mergeNodeWithChildKey(MNode overrideNode, String childNodesName, String keyAttributeName, Function<Map<String, MNode>, MNode> childMerger) {
+        if (overrideNode == null)
+            throw new IllegalArgumentException("No overrideNode specified in call to mergeNodeWithChildKey");
+        if (childNodesName == null || childNodesName.length() == 0)
+            throw new IllegalArgumentException("No childNodesName specified in call to mergeNodeWithChildKey");
 
         // override attributes for this node
         attributeMap.putAll(overrideNode.attributeMap);
 
         mergeChildrenByKey(overrideNode, childNodesName, keyAttributeName, childMerger);
     }
-    public void mergeChildrenByKey(MNode overrideNode, String childNodesName, String keyAttributeName, Function<Map<String,MNode>,MNode> childMerger) {
-        if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeChildrenByKey");
-        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeChildrenByKey");
+
+    public void mergeChildrenByKey(MNode overrideNode, String childNodesName, String keyAttributeName, Function<Map<String, MNode>, MNode> childMerger) {
+        if (overrideNode == null)
+            throw new IllegalArgumentException("No overrideNode specified in call to mergeChildrenByKey");
+        if (childNodesName == null || childNodesName.length() == 0)
+            throw new IllegalArgumentException("No childNodesName specified in call to mergeChildrenByKey");
 
         if (childList == null) childList = new ArrayList<>();
         ArrayList<MNode> overrideChildren = overrideNode.children(childNodesName);
@@ -640,9 +721,9 @@ public class MNode{
 
                 if (childMerger != null) {
                     MNode finalChildBaseNode = childBaseNode;
-                    childMerger.apply(new ConcurrentHashMap<String,MNode>(){{
+                    childMerger.apply(new ConcurrentHashMap<String, MNode>() {{
                         put("baseNode", finalChildBaseNode);
-                        put("overrideNode",childOverrideNode);
+                        put("overrideNode", childOverrideNode);
                     }});
                 } else {
                     // do the default child merge: remove current nodes children and replace with a copy of the override node's children
@@ -673,6 +754,7 @@ public class MNode{
         addToSb(sb, 0);
         return sb.toString();
     }
+
     private void addToSb(StringBuilder sb, int level) {
         for (int i = 0; i < level; i++) sb.append("    ");
         sb.append('<').append(nodeName);
@@ -731,9 +813,17 @@ public class MNode{
         final boolean rootOnly;
         private boolean stopParse = false;
 
-        MNodeXmlHandler(boolean rootOnly) { this.rootOnly = rootOnly; }
-        MNode getRootNode() { return rootNode; }
-        long getNodesRead() { return nodesRead; }
+        MNodeXmlHandler(boolean rootOnly) {
+            this.rootOnly = rootOnly;
+        }
+
+        MNode getRootNode() {
+            return rootNode;
+        }
+
+        long getNodesRead() {
+            return nodesRead;
+        }
 
         @Override
         public void startElement(String ns, String localName, String qName, Attributes attributes) {
@@ -765,11 +855,13 @@ public class MNode{
             if (curText == null) curText = new StringBuilder();
             curText.append(chars, offset, length);
         }
+
         @Override
         public void endElement(String ns, String localName, String qName) {
             if (stopParse) return;
 
-            if (!qName.equals(curNode.nodeName)) throw new IllegalStateException("Invalid close element " + qName + ", was expecting " + curNode.nodeName);
+            if (!qName.equals(curNode.nodeName))
+                throw new IllegalStateException("Invalid close element " + qName + ", was expecting " + curNode.nodeName);
             if (curText != null) {
                 String curString = curText.toString().trim();
                 if (curString.length() > 0) curNode.childText = curString;
@@ -779,6 +871,8 @@ public class MNode{
         }
 
         @Override
-        public void setDocumentLocator(Locator locator) { this.locator = locator; }
+        public void setDocumentLocator(Locator locator) {
+            this.locator = locator;
+        }
     }
 }

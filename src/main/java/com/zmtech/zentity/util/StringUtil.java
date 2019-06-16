@@ -25,9 +25,14 @@ public class StringUtil {
     protected static final Logger logger = LoggerFactory.getLogger(StringUtil.class);
 
     public static final Map<String, String> xmlEntityMap;
+
     static {
         HashMap<String, String> map = new HashMap<>(5);
-        map.put("apos", "\'"); map.put("quot", "\""); map.put("amp", "&"); map.put("lt", "<"); map.put("gt", ">");
+        map.put("apos", "\'");
+        map.put("quot", "\"");
+        map.put("amp", "&");
+        map.put("lt", "<");
+        map.put("gt", ">");
         xmlEntityMap = map;
     }
 
@@ -54,7 +59,9 @@ public class StringUtil {
         return value.toString();
     }
 
-    public static String encodeForXmlAttribute(String original) { return encodeForXmlAttribute(original, false); }
+    public static String encodeForXmlAttribute(String original) {
+        return encodeForXmlAttribute(original, false);
+    }
 
     public static String encodeForXmlAttribute(String original, boolean addZeroWidthSpaces) {
         if (original == null) return "";
@@ -62,18 +69,52 @@ public class StringUtil {
         for (int i = 0; i < newValue.length(); i++) {
             char curChar = newValue.charAt(i);
             switch (curChar) {
-                case '\'': newValue.replace(i, i + 1, "&apos;"); i += 5; break;
-                case '"': newValue.replace(i, i + 1, "&quot;"); i += 5; break;
-                case '&': newValue.replace(i, i + 1, "&amp;"); i += 4; break;
-                case '<': newValue.replace(i, i + 1, "&lt;"); i += 3; break;
-                case '>': newValue.replace(i, i + 1, "&gt;"); i += 3; break;
-                case 0x5: newValue.replace(i, i + 1, "..."); i += 2; break;
-                case 0x12: newValue.replace(i, i + 1, "&apos;"); i += 5; break;
-                case 0x13: newValue.replace(i, i + 1, "&quot;"); i += 5; break;
-                case 0x14: newValue.replace(i, i + 1, "&quot;"); i += 5; break;
-                case 0x16: newValue.replace(i, i + 1, "-"); break;
-                case 0x17: newValue.replace(i, i + 1, "-"); break;
-                case 0x19: newValue.replace(i, i + 1, "tm"); i++; break;
+                case '\'':
+                    newValue.replace(i, i + 1, "&apos;");
+                    i += 5;
+                    break;
+                case '"':
+                    newValue.replace(i, i + 1, "&quot;");
+                    i += 5;
+                    break;
+                case '&':
+                    newValue.replace(i, i + 1, "&amp;");
+                    i += 4;
+                    break;
+                case '<':
+                    newValue.replace(i, i + 1, "&lt;");
+                    i += 3;
+                    break;
+                case '>':
+                    newValue.replace(i, i + 1, "&gt;");
+                    i += 3;
+                    break;
+                case 0x5:
+                    newValue.replace(i, i + 1, "...");
+                    i += 2;
+                    break;
+                case 0x12:
+                    newValue.replace(i, i + 1, "&apos;");
+                    i += 5;
+                    break;
+                case 0x13:
+                    newValue.replace(i, i + 1, "&quot;");
+                    i += 5;
+                    break;
+                case 0x14:
+                    newValue.replace(i, i + 1, "&quot;");
+                    i += 5;
+                    break;
+                case 0x16:
+                    newValue.replace(i, i + 1, "-");
+                    break;
+                case 0x17:
+                    newValue.replace(i, i + 1, "-");
+                    break;
+                case 0x19:
+                    newValue.replace(i, i + 1, "tm");
+                    i++;
+                    break;
                 default:
                     if (DefaultGroovyMethods.compareTo(curChar, 0x20) < 0 && curChar != 0x9 && curChar != 0xA && curChar != 0xD) {
                         // the only valid values < 0x20 are 0x9 (tab), 0xA (newline), 0xD (carriage return)
@@ -93,7 +134,9 @@ public class StringUtil {
         return newValue.toString();
     }
 
-    /** See if contains only characters allowed by URLDecoder, if so doesn't need to be encoded or is already encoded */
+    /**
+     * See if contains only characters allowed by URLDecoder, if so doesn't need to be encoded or is already encoded
+     */
     public static boolean isUrlDecoderSafe(String text) {
         // see https://docs.oracle.com/javase/8/docs/api/index.html?java/net/URLEncoder.html
         // letters, digits, and: "-", "_", ".", and "*"
@@ -121,6 +164,7 @@ public class StringUtil {
         }
         return true;
     }
+
     public static String urlEncodeIfNeeded(String text) {
         if (isUrlDecoderSafe(text)) return text;
         try {
@@ -130,6 +174,7 @@ public class StringUtil {
             return text;
         }
     }
+
     public static boolean isUrlSafeRfc3986(String text) {
         if (text == null) return true;
         // RFC 3986 URL path chars: a-z A-Z 0-9 . _ - + ~ ! $ & ' ( ) * , ; = : @
@@ -138,7 +183,8 @@ public class StringUtil {
             char ch = chars[i];
             if (Character.isLetterOrDigit(ch)) continue;
             if (ch == '.' || ch == '_' || ch == '-' || ch == '+' || ch == '~' || ch == '!' || ch == '$' || ch == '&' || ch == '\'' ||
-                    ch == '(' || ch == ')' || ch == '*' || ch == ',' || ch == ';' || ch == '=' || ch == ':' || ch == '@') continue;
+                    ch == '(' || ch == ')' || ch == '*' || ch == ',' || ch == ';' || ch == '=' || ch == ':' || ch == '@')
+                continue;
             return false;
         }
         return true;
@@ -166,6 +212,7 @@ public class StringUtil {
         }
         return prettyName.toString();
     }
+
     public static String prettyToCamelCase(String pretty, boolean firstUpper) {
         if (pretty == null || pretty.length() == 0) return "";
         StringBuilder camelCase = new StringBuilder();
@@ -192,10 +239,13 @@ public class StringUtil {
         int replIdx = 0;
         for (int i = 0; i < origLength; i++) {
             char ochr = orig[i];
-            if (Character.isLetterOrDigit(ochr)) { remBuffer.append(ochr); }
+            if (Character.isLetterOrDigit(ochr)) {
+                remBuffer.append(ochr);
+            }
         }
         return remBuffer.toString();
     }
+
     public static String replaceNonAlphaNumeric(String origString, char chr) {
         if (origString == null || origString.isEmpty()) return origString;
         int origLength = origString.length();
@@ -204,11 +254,17 @@ public class StringUtil {
         int replIdx = 0;
         for (int i = 0; i < origLength; i++) {
             char ochr = orig[i];
-            if (Character.isLetterOrDigit(ochr)) { repl[replIdx++] = ochr; }
-            else { if (replIdx == 0 || repl[replIdx-1] != chr) { repl[replIdx++] = chr; } }
+            if (Character.isLetterOrDigit(ochr)) {
+                repl[replIdx++] = ochr;
+            } else {
+                if (replIdx == 0 || repl[replIdx - 1] != chr) {
+                    repl[replIdx++] = chr;
+                }
+            }
         }
         return new String(repl, 0, replIdx);
     }
+
     public static boolean isAlphaNumeric(String str, String allowedChars) {
         if (str == null) return true;
         char[] strChars = str.toCharArray();
@@ -218,6 +274,7 @@ public class StringUtil {
         }
         return true;
     }
+
     public static String findFirstNumber(String orig) {
         if (orig == null || orig.isEmpty()) return orig;
         int origLength = orig.length();
@@ -282,6 +339,7 @@ public class StringUtil {
         // logger.warn("cleaned " + original + " to " + new String(cleanChars));
         return new String(cleanChars);
     }
+
     public static String getExpressionClassName(String expression) {
         String hashCode = Integer.toHexString(expression.hashCode());
         int hashLength = hashCode.length();
@@ -383,7 +441,9 @@ public class StringUtil {
         return yearList;
     }
 
-    /** Convert any value from 0 to 999 inclusive, to a string. */
+    /**
+     * Convert any value from 0 to 999 inclusive, to a string.
+     */
     private static String tripleAsWords(int value, boolean useAnd) {
         if (value < 0 || value >= 1000) throw new IllegalArgumentException("Illegal triple-value " + value);
         if (value < SUBTWENTY.length) return SUBTWENTY[value];
@@ -406,7 +466,9 @@ public class StringUtil {
         return sb.toString();
     }
 
-    /** Convert any long input value to a text representation
+    /**
+     * Convert any long input value to a text representation
+     *
      * @param value  The value to convert
      * @param useAnd true if you want to use the word 'and' in the text (eleven thousand and thirteen)
      */
@@ -505,6 +567,7 @@ public class StringUtil {
             0x4400, 0x84C1, 0x8581, 0x4540, 0x8701, 0x47C0, 0x4680, 0x8641,
             0x8201, 0x42C0, 0x4380, 0x8341, 0x4100, 0x81C1, 0x8081, 0x4040,
     };
+
     public static int calculateCrc16(String input) {
         byte[] bytes = input.getBytes();
         int crc = 0x0000;

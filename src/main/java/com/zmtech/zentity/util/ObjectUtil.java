@@ -26,17 +26,28 @@ public class ObjectUtil {
     protected static final Logger logger = LoggerFactory.getLogger(ObjectUtil.class);
     public static final Map<String, Integer> calendarFieldByUomId;
     public static final Map<String, TemporalUnit> temporalUnitByUomId;
+
     static {
         HashMap<String, Integer> cfm = new HashMap<>(8);
-        cfm.put("TF_ms", Calendar.MILLISECOND); cfm.put("TF_s", Calendar.SECOND); cfm.put("TF_min", Calendar.MINUTE);
-        cfm.put("TF_hr", Calendar.HOUR); cfm.put("TF_day", Calendar.DAY_OF_MONTH); cfm.put("TF_wk", Calendar.WEEK_OF_YEAR);
-        cfm.put("TF_mon", Calendar.MONTH); cfm.put("TF_yr", Calendar.YEAR);
+        cfm.put("TF_ms", Calendar.MILLISECOND);
+        cfm.put("TF_s", Calendar.SECOND);
+        cfm.put("TF_min", Calendar.MINUTE);
+        cfm.put("TF_hr", Calendar.HOUR);
+        cfm.put("TF_day", Calendar.DAY_OF_MONTH);
+        cfm.put("TF_wk", Calendar.WEEK_OF_YEAR);
+        cfm.put("TF_mon", Calendar.MONTH);
+        cfm.put("TF_yr", Calendar.YEAR);
         calendarFieldByUomId = cfm;
 
         HashMap<String, TemporalUnit> tum = new HashMap<>(8);
-        tum.put("TF_ms", ChronoUnit.MILLIS); tum.put("TF_s", ChronoUnit.SECONDS); tum.put("TF_min", ChronoUnit.MINUTES);
-        tum.put("TF_hr", ChronoUnit.HOURS); tum.put("TF_day", ChronoUnit.DAYS); tum.put("TF_wk", ChronoUnit.WEEKS);
-        tum.put("TF_mon", ChronoUnit.MONTHS); tum.put("TF_yr", ChronoUnit.YEARS);
+        tum.put("TF_ms", ChronoUnit.MILLIS);
+        tum.put("TF_s", ChronoUnit.SECONDS);
+        tum.put("TF_min", ChronoUnit.MINUTES);
+        tum.put("TF_hr", ChronoUnit.HOURS);
+        tum.put("TF_day", ChronoUnit.DAYS);
+        tum.put("TF_wk", ChronoUnit.WEEKS);
+        tum.put("TF_mon", ChronoUnit.MONTHS);
+        tum.put("TF_yr", ChronoUnit.YEARS);
         temporalUnitByUomId = tum;
     }
 
@@ -119,20 +130,34 @@ public class ObjectUtil {
         toField = basicConvert(toField, type);
 
         boolean result;
-        if ("less".equals(operator)) { result = compareObj(field, toField) < 0; }
-        else if ("greater".equals(operator)) { result = compareObj(field, toField) > 0; }
-        else if ("less-equals".equals(operator)) { result = compareObj(field, toField) <= 0; }
-        else if ("greater-equals".equals(operator)) { result = compareObj(field, toField) >= 0; }
-        else if ("contains".equals(operator)) { result = Objects.toString(field).contains(Objects.toString(toField)); }
-        else if ("not-contains".equals(operator)) { result = !Objects.toString(field).contains(Objects.toString(toField)); }
-        else if ("empty".equals(operator)) { result = isEmpty(field); }
-        else if ("not-empty".equals(operator)) { result = !isEmpty(field); }
-        else if ("matches".equals(operator)) { result = Objects.toString(field).matches(toField.toString()); }
-        else if ("not-matches".equals(operator)) { result = !Objects.toString(field).matches(toField.toString()); }
-        else if ("not-equals".equals(operator)) { result = !Objects.equals(field, toField); }
-        else { result = Objects.equals(field, toField); }
+        if ("less".equals(operator)) {
+            result = compareObj(field, toField) < 0;
+        } else if ("greater".equals(operator)) {
+            result = compareObj(field, toField) > 0;
+        } else if ("less-equals".equals(operator)) {
+            result = compareObj(field, toField) <= 0;
+        } else if ("greater-equals".equals(operator)) {
+            result = compareObj(field, toField) >= 0;
+        } else if ("contains".equals(operator)) {
+            result = Objects.toString(field).contains(Objects.toString(toField));
+        } else if ("not-contains".equals(operator)) {
+            result = !Objects.toString(field).contains(Objects.toString(toField));
+        } else if ("empty".equals(operator)) {
+            result = isEmpty(field);
+        } else if ("not-empty".equals(operator)) {
+            result = !isEmpty(field);
+        } else if ("matches".equals(operator)) {
+            result = Objects.toString(field).matches(toField.toString());
+        } else if ("not-matches".equals(operator)) {
+            result = !Objects.toString(field).matches(toField.toString());
+        } else if ("not-equals".equals(operator)) {
+            result = !Objects.equals(field, toField);
+        } else {
+            result = Objects.equals(field, toField);
+        }
 
-        if (logger.isTraceEnabled()) logger.trace("Compare result [" + result + "] for field [" + field + "] operator [" + operator + "] value [" + value + "] toField [" + toField + "] type [" + type + "]");
+        if (logger.isTraceEnabled())
+            logger.trace("Compare result [" + result + "] for field [" + field + "] operator [" + operator + "] value [" + value + "] toField [" + toField + "] type [" + type + "]");
         return result;
     }
 
@@ -146,10 +171,12 @@ public class ObjectUtil {
         Comparable comp2 = makeComparable(field2);
         return comp1.compareTo(comp2);
     }
+
     public static Comparable makeComparable(final Object obj) {
         if (obj == null) return null;
         if (obj instanceof Comparable) return (Comparable) obj;
-        else throw new IllegalArgumentException("Object of type " + obj.getClass().getName() + " is not Comparable, cannot compare");
+        else
+            throw new IllegalArgumentException("Object of type " + obj.getClass().getName() + " is not Comparable, cannot compare");
     }
 
     public static int countChars(String s, boolean countDigits, boolean countLetters, boolean countOthers) {
@@ -174,7 +201,10 @@ public class ObjectUtil {
         return count;
     }
 
-    public static String getStreamText(InputStream is) { return getStreamText(is, StandardCharsets.UTF_8); }
+    public static String getStreamText(InputStream is) {
+        return getStreamText(is, StandardCharsets.UTF_8);
+    }
+
     public static String getStreamText(InputStream is, Charset charset) {
         if (is == null) return null;
         Reader r = null;
@@ -240,8 +270,10 @@ public class ObjectUtil {
         return obj.toString();
     }
 
-    /** Like the Groovy empty except doesn't consider empty 0 value numbers, false Boolean, etc; only null values,
-     *   0 length String (actually CharSequence to include GString, etc), and 0 size Collection/Map are considered empty. */
+    /**
+     * Like the Groovy empty except doesn't consider empty 0 value numbers, false Boolean, etc; only null values,
+     * 0 length String (actually CharSequence to include GString, etc), and 0 size Collection/Map are considered empty.
+     */
     public static boolean isEmpty(Object obj) {
         if (obj == null) return true;
         /* faster not to do this
@@ -308,13 +340,15 @@ public class ObjectUtil {
 
     public static int getCalendarFieldFromUomId(final String uomId) {
         Integer calField = calendarFieldByUomId.get(uomId);
-        if (calField == null) throw new IllegalArgumentException("No equivalent Calendar field found for UOM ID " + uomId);
+        if (calField == null)
+            throw new IllegalArgumentException("No equivalent Calendar field found for UOM ID " + uomId);
         return calField;
     }
 
     public static TemporalUnit getTemporalUnitFromUomId(final String uomId) {
         TemporalUnit temporalUnit = temporalUnitByUomId.get(uomId);
-        if (temporalUnit == null) throw new IllegalArgumentException("No equivalent Temporal Unit found for UOM ID " + uomId);
+        if (temporalUnit == null)
+            throw new IllegalArgumentException("No equivalent Temporal Unit found for UOM ID " + uomId);
         return temporalUnit;
     }
 }

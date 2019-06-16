@@ -348,10 +348,10 @@ public class EntityFacadeImpl implements EntityFacade {
                     ed.getCacheOneRa(entityCache);
                     ed.getCacheOneViewRa(entityCache);
                 }
-            } catch (Throwable t) { logger.warn("Error warming entity cache: ${t.toString()}") }
+            } catch (Throwable t) { logger.warn("Error warming entity cache: ${t.toString()}"); }
         }
 
-        logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${System.currentTimeMillis() - startTime}ms")
+        logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${System.currentTimeMillis() - startTime}ms");
     }
 
     public Set<String> getDatasourceGroupNames() {
@@ -608,85 +608,95 @@ public class EntityFacadeImpl implements EntityFacade {
                 put("entity-name", finalEntityName);
                 put("package",dbViewEntity.getEntityName());
             }} );
-            if (dbViewEntity.cache == "Y") dbViewNode.attributes.put("cache", "true")
-            else if (dbViewEntity.cache == "N") dbViewNode.attributes.put("cache", "false")
+            if (dbViewEntity.get("cache")!= null && "Y".equals(dbViewEntity.get("cache"))) dbViewNode.getAttributes().put("cache", "true");
+            else if (dbViewEntity.get("cache")!= null && "N".equals(dbViewEntity.get("cache"))) dbViewNode.getAttributes().put("cache", "false");
 
-            EntityList memberList = find("moqui.entity.view.DbViewEntityMember").condition("dbViewEntityName", entityName).list()
-            for (EntityValue dbViewEntityMember in memberList) {
-                MNode memberEntity = dbViewNode.append("member-entity",
-                        ["entity-alias":dbViewEntityMember.getString("entityAlias"), "entity-name":dbViewEntityMember.getString("entityName")])
-                if (dbViewEntityMember.joinFromAlias) {
-                    memberEntity.attributes.put("join-from-alias", (String) dbViewEntityMember.joinFromAlias)
-                    if (dbViewEntityMember.joinOptional == "Y") memberEntity.attributes.put("join-optional", "true")
+            EntityList memberList = find("moqui.entity.view.DbViewEntityMember").condition("dbViewEntityName", entityName).list();
+            for (EntityValue dbViewEntityMember : memberList) {
+                MNode memberEntity = dbViewNode.append("member-entity",new ConcurrentHashMap<String,String>(){{
+                    put("entity-alias",dbViewEntityMember.getString("entityAlias"));
+                    put("entity-name",dbViewEntityMember.getString("entityName"));
+                }});
+                if (dbViewEntityMember.get("joinFromAlias") != null) {
+                    memberEntity.getAttributes().put("join-from-alias", (String) dbViewEntityMember.get("joinFromAlias"));
+                    if (dbViewEntityMember.get("joinOptional") == "Y") memberEntity.getAttributes().put("join-optional", "true");
                 }
 
+                String finalEntityName1 = entityName;
                 EntityList dbViewEntityKeyMapList = find("moqui.entity.view.DbViewEntityKeyMap")
-                        .condition(["dbViewEntityName":entityName, "joinFromAlias":dbViewEntityMember.joinFromAlias,
-                        "entityAlias":dbViewEntityMember.getString("entityAlias")])
-                        .list()
-                for (EntityValue dbViewEntityKeyMap in dbViewEntityKeyMapList) {
-                    MNode keyMapNode = memberEntity.append("key-map", ["field-name":(String) dbViewEntityKeyMap.fieldName])
-                    if (dbViewEntityKeyMap.relatedFieldName)
-                        keyMapNode.attributes.put("related", (String) dbViewEntityKeyMap.relatedFieldName)
+                        .condition(new ConcurrentHashMap<String,Object>(){{
+                            put("dbViewEntityName", finalEntityName1);
+                            put("joinFromAlias", dbViewEntityMember.get("joinFromAlias"));
+                            put("entityAlias", dbViewEntityMember.getString("entityAlias"));
+                        }})
+                        .list();
+                for (EntityValue dbViewEntityKeyMap : dbViewEntityKeyMapList) {
+                    MNode keyMapNode = memberEntity.append("key-map", new ConcurrentHashMap<String,String>(){{
+                        put("field-name",(String)dbViewEntityKeyMap.get("fieldName"));
+                    }});
+                    if (dbViewEntityKeyMap.get("relatedFieldName")!=null)
+                        keyMapNode.getAttributes().put("related", (String) dbViewEntityKeyMap.get("relatedFieldName"));
                 }
             }
-            for (EntityValue dbViewEntityAlias in find("moqui.entity.view.DbViewEntityAlias").condition("dbViewEntityName", entityName).list()) {
-                MNode aliasNode = dbViewNode.append("alias",
-                        ["name":(String) dbViewEntityAlias.fieldAlias, "entity-alias":(String) dbViewEntityAlias.entityAlias])
-                if (dbViewEntityAlias.fieldName) aliasNode.attributes.put("field", (String) dbViewEntityAlias.fieldName)
-                if (dbViewEntityAlias.functionName) aliasNode.attributes.put("function", (String) dbViewEntityAlias.functionName)
+            for (EntityValue dbViewEntityAlias : find("moqui.entity.view.DbViewEntityAlias").condition("dbViewEntityName", entityName).list()) {
+                MNode aliasNode = dbViewNode.append("alias",new ConcurrentHashMap<String,String>(){{
+                    put("name",(String) dbViewEntityAlias.get("fieldAlias"));
+                    put("entity-alias",(String) dbViewEntityAlias.get("entityAlias"));
+                }});
+                if (dbViewEntityAlias.get("fieldName") != null) aliasNode.getAttributes().put("field", (String) dbViewEntityAlias.get("fieldName"));
+                if (dbViewEntityAlias.get("functionName") != null) aliasNode.getAttributes().put("function", (String) dbViewEntityAlias.get("functionName"));
             }
 
             // create the new EntityDefinition
-            ed = new EntityDefinition(this, dbViewNode)
+            ed = new EntityDefinition(this, dbViewNode);
 
             // cache it under entityName, fullEntityName, and short-alias
-            String fullEntityName = ed.fullEntityName
+            String fullEntityName = ed.fullEntityName;
             if (fullEntityName.startsWith("moqui.")) {
-                frameworkEntityDefinitions.put(ed.entityInfo.internalEntityName, ed)
-                frameworkEntityDefinitions.put(fullEntityName, ed)
-                if (ed.entityInfo.shortAlias) frameworkEntityDefinitions.put(ed.entityInfo.shortAlias, ed)
+                frameworkEntityDefinitions.put(ed.entityInfo.internalEntityName, ed);
+                frameworkEntityDefinitions.put(fullEntityName, ed);
+                if (ed.entityInfo.shortAlias != null ) frameworkEntityDefinitions.put(ed.entityInfo.shortAlias, ed);
             } else {
-                entityDefinitionCache.put(ed.entityInfo.internalEntityName, ed)
-                entityDefinitionCache.put(fullEntityName, ed)
-                if (ed.entityInfo.shortAlias) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed)
+                entityDefinitionCache.put(ed.entityInfo.internalEntityName, ed);
+                entityDefinitionCache.put(fullEntityName, ed);
+                if (ed.entityInfo.shortAlias != null ) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed);
             }
             // send it on its way
-            return ed
+            return ed;
         }
 
         // get entity, view-entity and extend-entity Nodes for entity from each location
-        MNode entityNode = null
-        List<MNode> extendEntityNodes = new ArrayList<MNode>()
-        for (String location in entityLocationList) {
-            MNode entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location))
+        MNode entityNode = null;
+        List<MNode> extendEntityNodes = new ArrayList<>();
+        for (String location : entityLocationList) {
+            MNode entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location));
             // filter by package if specified, otherwise grab whatever
-            List<MNode> packageChildren = entityRoot.children
+            List<MNode> packageChildren = entityRoot.getChildren()
                     .findAll({ (it.attribute("entity-name") == entityName || it.attribute("short-alias") == entityName) &&
-                            (packageName ? (it.attribute("package") == packageName || it.attribute("package-name") == packageName) : true) })
-            for (MNode childNode in packageChildren) {
+                            (packageName ? (it.attribute("package") == packageName || it.attribute("package-name") == packageName) : true) });
+            for (MNode childNode : packageChildren) {
                 if (childNode.name == "extend-entity") {
-                    extendEntityNodes.add(childNode)
+                    extendEntityNodes.add(childNode);
                 } else {
-                    if (entityNode != null) logger.warn("Entity [${entityName}] was found again at [${location}], so overriding definition from previous location")
-                    entityNode = childNode.deepCopy(null)
+                    if (entityNode != null) logger.warn("Entity ["+entityName+"] was found again at ["+location+"], so overriding definition from previous location");
+                    entityNode = childNode.deepCopy(null);
                 }
             }
         }
-        if (entityNode == null) throw new EntityNotFoundException("No definition found for entity [${entityName}]${packageName ? ' in package ['+packageName+']' : ''}")
+        if (entityNode == null) throw new EntityNotFoundException("No definition found for entity ["+entityName+"]" + (!packageName.isEmpty()? " in package ["+packageName+"]" : ""));
 
         // if entityName is a short-alias extend-entity elements won't match it, so find them again now that we have the main entityNode
-        if (entityName == entityNode.attribute("short-alias")) {
-            entityName = entityNode.attribute("entity-name")
-            packageName = entityNode.attribute("package") ?: entityNode.attribute("package-name")
-            for (String location in entityLocationList) {
-                MNode entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location))
+        if (entityName.equals(entityNode.attribute("short-alias"))) {
+            entityName = entityNode.attribute("entity-name");
+            packageName = entityNode.attribute("package") != null ? entityNode.attribute("package"): entityNode.attribute("package-name");
+            for (String location : entityLocationList) {
+                MNode entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location));
                 List<MNode> packageChildren = entityRoot.children
                         .findAll({ it.attribute("entity-name") == entityName &&
                                 (packageName ? (it.attribute("package") == packageName || it.attribute("package-name") == packageName) : true) })
-                for (MNode childNode in packageChildren) {
-                    if (childNode.name == "extend-entity") {
-                        extendEntityNodes.add(childNode)
+                for (MNode childNode : packageChildren) {
+                    if (childNode.getName() == "extend-entity") {
+                        extendEntityNodes.add(childNode);
                     }
                 }
             }
@@ -694,49 +704,49 @@ public class EntityFacadeImpl implements EntityFacade {
         // if (entityName.endsWith("xample")) logger.warn("======== Creating Example ED entityNode=${entityNode}\nextendEntityNodes: ${extendEntityNodes}")
 
         // merge the extend-entity nodes
-        for (MNode extendEntity in extendEntityNodes) {
+        for (MNode extendEntity : extendEntityNodes) {
             // if package attributes don't match, skip
-            String entityPackage = entityNode.attribute("package") ?: entityNode.attribute("package-name")
-            String extendPackage = extendEntity.attribute("package") ?: extendEntity.attribute("package-name")
-            if (entityPackage != extendPackage) continue
+            String entityPackage = entityNode.attribute("package") != null ? entityNode.attribute("package"): entityNode.attribute("package-name");
+            String extendPackage = extendEntity.attribute("package") != null ? extendEntity.attribute("package") : extendEntity.attribute("package-name");
+            if (entityPackage != extendPackage) continue;
                     // merge attributes
-            entityNode.attributes.putAll(extendEntity.attributes)
+            entityNode.getAttributes().putAll(extendEntity.getAttributes());
             // merge field nodes
-            for (MNode childOverrideNode in extendEntity.children("field")) {
-                String keyValue = childOverrideNode.attribute("name")
+            for (MNode childOverrideNode : extendEntity.children("field")) {
+                String keyValue = childOverrideNode.attribute("name");
                 MNode childBaseNode = entityNode.first({ MNode it -> it.name == "field" && it.attribute("name") == keyValue })
-                if (childBaseNode) childBaseNode.attributes.putAll(childOverrideNode.attributes)
-                else entityNode.append(childOverrideNode)
+                if (childBaseNode != null) childBaseNode.getAttributes().putAll(childOverrideNode.getAttributes());
+                else entityNode.append(childOverrideNode);
             }
             // add relationship, key-map (copy over, will get child nodes too
-            ArrayList<MNode> relNodeList = extendEntity.children("relationship")
+            ArrayList<MNode> relNodeList = extendEntity.children("relationship");
             for (int i = 0; i < relNodeList.size(); i++) {
-                MNode copyNode = relNodeList.get(i)
-                int curNodeIndex = entityNode.children
+                MNode copyNode = relNodeList.get(i);
+                int curNodeIndex = entityNode.getChildren()
                         .findIndexOf({ MNode it ->
                                 String itRelated = it.attribute('related') ?: it.attribute('related-entity-name');
                 String copyRelated = copyNode.attribute('related') ?: copyNode.attribute('related-entity-name');
                 return it.name == "relationship" && itRelated == copyRelated &&
                         it.attribute('title') == copyNode.attribute('title'); })
                 if (curNodeIndex >= 0) {
-                    entityNode.children.set(curNodeIndex, copyNode)
+                    entityNode.getChildren().set(curNodeIndex, copyNode);
                 } else {
-                    entityNode.append(copyNode)
+                    entityNode.append(copyNode);
                 }
             }
             // add index, index-field
-            for (MNode copyNode in extendEntity.children("index")) {
-                int curNodeIndex = entityNode.children
-                        .findIndexOf({ MNode it -> it.name == "index" && it.attribute('name') == copyNode.attribute('name') })
+            for (MNode copyNode : extendEntity.children("index")) {
+                int curNodeIndex = entityNode.getChildren()
+                        .findIndexOf({ MNode it -> it.name == "index" && it.attribute('name') == copyNode.attribute('name') });
                 if (curNodeIndex >= 0) {
-                    entityNode.children.set(curNodeIndex, copyNode)
+                    entityNode.children.set(curNodeIndex, copyNode);
                 } else {
-                    entityNode.append(copyNode)
+                    entityNode.append(copyNode);
                 }
             }
             // copy master nodes (will be merged on parse)
             // TODO: check master/detail existence before append it into entityNode
-            for (MNode copyNode in extendEntity.children("master")) entityNode.append(copyNode)
+            for (MNode copyNode : extendEntity.children("master")) entityNode.append(copyNode);
         }
 
         // create the new EntityDefinition
@@ -744,182 +754,188 @@ public class EntityFacadeImpl implements EntityFacade {
         // cache it under entityName, fullEntityName, and short-alias
         String fullEntityName = ed.fullEntityName
         if (fullEntityName.startsWith("moqui.")) {
-            frameworkEntityDefinitions.put(ed.entityInfo.internalEntityName, ed)
-            frameworkEntityDefinitions.put(fullEntityName, ed)
-            if (ed.entityInfo.shortAlias) frameworkEntityDefinitions.put(ed.entityInfo.shortAlias, ed)
+            frameworkEntityDefinitions.put(ed.entityInfo.internalEntityName, ed);
+            frameworkEntityDefinitions.put(fullEntityName, ed);
+            if (ed.entityInfo.shortAlias != null && !ed.entityInfo.shortAlias.isEmpty()) frameworkEntityDefinitions.put(ed.entityInfo.shortAlias, ed);
         } else {
-            entityDefinitionCache.put(ed.entityInfo.internalEntityName, ed)
-            entityDefinitionCache.put(fullEntityName, ed)
-            if (ed.entityInfo.shortAlias) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed)
+            entityDefinitionCache.put(ed.entityInfo.internalEntityName, ed);
+            entityDefinitionCache.put(fullEntityName, ed);
+            if (ed.entityInfo.shortAlias != null && !ed.entityInfo.shortAlias.isEmpty()) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed);
         }
         // send it on its way
-        return ed
+        return ed;
     }
 
     public synchronized void createAllAutoReverseManyRelationships() {
-        int relationshipsCreated = 0
-        Set<String> entityNameSet = getAllEntityNames()
-        for (String entityName in entityNameSet) {
-            EntityDefinition ed
+        int relationshipsCreated = 0;
+        Set<String> entityNameSet = getAllEntityNames();
+        for (String entityName : entityNameSet) {
+            EntityDefinition ed;
             // for auto reverse relationships just ignore EntityException on getEntityDefinition
-            try { ed = getEntityDefinition(entityName) } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
+            try { ed = getEntityDefinition(entityName); } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
             // may happen if all entity names includes a DB view entity or other that doesn't really exist
-            if (ed == null) continue
-            String edEntityName = ed.entityInfo.internalEntityName
-            String edFullEntityName = ed.fullEntityName
-            List<String> pkSet = ed.getPkFieldNames()
-            ArrayList<MNode> relationshipList = ed.entityNode.children("relationship")
-            int relationshipListSize = relationshipList.size()
+            if (ed == null) continue;
+            String edEntityName = ed.entityInfo.internalEntityName;
+            String edFullEntityName = ed.fullEntityName;
+            List<String> pkSet = ed.getPkFieldNames();
+            ArrayList<MNode> relationshipList = ed.getEntityNode().children("relationship");
+            int relationshipListSize = relationshipList.size();
             for (int rlIndex = 0; rlIndex < relationshipListSize; rlIndex++) {
-                MNode relNode = (MNode) relationshipList.get(rlIndex)
+                MNode relNode = (MNode) relationshipList.get(rlIndex);
                 // don't create reverse for auto reference relationships
-                if ("true".equals(relNode.attribute("is-auto-reverse"))) continue
-                String relatedEntityName = relNode.attribute("related")
-                if (relatedEntityName == null || relatedEntityName.length() == 0) relatedEntityName = relNode.attribute("related-entity-name")
+                if ("true".equals(relNode.attribute("is-auto-reverse"))) continue;
+                String relatedEntityName = relNode.attribute("related");
+                if (relatedEntityName == null || relatedEntityName.length() == 0) relatedEntityName = relNode.attribute("related-entity-name");
                 // don't create reverse relationships coming back to the same entity, since it will have the same title
                 //     it would create multiple relationships with the same name
-                if (entityName.equals(relatedEntityName)) continue
+                if (entityName.equals(relatedEntityName)) continue;
 
-                EntityDefinition reverseEd
+                EntityDefinition reverseEd;
                 try {
-                    reverseEd = getEntityDefinition(relatedEntityName)
+                    reverseEd = getEntityDefinition(relatedEntityName);
                 } catch (EntityException e) {
-                    logger.warn("Error getting definition for entity [${relatedEntityName}] referred to in a relationship of entity [${entityName}]: ${e.toString()}")
-                    continue
+                    logger.warn("Error getting definition for entity ["+relatedEntityName+"] referred to in a relationship of entity ["+entityName+"]: "+e.toString());
+                    continue;
                 }
                 if (reverseEd == null) {
-                    logger.warn("Could not find definition for entity [${relatedEntityName}] referred to in a relationship of entity [${entityName}]")
-                    continue
+                    logger.warn("Could not find definition for entity [${relatedEntityName}] referred to in a relationship of entity [${entityName}]");
+                    continue;
                 }
 
-                List<String> reversePkSet = reverseEd.getPkFieldNames()
-                String relType = reversePkSet.equals(pkSet) ? "one-nofk" : "many"
-                String title = relNode.attribute('title')
-                boolean hasTitle = title != null && title.length() > 0
+                List<String> reversePkSet = reverseEd.getPkFieldNames();
+                String relType = reversePkSet.equals(pkSet) ? "one-nofk" : "many";
+                String title = relNode.attribute("title");
+                boolean hasTitle = title != null && title.length() > 0;
 
                 // does a relationship coming back already exist?
-                boolean foundReverse = false
-                ArrayList<MNode> reverseRelList = reverseEd.entityNode.children("relationship")
-                int reverseRelListSize = reverseRelList.size()
+                boolean foundReverse = false;
+                ArrayList<MNode> reverseRelList = reverseEd.getEntityNode().children("relationship");
+                int reverseRelListSize = reverseRelList.size();
                 for (int i = 0; i < reverseRelListSize; i++) {
-                    MNode reverseRelNode = (MNode) reverseRelList.get(i)
-                    String related = reverseRelNode.attribute("related")
-                    if (related == null || related.length() == 0) related = reverseRelNode.attribute("related-entity-name")
-                    if (!edEntityName.equals(related) && !edFullEntityName.equals(related)) continue
+                    MNode reverseRelNode = (MNode) reverseRelList.get(i);
+                    String related = reverseRelNode.attribute("related");
+                    if (related == null || related.length() == 0) related = reverseRelNode.attribute("related-entity-name");
+                    if (!edEntityName.equals(related) && !edFullEntityName.equals(related)) continue;
                             // TODO: instead of checking title check reverse expanded key-map
-                    String reverseTitle = reverseRelNode.attribute("title")
+                    String reverseTitle = reverseRelNode.attribute("title");
                     if (hasTitle) {
-                        if (!title.equals(reverseTitle)) continue
+                        if (!title.equals(reverseTitle)) continue;
                     } else {
-                        if (reverseTitle != null && reverseTitle.length() > 0) continue
+                        if (reverseTitle != null && reverseTitle.length() > 0) continue;
                     }
-                    foundReverse = true
+                    foundReverse = true;
                 }
                 // NOTE: removed "it."@type" == relType && ", if there is already any relationship coming back don't create the reverse
                 if (foundReverse) {
                     // NOTE DEJ 20150314 Just track auto-reverse, not one-reverse
                     // make sure has is-one-reverse="true"
                     // reverseRelNode.attributes().put("is-one-reverse", "true")
-                    continue
+                    continue;
                 }
 
                 // track the fact that the related entity has others pointing back to it, unless original relationship is type many (doesn't qualify)
-                if (!ed.isViewEntity && !"many".equals(relNode.attribute("type"))) reverseEd.entityNode.attributes.put("has-dependents", "true")
+                if (!ed.isViewEntity && !"many".equals(relNode.attribute("type"))) reverseEd.getEntityNode().getAttributes().put("has-dependents", "true");
 
                 // create a new reverse-many relationship
-                Map<String, String> keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, reverseEd)
+                Map<String, String> keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, reverseEd);
 
-                MNode newRelNode = reverseEd.entityNode.append("relationship",
-                        ["related":edFullEntityName, "type":relType, "is-auto-reverse":"true", "mutable":"true"])
-                if (hasTitle) newRelNode.attributes.put("title", title)
-                for (Map.Entry<String, String> keyEntry in keyMap) {
+                MNode newRelNode = reverseEd.getEntityNode().append("relationship",new ConcurrentHashMap<String,String>(){{
+                    put("related",edFullEntityName);
+                    put("is-auto-reverse","true");
+                    put("imutable","true");
+                }});
+                if (hasTitle) newRelNode.getAttributes().put("title", title);
+                for (Map.Entry<String, String> keyEntry : keyMap.entrySet()) {
                     // add a key-map with the reverse fields
-                    newRelNode.append("key-map", ["field-name":keyEntry.value, "related":keyEntry.key])
+                    newRelNode.append("key-map", new ConcurrentHashMap<String,String>(){{
+                        put("field-name",keyEntry.getValue());
+                        put("related",keyEntry.getKey());
+                    }});
                 }
-                relationshipsCreated++
+                relationshipsCreated++;
             }
         }
         // all EntityDefinition objects now have reverse relationships in place, remember that so this will only be
         //     called for new ones, not from cache
-        for (String entityName in entityNameSet) {
-            EntityDefinition ed
-            try { ed = getEntityDefinition(entityName) } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
-            if (ed == null) continue
-            ed.setHasReverseRelationships()
+        for (String entityName : entityNameSet) {
+            EntityDefinition ed;
+            try { ed = getEntityDefinition(entityName); } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
+            if (ed == null) continue;
+            ed.setHasReverseRelationships();
         }
 
-        if (logger.infoEnabled && relationshipsCreated > 0) logger.info("Created ${relationshipsCreated} automatic reverse relationships")
+        if (logger.isInfoEnabled() && relationshipsCreated > 0) logger.info("Created "+relationshipsCreated+" automatic reverse relationships");
     }
 
     // used in tools screen
     public int getEecaRuleCount() {
-        int count = 0
-        for (List ruleList in eecaRulesByEntityName.values()) count += ruleList.size()
-        return count
+        int count = 0;
+        for (List ruleList : eecaRulesByEntityName.values()) count += ruleList.size();
+        return count;
     }
 
     public void loadEecaRulesAll() {
-        int numLoaded = 0
-        int numFiles = 0
-        HashMap<String, EntityEcaRule> ruleByIdMap = new HashMap<>()
-        LinkedList<EntityEcaRule> ruleNoIdList = new LinkedList<>()
+        int numLoaded = 0;
+        int numFiles = 0;
+        HashMap<String, EntityEcaRule> ruleByIdMap = new ConcurrentHashMap<>();
+        LinkedList<EntityEcaRule> ruleNoIdList = new LinkedList<>();
         // search for the service def XML file in the components
-        for (String location in this.ecfi.getComponentBaseLocations().values()) {
-            ResourceReference entityDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/entity")
+        for (String location : this.ecfi.getComponentBaseLocations().values()) {
+            ResourceReference entityDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/entity");
             if (entityDirRr.supportsAll()) {
                 // if for some weird reason this isn't a directory, skip it
-                if (!entityDirRr.isDirectory()) continue
-                for (ResourceReference rr in entityDirRr.directoryEntries) {
-                    if (!rr.fileName.endsWith(".eecas.xml")) continue
-                    numLoaded += loadEecaRulesFile(rr, ruleByIdMap, ruleNoIdList)
-                    numFiles++
+                if (!entityDirRr.isDirectory()) continue;
+                for (ResourceReference rr : entityDirRr.directoryEntries) {
+                    if (!rr.fileName.endsWith(".eecas.xml")) continue;
+                    numLoaded += loadEecaRulesFile(rr, ruleByIdMap, ruleNoIdList);
+                    numFiles++;
 
                 }
             } else {
-                logger.warn("Can't load EECA rules from component at [${entityDirRr.location}] because it doesn't support exists/directory/etc")
+                logger.warn("Can't load EECA rules from component at ["+entityDirRr.location+"] because it doesn't support exists/directory/etc");
             }
         }
-        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files, ${ruleNoIdList.size()} rules have no id, ${ruleNoIdList.size() + ruleByIdMap.size()} EECA rules active")
+        if (logger.isInfoEnabled()) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files, ${ruleNoIdList.size()} rules have no id, ${ruleNoIdList.size() + ruleByIdMap.size()} EECA rules active")
 
-        HashMap<String, ArrayList<EntityEcaRule>> ruleMap = new HashMap<>()
-        ruleNoIdList.addAll(ruleByIdMap.values())
-        for (EntityEcaRule ecaRule in ruleNoIdList) {
-            EntityDefinition ed = getEntityDefinition(ecaRule.entityName)
-            String entityName = ed.getFullEntityName()
+        HashMap<String, ArrayList<EntityEcaRule>> ruleMap = new HashMap<>();
+        ruleNoIdList.addAll(ruleByIdMap.values());
+        for (EntityEcaRule ecaRule : ruleNoIdList) {
+            EntityDefinition ed = getEntityDefinition(ecaRule.entityName);
+            String entityName = ed.getFullEntityName();
 
-            ArrayList<EntityEcaRule> lst = ruleMap.get(entityName)
+            ArrayList<EntityEcaRule> lst = ruleMap.get(entityName);
             if (lst == null) {
-                lst = new ArrayList<EntityEcaRule>()
-                ruleMap.put(entityName, lst)
+                lst = new ArrayList<EntityEcaRule>();
+                ruleMap.put(entityName, lst);
             }
-            lst.add(ecaRule)
+            lst.add(ecaRule);
         }
 
         // replace entire EECA rules Map in one operation
-        eecaRulesByEntityName = ruleMap
+        eecaRulesByEntityName = ruleMap;
     }
     public int loadEecaRulesFile(ResourceReference rr, HashMap<String, EntityEcaRule> ruleByIdMap, LinkedList<EntityEcaRule> ruleNoIdList) {
-        MNode eecasRoot = MNode.parse(rr)
-        int numLoaded = 0
-        for (MNode eecaNode in eecasRoot.children("eeca")) {
-            String entityName = eecaNode.attribute("entity")
+        MNode eecasRoot = MNode.parse(rr);
+        int numLoaded = 0;
+        for (MNode eecaNode : eecasRoot.children("eeca")) {
+            String entityName = eecaNode.attribute("entity");
             if (!isEntityDefined(entityName)) {
-                logger.warn("Invalid entity name ${entityName} found in EECA file ${rr.location}, skipping")
-                continue
+                logger.warn("Invalid entity name ${entityName} found in EECA file ${rr.location}, skipping");
+                continue;
             }
-            EntityEcaRule ecaRule = new EntityEcaRule(ecfi, eecaNode, rr.location)
-            String ruleId = eecaNode.attribute("id")
-            if (ruleId != null && !ruleId.isEmpty()) ruleByIdMap.put(ruleId, ecaRule)
-            else ruleNoIdList.add(ecaRule)
-            numLoaded++
+            EntityEcaRule ecaRule = new EntityEcaRule(ecfi, eecaNode, rr.location);
+            String ruleId = eecaNode.attribute("id");
+            if (ruleId != null && !ruleId.isEmpty()) ruleByIdMap.put(ruleId, ecaRule);
+            else ruleNoIdList.add(ecaRule);
+            numLoaded++;
         }
-        if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]")
-        return numLoaded
+        if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]");
+        return numLoaded;
     }
 
-    public boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) != null }
+    public boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) != null; }
     public void runEecaRules(String entityName, Map fieldValues, String operation, boolean before) {
-        ArrayList<EntityEcaRule> lst = (ArrayList<EntityEcaRule>) eecaRulesByEntityName.get(entityName)
+        ArrayList<EntityEcaRule> lst = (ArrayList<EntityEcaRule>) eecaRulesByEntityName.get(entityName);
         if (lst != null && lst.size() > 0) {
             // if Entity ECA rules disabled in ArtifactExecutionFacade, just return immediately
             // do this only if there are EECA rules to run, small cost in getEci, etc
@@ -933,149 +949,149 @@ public class EntityFacadeImpl implements EntityFacade {
     }
 
     public void destroy() {
-        Set<String> groupNames = this.datasourceFactoryByGroupMap.keySet()
-        for (String groupName in groupNames) {
-            EntityDatasourceFactory edf = this.datasourceFactoryByGroupMap.get(groupName)
-            this.datasourceFactoryByGroupMap.put(groupName, null)
-            edf.destroy()
+        Set<String> groupNames = this.datasourceFactoryByGroupMap.keySet();
+        for (String groupName : groupNames) {
+            EntityDatasourceFactory edf = this.datasourceFactoryByGroupMap.get(groupName);
+            this.datasourceFactoryByGroupMap.put(groupName, null);
+            edf.destroy();
         }
     }
 
     // used in tools screen
     public void checkAllEntityTables(String groupName) {
         // TODO: load framework entities first, then component/mantle/etc entities for better FKs on first pass
-        EntityDatasourceFactory edf = getDatasourceFactory(groupName)
-        for (String entityName in getAllEntityNamesInGroup(groupName)) edf.checkAndAddTable(entityName)
+        EntityDatasourceFactory edf = getDatasourceFactory(groupName);
+        for (String entityName : getAllEntityNamesInGroup(groupName)) edf.checkAndAddTable(entityName);
     }
 
-    public Set<String> getAllEntityNames() { return getAllEntityNames(null) }
+    public Set<String> getAllEntityNames() { return getAllEntityNames(null); }
     public Set<String> getAllEntityNames(String filterRegexp) {
-        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
-        if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
+        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName);
+        if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations();
 
-        TreeSet<String> allNames = new TreeSet()
+        TreeSet<String> allNames = new TreeSet<>();
         // only add full entity names (with package in it, will always have at least one dot)
         // only include entities that have a non-empty List of locations in the cache (otherwise are invalid entities)
-        for (Map.Entry<String, List<String>> entry in entityLocationCache.entrySet()) {
-            String en = entry.key
-            List<String> locList = entry.value
+        for (Map.Entry<String, List<String>> entry : entityLocationCache.entrySet()) {
+            String en = entry.getKey();
+            List<String> locList = entry.getValue();
             if (en.contains(".") && locList != null && locList.size() > 0) {
                 // Added (?i) to ignore the case and '*' in the starting and at ending to match if searched string is sub-part of entity name
-                if (filterRegexp != null && !en.matches("(?i).*" + filterRegexp + ".*")) continue
-                allNames.add(en)
+                if (filterRegexp != null && !en.matches("(?i).*" + filterRegexp + ".*")) continue;
+                allNames.add(en);
             }
         }
-        return allNames
+        return allNames;
     }
 
     public Set<String> getAllNonViewEntityNames() {
-        Set<String> allNames = getAllEntityNames()
-        Set<String> nonViewNames = new TreeSet<>()
-        for (String name in allNames) {
-            EntityDefinition ed = getEntityDefinition(name)
-            if (ed != null && !ed.isViewEntity) nonViewNames.add(name)
+        Set<String> allNames = getAllEntityNames();
+        Set<String> nonViewNames = new TreeSet<>();
+        for (String name : allNames) {
+            EntityDefinition ed = getEntityDefinition(name);
+            if (ed != null && !ed.isViewEntity) nonViewNames.add(name);
         }
-        return nonViewNames
+        return nonViewNames;
     }
     public Set<String> getAllEntityNamesWithMaster() {
-        Set<String> allNames = getAllEntityNames()
-        Set<String> masterNames = new TreeSet<>()
-        for (String name in allNames) {
-            EntityDefinition ed
-            try { ed = getEntityDefinition(name) } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
-            if (ed != null && !ed.isViewEntity && ed.masterDefinitionMap) masterNames.add(name)
+        Set<String> allNames = getAllEntityNames();
+        Set<String> masterNames = new TreeSet<>();
+        for (String name : allNames) {
+            EntityDefinition ed;
+            try { ed = getEntityDefinition(name); } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
+            if (ed != null && !ed.isViewEntity && ed.getMasterDefinitionMap() != null && !ed.getMasterDefinitionMap().isEmpty()) masterNames.add(name);
         }
-        return masterNames
+        return masterNames;
     }
 
     // used in tools screens
     public List<Map> getAllEntityInfo(int levels, boolean excludeViewEntities) {
-        Map<String, Map> entityInfoMap = [:]
-        for (String entityName in getAllEntityNames()) {
-            EntityDefinition ed = getEntityDefinition(entityName)
-            boolean isView = ed.isViewEntity
-            if (excludeViewEntities && isView) continue
-            int lastDotIndex = 0
-            for (int i = 0; i < levels; i++) lastDotIndex = entityName.indexOf(".", lastDotIndex+1)
-            String name = lastDotIndex == -1 ? entityName : entityName.substring(0, lastDotIndex)
-            Map curInfo = entityInfoMap.get(name)
-            if (curInfo) {
-                if (isView) CollectionUtilities.addToBigDecimalInMap("viewEntities", 1.0, curInfo)
-                else CollectionUtilities.addToBigDecimalInMap("entities", 1.0, curInfo)
+        Map<String, Map> entityInfoMap = new ConcurrentHashMap<>();
+        for (String entityName : getAllEntityNames()) {
+            EntityDefinition ed = getEntityDefinition(entityName);
+            boolean isView = ed.isViewEntity;
+            if (excludeViewEntities && isView) continue;
+            int lastDotIndex = 0;
+            for (int i = 0; i < levels; i++) lastDotIndex = entityName.indexOf(".", lastDotIndex+1);
+            String name = lastDotIndex == -1 ? entityName : entityName.substring(0, lastDotIndex);
+            Map curInfo = entityInfoMap.get(name);
+            if (curInfo != null && !curInfo.isEmpty()) {
+                if (isView) CollectionUtil.addToBigDecimalInMap("viewEntities", BigDecimal.valueOf(1.0), curInfo);
+                else CollectionUtil.addToBigDecimalInMap("entities", BigDecimal.valueOf(1.0), curInfo);
             } else {
-                entityInfoMap.put(name, [name:name, entities:(isView ? 0 : 1), viewEntities:(isView ? 1 : 0)])
+                entityInfoMap.put(name, [name:name, entities:(isView ? 0 : 1), viewEntities:(isView ? 1 : 0)]);
             }
         }
-        TreeSet<String> nameSet = new TreeSet(entityInfoMap.keySet())
-        List<Map> entityInfoList = []
-        for (String name in nameSet) entityInfoList.add(entityInfoMap.get(name))
-        return entityInfoList
+        TreeSet<String> nameSet = new TreeSet(entityInfoMap.keySet());
+        List<Map> entityInfoList = new ArrayList<>();
+        for (String name : nameSet) entityInfoList.add(entityInfoMap.get(name));
+        return entityInfoList;
     }
 
     /** This is used mostly by the service engine to quickly determine whether a noun is an entity. Called for all
      * ServiceDefinition init to see if the noun is an entity name. Called by entity auto check if no path and verb is
      * one of the entity-auto supported verbs. */
     public boolean isEntityDefined(String entityName) {
-        if (entityName == null) return false
+        if (entityName == null) return false;
 
         // Special treatment for framework entities, quick Map lookup (also faster than Cache get)
-        if (frameworkEntityDefinitions.containsKey(entityName)) return true
+        if (frameworkEntityDefinitions.containsKey(entityName)) return true;
 
-        Map<String, List<String>> entityLocationCache = (Map<String, List<String>>) entityLocationSingleCache.get(entityLocSingleEntryName)
-        if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
+        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName);
+        if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations();
 
-        List<String> locList = (List<String>) entityLocationCache.get(entityName)
-        return locList != null && locList.size() > 0
+        List<String> locList = (List<String>) entityLocationCache.get(entityName);
+        return locList != null && locList.size() > 0;
     }
 
     public EntityDefinition getEntityDefinition(String entityName) {
         if (entityName == null) return null
-        EntityDefinition ed = (EntityDefinition) frameworkEntityDefinitions.get(entityName)
-        if (ed != null) return ed
-        ed = (EntityDefinition) entityDefinitionCache.get(entityName)
-        if (ed != null) return ed
-        if (entityName.isEmpty()) return null
+        EntityDefinition ed = frameworkEntityDefinitions.get(entityName);
+        if (ed != null) return ed;
+        ed = (EntityDefinition) entityDefinitionCache.get(entityName);
+        if (ed != null) return ed;
+        if (entityName.isEmpty()) return null;
         if (entityName.startsWith("DataDocument.")) {
-            return entityDataDocument.makeEntityDefinition(entityName.substring(entityName.indexOf(".") + 1))
+            return entityDataDocument.makeEntityDefinition(entityName.substring(entityName.indexOf(".") + 1));
         } else {
-            return loadEntityDefinition(entityName)
+            return loadEntityDefinition(entityName);
         }
     }
 
     // used in tools screens
     public void clearEntityDefinitionFromCache(String entityName) {
-        EntityDefinition ed = (EntityDefinition) this.entityDefinitionCache.get(entityName)
+        EntityDefinition ed = (EntityDefinition) this.entityDefinitionCache.get(entityName);
         if (ed != null) {
-            this.entityDefinitionCache.remove(ed.entityInfo.internalEntityName)
-            this.entityDefinitionCache.remove(ed.fullEntityName)
-            if (ed.entityInfo.shortAlias) this.entityDefinitionCache.remove(ed.entityInfo.shortAlias)
+            this.entityDefinitionCache.remove(ed.entityInfo.internalEntityName);
+            this.entityDefinitionCache.remove(ed.fullEntityName);
+            if (ed.entityInfo.shortAlias != null && !ed.entityInfo.shortAlias.isEmpty()) this.entityDefinitionCache.remove(ed.entityInfo.shortAlias);
         }
     }
 
     // used in tools screens
     public ArrayList<Map<String, Object>> getAllEntitiesInfo(String orderByField, String filterRegexp, boolean masterEntitiesOnly,
                                                       boolean excludeViewEntities) {
-        if (masterEntitiesOnly) createAllAutoReverseManyRelationships()
+        if (masterEntitiesOnly) createAllAutoReverseManyRelationships();
 
-        ArrayList<Map<String, Object>> eil = new ArrayList<>()
-        for (String en in getAllEntityNames(filterRegexp)) {
-            EntityDefinition ed = null
-            try { ed = getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
-            if (ed == null) continue
-            if (excludeViewEntities && ed.isViewEntity) continue
+        ArrayList<Map<String, Object>> eil = new ArrayList<>();
+        for (String en : getAllEntityNames(filterRegexp)) {
+            EntityDefinition ed = null;
+            try { ed = getEntityDefinition(en); } catch (EntityException e) { logger.warn("Problem finding entity definition", e); }
+            if (ed == null) continue;
+            if (excludeViewEntities && ed.isViewEntity) continue;
 
             if (masterEntitiesOnly) {
-                if (!(ed.entityNode.attribute("has-dependents") == "true") || en.endsWith("Type") ||
-                        en == "moqui.basic.Enumeration" || en == "moqui.basic.StatusItem") continue
-                if (ed.getPkFieldNames().size() > 1) continue
+                if (!(ed.getEntityNode().attribute("has-dependents").equals("true")) || en.endsWith("Type") ||
+                        "moqui.basic.Enumeration".equals(en) || "moqui.basic.StatusItem".equals(en)) continue;
+                if (ed.getPkFieldNames().size() > 1) continue;
             }
 
             eil.add([entityName:ed.entityInfo.internalEntityName, "package":ed.entityNode.attribute("package"),
-                    isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
+                    isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>);
         }
 
-        if (orderByField != null && !orderByField.isEmpty()) CollectionUtilities.orderMapList(eil, [orderByField])
-        return eil
+        if (orderByField != null && !orderByField.isEmpty()) CollectionUtil.orderMapList(eil, [orderByField])
+        return eil;
     }
 
     // used in tools screen (EntityDbView)

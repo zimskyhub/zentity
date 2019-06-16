@@ -5,6 +5,7 @@ import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.entity.impl.condition.ConditionField;
 import com.zmtech.zentity.util.EntityJavaUtil;
 import com.zmtech.zentity.util.MNode;
+import com.zmtech.zentity.util.ObjectUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,23 +31,23 @@ public class FieldInfo {
     public final ConditionField conditionField;
     public final String type;
     public final String columnName;
-    final String fullColumnNameInternal;
+    public final String fullColumnNameInternal;
     private final String expandColumnName;
     public final String defaultStr;
     public final String javaType;
-    final String enableAuditLog;
+    public final String enableAuditLog;
     public final int typeValue;
     private final boolean isTextVeryLong;
     public final boolean isPk;
     private final boolean encrypt;
-    final boolean isSimple;
-    final boolean enableLocalization;
-    final boolean createOnly;
-    final boolean isLastUpdatedStamp;
+    public final boolean isSimple;
+    public final boolean enableLocalization;
+    public final boolean createOnly;
+    public final boolean isLastUpdatedStamp;
     public final MNode memberEntityNode;
     public final MNode directMemberEntityNode;
     public final boolean hasAggregateFunction;
-    final Set<String> entityAliasUsedSet = new HashSet<>();
+    public final Set<String> entityAliasUsedSet = new HashSet<>();
 
     public FieldInfo(EntityDefinition ed, MNode fieldNode) {
         this.ed = ed;
@@ -160,17 +161,17 @@ public class FieldInfo {
                 case 2: // outValue = java.sql.Timestamp.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseTimestamp(value, null);
-                    if (outValue == null) throw new BaseArtifactException("The value [" + value + "] is not a valid date/time for field " + entityName + "." + name);
+                    if (outValue == null) throw new EntityException("The value [" + value + "] is not a valid date/time for field " + entityName + "." + name);
                     break;
                 case 3: // outValue = java.sql.Time.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseTime(value, null);
-                    if (outValue == null) throw new BaseArtifactException("The value [" + value + "] is not a valid time for field " + entityName + "." + name);
+                    if (outValue == null) throw new EntityException("The value [" + value + "] is not a valid time for field " + entityName + "." + name);
                     break;
                 case 4: // outValue = java.sql.Date.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseDate(value, null);
-                    if (outValue == null) throw new BaseArtifactException("The value [" + value + "] is not a valid date for field " + entityName + "." + name);
+                    if (outValue == null) throw new EntityException("The value [" + value + "] is not a valid date for field " + entityName + "." + name);
                     break;
                 case 5: // outValue = Integer.valueOf(value); break
                 case 6: // outValue = Long.valueOf(value); break
@@ -180,7 +181,7 @@ public class FieldInfo {
                     if (isEmpty) { outValue = null; break; }
                     BigDecimal bdVal = l10n.parseNumber(value, null);
                     if (bdVal == null) {
-                        throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name);
+                        throw new EntityException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name);
                     } else {
                         bdVal = safeStripZeroes(bdVal);
                         switch (typeValue) {
@@ -200,7 +201,7 @@ public class FieldInfo {
                     try {
                         outValue = new SerialBlob(value.getBytes());
                     } catch (SQLException e) {
-                        throw new BaseArtifactException("Error creating SerialBlob for value [" + value + "] for field " + entityName + "." + name);
+                        throw new EntityException("Error creating SerialBlob for value [" + value + "] for field " + entityName + "." + name);
                     }
                     break;
                 case 13: outValue = value; break;
@@ -214,7 +215,7 @@ public class FieldInfo {
                 default: outValue = value; break;
             }
         } catch (IllegalArgumentException e) {
-            throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
+            throw new EntityException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
         }
 
         return outValue;
@@ -254,7 +255,7 @@ public class FieldInfo {
                 default: outValue = value.toString(); break;
             }
         } catch (IllegalArgumentException e) {
-            throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
+            throw new EntityException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
         }
 
         return outValue;
@@ -391,7 +392,7 @@ public class FieldInfo {
                                           EntityDefinition ed, EntityFacadeImpl efi) throws EntityException {
         int localTypeValue = typeValue;
         if (value != null) {
-            if (checkPreparedStatementValueType && !ObjectUtilities.isInstanceOf(value, javaType)) {
+            if (checkPreparedStatementValueType && !ObjectUtil.isInstanceOf(value, javaType)) {
                 // this is only an info level message because under normal operation for most JDBC
                 // drivers this will be okay, but if not then the JDBC driver will throw an exception
                 // and when lower debug levels are on this should help give more info on what happened
