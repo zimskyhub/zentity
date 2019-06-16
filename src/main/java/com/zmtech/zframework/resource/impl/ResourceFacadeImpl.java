@@ -1,10 +1,14 @@
 package com.zmtech.zframework.resource.impl;
 
+import com.zmtech.zframework.context.ScriptRunner;
 import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zframework.context.runner.XmlActionsScriptRunner;
 import com.zmtech.zframework.resource.ResourceFacade;
+import com.zmtech.zframework.tools.ToolFactory;
 import groovy.lang.Script;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.xml.sax.ContentHandler;
 
 import javax.activation.DataSource;
 import javax.cache.Cache;
@@ -28,11 +32,12 @@ import java.io.Writer;
 import java.net.URL;
 import java.util.*;
 
-class ResourceFacadeImpl implements ResourceFacade {
+public class ResourceFacadeImpl implements ResourceFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ResourceFacadeImpl.class)
 
     protected final ExecutionContextFactoryImpl ecfil;
-    final XmlActionsScriptRunner xmlActionsScriptRunner;
+
+    public final XmlActionsScriptRunner xmlActionsScriptRunner;
 
     // the groovy Script object is not thread safe, so have one per thread per expression; can be reused as thread is reused
     protected final ThreadLocal<Map<String, Script>> threadScriptByExpression = new ThreadLocal<>();
@@ -42,17 +47,16 @@ class ResourceFacadeImpl implements ResourceFacade {
     protected final Cache<String, ResourceReference> resourceReferenceByLocation;
 
     protected final Map<String, Class> resourceReferenceClasses = new HashMap<>();
-    protected final Map<String, TemplateRenderer> templateRenderers = new HashMap<>();
     protected final ArrayList<String> templateRendererExtensions = new ArrayList<>();
     protected final ArrayList<Integer> templateRendererExtensionsDots = new ArrayList<>();
     protected final Map<String, ScriptRunner> scriptRunners = new HashMap<>();
     protected final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
-    protected final ToolFactory<org.xml.sax.ContentHandler> xslFoHandlerFactory;
+    protected final ToolFactory<ContentHandler> xslFoHandlerFactory;
 
     protected final Map<String, Repository> contentRepositories = new HashMap<>()
     protected final ThreadLocal<Map<String, Session>> contentSessions = new ThreadLocal<Map<String, Session>>()
 
-    ResourceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
+    public ResourceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
 
         ftlTemplateRenderer = new FtlTemplateRenderer()

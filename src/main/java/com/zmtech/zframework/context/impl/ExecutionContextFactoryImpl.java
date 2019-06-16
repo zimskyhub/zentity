@@ -1,10 +1,14 @@
 package com.zmtech.zframework.context.impl;
 
+import com.zmtech.zframework.cache.CacheFacade;
+import com.zmtech.zframework.cache.impl.CacheFacadeImpl;
 import com.zmtech.zframework.context.ExecutionContext;
 import com.zmtech.zframework.context.ExecutionContextFactory;
 import com.zmtech.zframework.entity.*;
 import com.zmtech.zframework.entity.impl.EntityFacadeImpl;
 import com.zmtech.zframework.l10n.L10nFacade;
+import com.zmtech.zframework.resource.ResourceFacade;
+import com.zmtech.zframework.resource.impl.ResourceFacadeImpl;
 import com.zmtech.zframework.transaction.TransactionFacade;
 import com.zmtech.zframework.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zframework.util.MNode;
@@ -46,10 +50,10 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //    protected String moquiVersion = "";
 //    protected Map versionMap = null;
 
-    @SuppressWarnings("GrFinalVariableAccess")
-    private final EntityFacadeImpl entityFacade;
-    @SuppressWarnings("GrFinalVariableAccess")
-    private final TransactionFacadeImpl transactionFacade;
+    @SuppressWarnings("GrFinalVariableAccess") private final EntityFacadeImpl entityFacade;
+    @SuppressWarnings("GrFinalVariableAccess") private final TransactionFacadeImpl transactionFacade;
+    @SuppressWarnings("GrFinalVariableAccess") private final CacheFacadeImpl cacheFacade;
+    @SuppressWarnings("GrFinalVariableAccess") private final ResourceFacadeImpl resourceFacade;
 //    protected InetAddress localhostAddress = null;
 
 
@@ -83,9 +87,8 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //    protected ArrayList<LogEventSubscriber> logEventSubscribers = new ArrayList<>()
 
     // ======== Permanent Delegated Facades ========
-//    @SuppressWarnings("GrFinalVariableAccess") public final CacheFacadeImpl cacheFacade
+
 //    @SuppressWarnings("GrFinalVariableAccess") public final LoggerFacadeImpl loggerFacade
-//    @SuppressWarnings("GrFinalVariableAccess") public final ResourceFacadeImpl resourceFacade
 
 
 //    @SuppressWarnings("GrFinalVariableAccess") public final ServiceFacadeImpl serviceFacade
@@ -161,13 +164,13 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         preFacadeInit();
 
         // this init order is important as some facades will use others
-//        cacheFacade = new CacheFacadeImpl(this)
-//        logger.info("Cache Facade initialized")
+        cacheFacade = new CacheFacadeImpl(this);
+        logger.info("Cache Facade initialized");
 //        loggerFacade = new LoggerFacadeImpl(this)
         // logger.info("Logger Facade initialized")
-//        resourceFacade = new ResourceFacadeImpl(this)
-//        logger.info("Resource Facade initialized")
 
+        resourceFacade = new ResourceFacadeImpl(this);
+        logger.info("Resource Facade initialized");
         transactionFacade = new TransactionFacadeImpl(this);
         logger.info("Transaction Facade initialized");
         entityFacade = new EntityFacadeImpl(this);
@@ -213,12 +216,12 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         preFacadeInit();
 
         // this init order is important as some facades will use others
-//        cacheFacade = new CacheFacadeImpl(this)
-//        logger.info("Cache Facade initialized")
+        cacheFacade = new CacheFacadeImpl(this);
+        logger.info("Cache Facade initialized");
 //        loggerFacade = new LoggerFacadeImpl(this)
         // logger.info("LoggerFacadeImpl initialized")
-//        resourceFacade = new ResourceFacadeImpl(this)
-//        logger.info("Resource Facade initialized")
+        resourceFacade = new ResourceFacadeImpl(this);
+        logger.info("Resource Facade initialized");
 
         transactionFacade = new TransactionFacadeImpl(this);
         logger.info("Transaction Facade initialized");
@@ -917,15 +920,12 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //        return compLocMap
 //    }
 
-    @Override @Nonnull
-    public L10nFacade getL10n() { return getEci().l10nFacade; }
-//    @Override @Nonnull ResourceFacade getResource() { resourceFacade }
+    @Override @Nonnull public L10nFacade getL10n() { return getEci().l10nFacade; }
+    @Override @Nonnull public ResourceFacade getResource() { return this.resourceFacade; }
+    @Override @Nonnull public CacheFacade getCache() { return this.cacheFacade; }
+    @Override @Nonnull public TransactionFacade getTransaction() { return this.transactionFacade; }
+    @Override @Nonnull public EntityFacade getEntity() { return this.entityFacade; }
 //    @Override @Nonnull LoggerFacade getLogger() { loggerFacade }
-//    @Override @Nonnull CacheFacade getCache() { cacheFacade }
-    @Override @Nonnull
-    public TransactionFacade getTransaction() { return this.transactionFacade; }
-    @Override @Nonnull
-    public EntityFacade getEntity() { return this.entityFacade; }
 //    @Override @Nonnull ServiceFacade getService() { serviceFacade }
 //    @Override @Nonnull ScreenFacade getScreen() { screenFacade }
 
