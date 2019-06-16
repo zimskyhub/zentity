@@ -13,12 +13,10 @@
  */
 package com.zmtech.zentity.entity.impl.condition;
 
+import com.zmtech.zentity.entity.impl.FieldInfo;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.entity.impl.EntityDefinition;
-import org.moqui.BaseArtifactException;
-import org.moqui.impl.entity.EntityDefinition;
-import org.moqui.impl.entity.FieldInfo;
-import org.moqui.util.MNode;
+import com.zmtech.zentity.util.MNode;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -34,7 +32,9 @@ public class ConditionAlias extends ConditionField implements Externalizable {
     private transient EntityDefinition aliasEntityDefTransient = null;
     private int curHashCode;
 
-    public ConditionAlias() { }
+    public ConditionAlias() {
+    }
+
     public ConditionAlias(String entityAlias, String fieldName, EntityDefinition aliasEntityDef) {
         if (fieldName == null) throw new EntityException("Empty fieldName not allowed");
         if (entityAlias == null) throw new EntityException("Empty entityAlias not allowed");
@@ -48,9 +48,18 @@ public class ConditionAlias extends ConditionField implements Externalizable {
         curHashCode = createHashCode();
     }
 
-    public String getEntityAlias() { return entityAlias; }
-    public String getFieldName() { return fieldName; }
-    public String getAliasEntityName() { return aliasEntityName; }
+    public String getEntityAlias() {
+        return entityAlias;
+    }
+
+    public String getFieldName() {
+        return fieldName;
+    }
+
+    public String getAliasEntityName() {
+        return aliasEntityName;
+    }
+
     private EntityDefinition getAliasEntityDef(EntityDefinition otherEd) {
         if (aliasEntityDefTransient == null && aliasEntityName != null)
             aliasEntityDefTransient = otherEd.getEfi().getEntityDefinition(aliasEntityName);
@@ -65,7 +74,8 @@ public class ConditionAlias extends ConditionField implements Externalizable {
         EntityDefinition memberEd = getAliasEntityDef(ed);
         if (memberEd.isViewEntity) {
             MNode memberEntity = ed.getMemberEntityNode(entityAlias);
-            if ("true".equals(memberEntity.attribute("sub-select"))) colName.append(memberEd.getFieldInfo(fieldName).columnName);
+            if ("true".equals(memberEntity.attribute("sub-select")))
+                colName.append(memberEd.getFieldInfo(fieldName).columnName);
             else colName.append(memberEd.getColumnName(fieldName));
         } else {
             colName.append(memberEd.getColumnName(fieldName));
@@ -82,10 +92,15 @@ public class ConditionAlias extends ConditionField implements Externalizable {
     }
 
     @Override
-    public String toString() { return (entityAlias != null ? (entityAlias + ".") : "") + fieldName; }
+    public String toString() {
+        return (entityAlias != null ? (entityAlias + ".") : "") + fieldName;
+    }
 
     @Override
-    public int hashCode() { return curHashCode; }
+    public int hashCode() {
+        return curHashCode;
+    }
+
     private int createHashCode() {
         return fieldName.hashCode() + (entityAlias != null ? entityAlias.hashCode() : 0) +
                 (aliasEntityName != null ? aliasEntityName.hashCode() : 0);

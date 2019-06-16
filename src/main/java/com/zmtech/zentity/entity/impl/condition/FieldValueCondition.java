@@ -1,6 +1,13 @@
 package com.zmtech.zentity.entity.impl.condition;
 
-
+import com.zmtech.zentity.entity.EntityCondition;
+import com.zmtech.zentity.entity.impl.EntityConditionFactoryImpl;
+import com.zmtech.zentity.entity.impl.EntityDefinition;
+import com.zmtech.zentity.entity.impl.EntityQueryBuilder;
+import com.zmtech.zentity.entity.impl.FieldInfo;
+import com.zmtech.zentity.exception.EntityException;
+import com.zmtech.zentity.util.EntityJavaUtil.*;
+import com.zmtech.zentity.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +27,9 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     protected boolean ignoreCase = false;
     private int curHashCode;
 
-    public FieldValueCondition() { }
+    public FieldValueCondition() {
+    }
+
     public FieldValueCondition(ConditionField field, ComparisonOperator operator, Object value) {
         this.field = field;
         this.value = value;
@@ -37,10 +46,21 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         curHashCode = createHashCode();
     }
 
-    public ComparisonOperator getOperator() { return operator; }
-    public String getFieldName() { return field.fieldName; }
-    public Object getValue() { return value; }
-    public boolean getIgnoreCase() { return ignoreCase; }
+    public ComparisonOperator getOperator() {
+        return operator;
+    }
+
+    public String getFieldName() {
+        return field.fieldName;
+    }
+
+    public Object getValue() {
+        return value;
+    }
+
+    public boolean getIgnoreCase() {
+        return ignoreCase;
+    }
 
     @Override
     public void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) {
@@ -49,7 +69,8 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         boolean valueDone = false;
         EntityDefinition curEd = subMemberEd != null ? subMemberEd : eqb.getMainEd();
         FieldInfo fi = field.getFieldInfo(curEd);
-        if (fi == null) throw new EntityException("Could not find field " + field.fieldName + " in entity " + curEd.getFullEntityName());
+        if (fi == null)
+            throw new EntityException("Could not find field " + field.fieldName + " in entity " + curEd.getFullEntityName());
 
         if (value instanceof Collection && ((Collection) value).isEmpty()) {
             if (operator == IN) {
@@ -90,9 +111,11 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                     sql.append(" (");
                     boolean isFirst = true;
                     for (Object curValue : (Collection) value) {
-                        if (isFirst) isFirst = false; else sql.append(", ");
+                        if (isFirst) isFirst = false;
+                        else sql.append(", ");
                         sql.append("?");
-                        if (ignoreCase && (curValue instanceof CharSequence)) curValue = curValue.toString().toUpperCase();
+                        if (ignoreCase && (curValue instanceof CharSequence))
+                            curValue = curValue.toString().toUpperCase();
                         eqb.parameters.add(new EntityConditionParameter(fi, curValue, eqb));
                     }
                     sql.append(')');
@@ -123,10 +146,16 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     public boolean mapMatches(Map<String, Object> map) {
         return EntityConditionFactoryImpl.compareByOperator(map.get(field.fieldName), operator, value);
     }
+
     @Override
-    public boolean mapMatchesAny(Map<String, Object> map) { return mapMatches(map); }
+    public boolean mapMatchesAny(Map<String, Object> map) {
+        return mapMatches(map);
+    }
+
     @Override
-    public boolean mapKeysNotContained(Map<String, Object> map) { return !map.containsKey(field.fieldName); }
+    public boolean mapKeysNotContained(Map<String, Object> map) {
+        return !map.containsKey(field.fieldName);
+    }
 
     @Override
     public boolean populateMap(Map<String, Object> map) {
@@ -144,6 +173,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
             fieldAliasSet.add(field.fieldName);
         }
     }
+
     @Override
     public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
         // only called for view-entity
@@ -166,7 +196,11 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     }
 
     @Override
-    public EntityCondition ignoreCase() { this.ignoreCase = true; curHashCode++; return this; }
+    public EntityCondition ignoreCase() {
+        this.ignoreCase = true;
+        curHashCode++;
+        return this;
+    }
 
     @Override
     public String toString() {
@@ -175,7 +209,10 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     }
 
     @Override
-    public int hashCode() { return curHashCode; }
+    public int hashCode() {
+        return curHashCode;
+    }
+
     private int createHashCode() {
         return (field != null ? field.hashCode() : 0) + operator.hashCode() + (value != null ? value.hashCode() : 0) + (ignoreCase ? 1 : 0);
     }
@@ -201,6 +238,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         out.writeObject(value);
         out.writeBoolean(ignoreCase);
     }
+
     @Override
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         field = new ConditionField();

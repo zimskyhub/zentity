@@ -1,7 +1,11 @@
 
 package com.zmtech.zentity.entity.impl.condition;
 
+import com.zmtech.zentity.entity.EntityCondition;
+import com.zmtech.zentity.entity.impl.EntityConditionFactoryImpl;
+import com.zmtech.zentity.entity.impl.EntityDefinition;
 import com.zmtech.zentity.entity.impl.EntityQueryBuilder;
+import com.zmtech.zentity.exception.EntityException;
 
 
 import java.io.IOException;
@@ -24,9 +28,17 @@ public class BasicJoinCondition implements EntityConditionImplBase {
         curHashCode = createHashCode();
     }
 
-    public JoinOperator getOperator() { return operator; }
-    public EntityConditionImplBase getLhs() { return lhsInternal; }
-    public EntityConditionImplBase getRhs() { return rhsInternal; }
+    public JoinOperator getOperator() {
+        return operator;
+    }
+
+    public EntityConditionImplBase getLhs() {
+        return lhsInternal;
+    }
+
+    public EntityConditionImplBase getRhs() {
+        return rhsInternal;
+    }
 
     @Override
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
@@ -52,10 +64,12 @@ public class BasicJoinCondition implements EntityConditionImplBase {
         // if !rhs then result is false whether AND or OR
         return rhsInternal.mapMatches(map);
     }
+
     @Override
     public boolean mapMatchesAny(Map<String, Object> map) {
         return lhsInternal.mapMatchesAny(map) || rhsInternal.mapMatchesAny(map);
     }
+
     @Override
     public boolean mapKeysNotContained(Map<String, Object> map) {
         return lhsInternal.mapKeysNotContained(map) && rhsInternal.mapKeysNotContained(map);
@@ -71,6 +85,7 @@ public class BasicJoinCondition implements EntityConditionImplBase {
         lhsInternal.getAllAliases(entityAliasSet, fieldAliasSet);
         rhsInternal.getAllAliases(entityAliasSet, fieldAliasSet);
     }
+
     @Override
     public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
         EntityConditionImplBase filterLhs = lhsInternal.filter(entityAlias, mainEd);
@@ -84,7 +99,9 @@ public class BasicJoinCondition implements EntityConditionImplBase {
     }
 
     @Override
-    public EntityCondition ignoreCase() { throw new EntityException("Ignore case not supported for BasicJoinCondition"); }
+    public EntityCondition ignoreCase() {
+        throw new EntityException("Ignore case not supported for BasicJoinCondition");
+    }
 
     @Override
     public String toString() {
@@ -93,7 +110,10 @@ public class BasicJoinCondition implements EntityConditionImplBase {
     }
 
     @Override
-    public int hashCode() { return curHashCode; }
+    public int hashCode() {
+        return curHashCode;
+    }
+
     private int createHashCode() {
         return (lhsInternal != null ? lhsInternal.hashCode() : 0) + operator.hashCode() + (rhsInternal != null ? rhsInternal.hashCode() : 0);
     }
@@ -113,6 +133,7 @@ public class BasicJoinCondition implements EntityConditionImplBase {
         out.writeUTF(operator.name());
         out.writeObject(rhsInternal);
     }
+
     @Override
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         lhsInternal = (EntityConditionImplBase) in.readObject();

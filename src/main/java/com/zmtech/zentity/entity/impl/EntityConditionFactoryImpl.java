@@ -492,17 +492,17 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
             "IS NOT NULL":ComparisonOperator.IS_NOT_NULL
     ]
 
-    static String getJoinOperatorString(JoinOperator op) { return JoinOperator.OR.is(op) ? "OR" : "AND" }
-    static JoinOperator getJoinOperator(String opName) { return "or".equalsIgnoreCase(opName) ? JoinOperator.OR :JoinOperator.AND }
+    public static String getJoinOperatorString(JoinOperator op) { return JoinOperator.OR.is(op) ? "OR" : "AND" }
+    public static JoinOperator getJoinOperator(String opName) { return "or".equalsIgnoreCase(opName) ? JoinOperator.OR :JoinOperator.AND }
 
-    static String getComparisonOperatorString(EntityCondition.ComparisonOperator op) { return comparisonOperatorStringMap.get(op) }
-    static EntityCondition.ComparisonOperator getComparisonOperator(String opName) {
+    public static String getComparisonOperatorString(EntityCondition.ComparisonOperator op) { return comparisonOperatorStringMap.get(op) }
+    public static EntityCondition.ComparisonOperator getComparisonOperator(String opName) {
         if (opName == null) return ComparisonOperator.EQUALS
         ComparisonOperator co = stringComparisonOperatorMap.get(opName)
         return co != null ? co : ComparisonOperator.EQUALS
     }
 
-    static boolean compareByOperator(Object value1, ComparisonOperator op, Object value2) {
+    public static boolean compareByOperator(Object value1, ComparisonOperator op, Object value2) {
         switch (op) {
             case ComparisonOperator.EQUALS:
                 return value1 == value2

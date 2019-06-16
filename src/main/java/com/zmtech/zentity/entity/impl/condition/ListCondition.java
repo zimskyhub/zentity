@@ -1,21 +1,7 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a 
- * Grant of Patent License.
- * 
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- * 
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
 package com.zmtech.zentity.entity.impl.condition;
 
-
-
 import com.zmtech.zentity.entity.EntityCondition;
+import com.zmtech.zentity.entity.impl.EntityConditionFactoryImpl;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.entity.impl.EntityDefinition;
 import com.zmtech.zentity.entity.impl.EntityQueryBuilder;
@@ -62,6 +48,7 @@ public class ListCondition implements EntityConditionImplBase {
         curHashCode = createHashCode();
         conditionListSize = conditionList.size();
     }
+
     public void addConditions(ArrayList<EntityConditionImplBase> condList) {
         int condListSize = condList != null ? condList.size() : 0;
         if (condListSize == 0) return;
@@ -69,10 +56,18 @@ public class ListCondition implements EntityConditionImplBase {
         curHashCode = createHashCode();
         conditionListSize = conditionList.size();
     }
-    public void addConditions(ListCondition listCond) { addConditions(listCond.getConditionList()); }
 
-    public JoinOperator getOperator() { return operator; }
-    public ArrayList<EntityConditionImplBase> getConditionList() { return conditionList; }
+    public void addConditions(ListCondition listCond) {
+        addConditions(listCond.getConditionList());
+    }
+
+    public JoinOperator getOperator() {
+        return operator;
+    }
+
+    public ArrayList<EntityConditionImplBase> getConditionList() {
+        return conditionList;
+    }
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
     @Override
@@ -101,6 +96,7 @@ public class ListCondition implements EntityConditionImplBase {
         // if we got here it means that it's an OR with no trues, or an AND with no falses
         return (this.operator == AND);
     }
+
     @Override
     public boolean mapMatchesAny(Map<String, Object> map) {
         for (int i = 0; i < conditionListSize; i++) {
@@ -110,6 +106,7 @@ public class ListCondition implements EntityConditionImplBase {
         }
         return false;
     }
+
     @Override
     public boolean mapKeysNotContained(Map<String, Object> map) {
         for (int i = 0; i < conditionListSize; i++) {
@@ -138,6 +135,7 @@ public class ListCondition implements EntityConditionImplBase {
             condition.getAllAliases(entityAliasSet, fieldAliasSet);
         }
     }
+
     @Override
     public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
         ArrayList<EntityConditionImplBase> filteredList = new ArrayList<>(conditionList.size());
@@ -160,21 +158,30 @@ public class ListCondition implements EntityConditionImplBase {
     }
 
     @Override
-    public EntityCondition ignoreCase() { throw new EntityException("Ignore case not supported for this type of condition."); }
+    public EntityCondition ignoreCase() {
+        throw new EntityException("Ignore case not supported for this type of condition.");
+    }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
-            if (sb.length() > 0) sb.append(' ').append(EntityConditionFactoryImpl.getJoinOperatorString(this.operator)).append(' ');
+            if (sb.length() > 0)
+                sb.append(' ').append(EntityConditionFactoryImpl.getJoinOperatorString(this.operator)).append(' ');
             sb.append('(').append(condition.toString()).append(')');
         }
         return sb.toString();
     }
 
-    @Override public int hashCode() { return curHashCode; }
-    private int createHashCode() { return (conditionList != null ? conditionList.hashCode() : 0) + operator.hashCode(); }
+    @Override
+    public int hashCode() {
+        return curHashCode;
+    }
+
+    private int createHashCode() {
+        return (conditionList != null ? conditionList.hashCode() : 0) + operator.hashCode();
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -189,6 +196,7 @@ public class ListCondition implements EntityConditionImplBase {
         out.writeObject(conditionList);
         out.writeObject(operator.name().toCharArray());
     }
+
     @Override
     @SuppressWarnings("unchecked")
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {

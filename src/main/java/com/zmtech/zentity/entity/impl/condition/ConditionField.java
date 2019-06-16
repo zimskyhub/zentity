@@ -1,16 +1,3 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
 package com.zmtech.zentity.entity.impl.condition;
 
 import com.zmtech.zentity.exception.EntityException;
@@ -28,12 +15,15 @@ public class ConditionField implements Externalizable {
     private int curHashCode;
     private FieldInfo fieldInfo = null;
 
-    public ConditionField() { }
+    public ConditionField() {
+    }
+
     public ConditionField(String fieldName) {
         if (fieldName == null) throw new EntityException("Empty fieldName not allowed");
         this.fieldName = fieldName.intern();
         curHashCode = this.fieldName.hashCode();
     }
+
     public ConditionField(FieldInfo fi) {
         if (fi == null) throw new EntityException("FieldInfo required");
         fieldInfo = fi;
@@ -42,21 +32,30 @@ public class ConditionField implements Externalizable {
         curHashCode = fieldName.hashCode();
     }
 
-    public String getFieldName() { return fieldName; }
+    public String getFieldName() {
+        return fieldName;
+    }
+
     public String getColumnName(EntityDefinition ed) {
-        if (fieldInfo != null && fieldInfo.ed.fullEntityName.equals(ed.fullEntityName)) return fieldInfo.getFullColumnName();
+        if (fieldInfo != null && fieldInfo.ed.fullEntityName.equals(ed.fullEntityName))
+            return fieldInfo.getFullColumnName();
         return ed.getColumnName(fieldName);
     }
+
     public FieldInfo getFieldInfo(EntityDefinition ed) {
         if (fieldInfo != null && fieldInfo.ed.fullEntityName.equals(ed.fullEntityName)) return fieldInfo;
         return ed.getFieldInfo(fieldName);
     }
 
     @Override
-    public String toString() { return fieldName; }
+    public String toString() {
+        return fieldName;
+    }
 
     @Override
-    public int hashCode() { return curHashCode; }
+    public int hashCode() {
+        return curHashCode;
+    }
 
     @Override
     public boolean equals(Object o) {

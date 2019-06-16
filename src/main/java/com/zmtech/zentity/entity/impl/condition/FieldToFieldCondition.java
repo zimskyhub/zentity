@@ -1,4 +1,4 @@
-package com.zmtech.zentity.entity.impl.condition
+package com.zmtech.zentity.entity.impl.condition;
 
 import com.zmtech.zentity.entity.EntityCondition;
 import com.zmtech.zentity.entity.impl.EntityConditionFactoryImpl;
@@ -24,7 +24,7 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
 
     public FieldToFieldCondition(ConditionField field, EntityCondition.ComparisonOperator operator, ConditionField toField) {
         this.field = field;
-        this.operator = operator == null? EQUALS:operator;
+        this.operator = operator == null ? EQUALS : operator;
         this.toField = toField;
         curHashCode = createHashCode();
     }
@@ -36,94 +36,110 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
         FieldInfo fi = field.getFieldInfo(mainEd);
         FieldInfo toFi = toField.getFieldInfo(mainEd);
 
-        int typeValue = -1
+        int typeValue = -1;
         if (ignoreCase) {
-            typeValue = fi?.typeValue ?: 1
-            if (typeValue == 1) sql.append("UPPER(")
+            typeValue = fi != null ? fi.typeValue : 1;
+            if (typeValue == 1) sql.append("UPPER(");
         }
         if (subMemberEd != null) {
-            MNode aliasNode = fi.fieldNode
-            String aliasField = aliasNode.attribute("field")
-            if (aliasField == null || aliasField.isEmpty()) aliasField = fi.name
-            sql.append(subMemberEd.getColumnName(aliasField))
+            MNode aliasNode = fi.fieldNode;
+            String aliasField = aliasNode.attribute("field");
+            if (aliasField == null || aliasField.isEmpty()) aliasField = fi.name;
+            sql.append(subMemberEd.getColumnName(aliasField));
         } else {
-            sql.append(field.getColumnName(mainEd))
+            sql.append(field.getColumnName(mainEd));
         }
-        if (ignoreCase && typeValue == 1) sql.append(")")
+        if (ignoreCase && typeValue == 1) sql.append(")");
 
-        sql.append(' ').append(EntityConditionFactoryImpl.getComparisonOperatorString(operator)).append(' ')
+        sql.append(' ').append(EntityConditionFactoryImpl.getComparisonOperatorString(operator)).append(' ');
 
-        int toTypeValue = -1
+        int toTypeValue = -1;
         if (ignoreCase) {
-            toTypeValue = toField.getFieldInfo(mainEd)?.typeValue ?: 1
-            if (toTypeValue == 1) sql.append("UPPER(")
+            toTypeValue = toField.getFieldInfo(mainEd) != null ? toField.getFieldInfo(mainEd).typeValue : 1;
+            if (toTypeValue == 1) sql.append("UPPER(");
         }
         if (subMemberEd != null) {
-            MNode aliasNode = toFi.fieldNode
-            String aliasField = aliasNode.attribute("field")
-            if (aliasField == null || aliasField.isEmpty()) aliasField = toFi.name
-            sql.append(subMemberEd.getColumnName(aliasField))
+            MNode aliasNode = toFi.fieldNode;
+            String aliasField = aliasNode.attribute("field");
+            if (aliasField == null || aliasField.isEmpty()) aliasField = toFi.name;
+            sql.append(subMemberEd.getColumnName(aliasField));
         } else {
-            sql.append(toField.getColumnName(mainEd))
+            sql.append(toField.getColumnName(mainEd));
         }
-        if (ignoreCase && toTypeValue == 1) sql.append(")")
+        if (ignoreCase && toTypeValue == 1) sql.append(")");
     }
 
     @Override
     public boolean mapMatches(Map<String, Object> map) {
-        return EntityConditionFactoryImpl.compareByOperator(map.get(field.getFieldName()), operator, map.get(toField.getFieldName()))
+        return EntityConditionFactoryImpl.compareByOperator(map.get(field.getFieldName()), operator, map.get(toField.getFieldName()));
     }
-    @Override
-    public boolean mapMatchesAny(Map<String, Object> map) { return mapMatches(map) }
-    @Override
-    public boolean mapKeysNotContained(Map<String, Object> map) { return !map.containsKey(field.fieldName) && !map.containsKey(toField.fieldName) }
 
     @Override
-    public boolean populateMap(Map<String, Object> map) { return false }
+    public boolean mapMatchesAny(Map<String, Object> map) {
+        return mapMatches(map);
+    }
+
+    @Override
+    public boolean mapKeysNotContained(Map<String, Object> map) {
+        return !map.containsKey(field.fieldName) && !map.containsKey(toField.fieldName);
+    }
+
+    @Override
+    public boolean populateMap(Map<String, Object> map) {
+        return false;
+    }
 
     @Override
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         // this will only be called for view-entity, so we'll either have a entityAlias or an aliased fieldName
         if (field instanceof ConditionAlias) {
-            entityAliasSet.add(((ConditionAlias) field).entityAlias)
+            entityAliasSet.add(((ConditionAlias) field).entityAlias);
         } else {
-            fieldAliasSet.add(field.fieldName)
+            fieldAliasSet.add(field.fieldName);
         }
         if (toField instanceof ConditionAlias) {
-            entityAliasSet.add(((ConditionAlias) toField).entityAlias)
+            entityAliasSet.add(((ConditionAlias) toField).entityAlias);
         } else {
-            fieldAliasSet.add(toField.fieldName)
+            fieldAliasSet.add(toField.fieldName);
         }
     }
+
     @Override
     public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
         // only called for view-entity
-        MNode fieldMe = field.getFieldInfo(mainEd).directMemberEntityNode
-        MNode toFieldMe = toField.getFieldInfo(mainEd).directMemberEntityNode
+        MNode fieldMe = field.getFieldInfo(mainEd).directMemberEntityNode;
+        MNode toFieldMe = toField.getFieldInfo(mainEd).directMemberEntityNode;
         if (entityAlias == null) {
             if ((fieldMe != null && "true".equalsIgnoreCase(fieldMe.attribute("sub-select"))) &&
                     (toFieldMe != null && "true".equalsIgnoreCase(toFieldMe.attribute("sub-select"))) &&
-                    fieldMe.attribute("entity-alias").equals(toFieldMe.attribute("entity-alias"))) return null
-            return this
+                    fieldMe.attribute("entity-alias").equals(toFieldMe.attribute("entity-alias"))) return null;
+            return this;
         } else {
             if ((fieldMe != null && entityAlias.equals(fieldMe.attribute("entity-alias"))) &&
-                    (toFieldMe != null && entityAlias.equals(toFieldMe.attribute("entity-alias")))) return this
-            return null
+                    (toFieldMe != null && entityAlias.equals(toFieldMe.attribute("entity-alias")))) return this;
+            return null;
         }
     }
 
     @Override
-    public EntityCondition ignoreCase() { ignoreCase = true; curHashCode++; return this }
-
-    @Override
-    public String toString() {
-        return field.toString() + " " + EntityConditionFactoryImpl.getComparisonOperatorString(operator) + " " + toField.toString()
+    public EntityCondition ignoreCase() {
+        ignoreCase = true;
+        curHashCode++;
+        return this;
     }
 
     @Override
-    public int hashCode() { return curHashCode; }
+    public String toString() {
+        return field.toString() + " " + EntityConditionFactoryImpl.getComparisonOperatorString(operator) + " " + toField.toString();
+    }
+
+    @Override
+    public int hashCode() {
+        return curHashCode;
+    }
+
     private int createHashCode() {
-        return (field ? field.hashCode() : 0) + operator.hashCode() + (toField ? toField.hashCode() : 0) + (ignoreCase ? 1 : 0)
+        return (field != null ? field.hashCode() : 0) + operator.hashCode() + (toField != null ? toField.hashCode() : 0) + (ignoreCase ? 1 : 0);
     }
 
     @Override
@@ -135,7 +151,7 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
         if (operator != that.operator) return false;
         if (!toField.equals(that.toField)) return false;
         if (ignoreCase != that.ignoreCase) return false;
-        return true
+        return true;
     }
 
     @Override
@@ -145,6 +161,7 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
         toField.writeExternal(out);
         out.writeBoolean(ignoreCase);
     }
+
     @Override
     public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
         field = new ConditionField();
