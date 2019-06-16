@@ -15,16 +15,12 @@ package com.zmtech.zentity.entity.impl;
 
 import com.zmtech.zentity.entity.EntityValue;
 import com.zmtech.zentity.exception.EntityException;
-import org.moqui.entity.EntityException;
-import org.moqui.entity.EntityValue;
-import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.HashMap;
 
 public class EntityValueImpl extends EntityValueBase {
