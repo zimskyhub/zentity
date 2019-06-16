@@ -8,6 +8,8 @@ import com.zmtech.zframework.entity.EntityFacade;
 import com.zmtech.zframework.entity.impl.EntityFacadeImpl;
 import com.zmtech.zframework.l10n.L10nFacade;
 import com.zmtech.zframework.l10n.impl.L10nFacadeImpl;
+import com.zmtech.zframework.logger.LoggerFacade;
+import com.zmtech.zframework.logger.impl.LoggerFacadeImpl;
 import com.zmtech.zframework.resource.ResourceFacade;
 import com.zmtech.zframework.resource.impl.ResourceFacadeImpl;
 import com.zmtech.zframework.transaction.TransactionFacade;
@@ -38,6 +40,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     public final CacheFacadeImpl cacheFacade;
     public final ResourceFacadeImpl resourceFacade;
     public final L10nFacadeImpl l10nFacade;
+    public final LoggerFacadeImpl loggerFacade;
 
     private Boolean skipStats = null;
     private Cache<String, String> l10nMessageCache;
@@ -61,11 +64,11 @@ public class ExecutionContextImpl implements ExecutionContext {
         cacheFacade = (CacheFacadeImpl)ecfi.getCache();
         transactionFacade = (TransactionFacadeImpl)ecfi.getTransaction();
         resourceFacade = (ResourceFacadeImpl)ecfi.getResource();
+        loggerFacade = (LoggerFacadeImpl)ecfi.getLogger();
 //        userFacade = new UserFacadeImpl(this);
 //        messageFacade = new MessageFacadeImpl();
 //        artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this);
 
-//        loggerFacade = ecfi.loggerFacade;
 
 //        screenFacade = ecfi.screenFacade;
 //        serviceFacade = ecfi.serviceFacade;
@@ -74,8 +77,8 @@ public class ExecutionContextImpl implements ExecutionContext {
         if (resourceFacade == null) throw new IllegalStateException("resourceFacade was null");
         if (l10nFacade == null) throw new IllegalStateException("serviceFacade was null");
         if (transactionFacade == null) throw new IllegalStateException("transactionFacade was null");
+        if (loggerFacade == null) throw new IllegalStateException("loggerFacade was null");
 
-//        if (loggerFacade == null) throw new IllegalStateException("loggerFacade was null");
 //        if (screenFacade == null) throw new IllegalStateException("screenFacade was null");
 //        if (serviceFacade == null) throw new IllegalStateException("serviceFacade was null");
 
@@ -109,14 +112,15 @@ public class ExecutionContextImpl implements ExecutionContext {
     @Override public @Nonnull CacheFacade getCache() { return cacheFacade; }
     @Override public @Nonnull TransactionFacade getTransaction() { return transactionFacade; }
     @Override public @Nonnull EntityFacade getEntity() { return activeEntityFacade; }
-    public @Nonnull EntityFacadeImpl getEntityFacade() { return activeEntityFacade; }
-//    @Override public @Nullable WebFacade getWeb() { return webFacade; }
-//    public @Nullable WebFacadeImpl getWebImpl() { return webFacadeImpl; }
+    @Override public @Nonnull LoggerFacade getLogger() { return this.loggerFacade; }
 
+
+//    @Override public @Nullable WebFacade getWeb() { return webFacade; }
+
+//    public @Nullable WebFacadeImpl getWebImpl() { return webFacadeImpl; }
 //    @Override public @Nonnull UserFacade getUser() { return userFacade; }
 //    @Override public @Nonnull MessageFacade getMessage() { return messageFacade; }
 //    @Override public @Nonnull ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
-//    @Override public @Nonnull LoggerFacade getLogger() { return loggerFacade; }
 
 
 //    @Override public @Nonnull ServiceFacade getService() { return serviceFacade; }
@@ -204,7 +208,7 @@ public class ExecutionContextImpl implements ExecutionContext {
         // make sure there are no transactions open, if any commit them all now
         ecfi.getTransaction().destroyAllInThread();
         // clean up resources, like JCR session
-//        ecfi.resourceFacade.destroyAllInThread();
+        ecfi.getResource().destroyAllInThread();
         // clear out the ECFI's reference to this as well
         ecfi.activeContext.remove();
         ecfi.activeContextMap.remove(Thread.currentThread().getId());

@@ -110,4 +110,5 @@ public interface TransactionFacade {
     void initTransactionCache();
     boolean isTransactionCacheActive();
     void flushAndDisableTransactionCache();
+    void destroyAllInThread();
 }

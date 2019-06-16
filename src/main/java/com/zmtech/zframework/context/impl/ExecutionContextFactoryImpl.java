@@ -7,12 +7,16 @@ import com.zmtech.zframework.context.ExecutionContextFactory;
 import com.zmtech.zframework.entity.*;
 import com.zmtech.zframework.entity.impl.EntityFacadeImpl;
 import com.zmtech.zframework.l10n.L10nFacade;
+import com.zmtech.zframework.logger.LoggerFacade;
+import com.zmtech.zframework.logger.impl.LoggerFacadeImpl;
 import com.zmtech.zframework.resource.ResourceFacade;
 import com.zmtech.zframework.resource.impl.ResourceFacadeImpl;
 import com.zmtech.zframework.tools.ToolFactory;
 import com.zmtech.zframework.transaction.TransactionFacade;
 import com.zmtech.zframework.transaction.impl.TransactionFacadeImpl;
+import com.zmtech.zframework.util.ContextJavaUtil;
 import com.zmtech.zframework.util.MNode;
+import com.zmtech.zframework.util.SystemBinding;
 import com.zmtech.zframework.util.ZClassLoader;
 import groovy.lang.GroovyClassLoader;
 import org.codehaus.groovy.control.CompilationUnit;
@@ -24,6 +28,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
@@ -56,6 +64,10 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @SuppressWarnings("GrFinalVariableAccess") private final TransactionFacadeImpl transactionFacade;
     @SuppressWarnings("GrFinalVariableAccess") private final CacheFacadeImpl cacheFacade;
     @SuppressWarnings("GrFinalVariableAccess") private final ResourceFacadeImpl resourceFacade;
+    @SuppressWarnings("GrFinalVariableAccess") private final LoggerFacadeImpl loggerFacade;
+
+    /** The main worker pool for services, running async closures and runnables, etc */
+    @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool;
 //    protected InetAddress localhostAddress = null;
 
 
@@ -75,14 +87,14 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //    private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<>(ArtifactType.class)
 //    final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
 
-    /** The SecurityManager for Apache Shiro */
+//    /** The SecurityManager for Apache Shiro */
 //    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
-    /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
+//    /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
 //    protected ServletContext internalServletContext = null
-    /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
+//    /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
 //    protected ServerContainer internalServerContainer = null
 
-    /** Notification Message Topic (for distributed notifications) */
+//    /** Notification Message Topic (for distributed notifications) */
 //    private SimpleTopic<NotificationMessageImpl> notificationMessageTopic = null
 //    private NotificationWebSocketListener notificationWebSocketListener = new NotificationWebSocketListener()
 
@@ -90,14 +102,13 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     // ======== Permanent Delegated Facades ========
 
-//    @SuppressWarnings("GrFinalVariableAccess") public final LoggerFacadeImpl loggerFacade
+
 
 
 //    @SuppressWarnings("GrFinalVariableAccess") public final ServiceFacadeImpl serviceFacade
 //    @SuppressWarnings("GrFinalVariableAccess") public final ScreenFacadeImpl screenFacade
 
-    /** The main worker pool for services, running async closures and runnables, etc */
-//    @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool
+
     /** An executor for the scheduled job runner */
     // TODO: make the scheduled thread pool size configurable
 //    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(16)
@@ -159,18 +170,17 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //        // init components before initConfig() so component configuration files can be incorporated
 //        initComponents(baseConfigNode)
 //        // init the configuration (merge from component and runtime conf files)
-//        confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
+        confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot);
 
 //        reconfigureLog4j()
-//        workerPool = makeWorkerPool()
+        workerPool = makeWorkerPool();
         preFacadeInit();
 
         // this init order is important as some facades will use others
         cacheFacade = new CacheFacadeImpl(this);
         logger.info("Cache Facade initialized");
-//        loggerFacade = new LoggerFacadeImpl(this)
-        // logger.info("Logger Facade initialized")
-
+        loggerFacade = new LoggerFacadeImpl(this);
+        logger.info("Logger Facade initialized");
         resourceFacade = new ResourceFacadeImpl(this);
         logger.info("Resource Facade initialized");
         transactionFacade = new TransactionFacadeImpl(this);
@@ -211,17 +221,17 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init components before initConfig() so component configuration files can be incorporated
 //        initComponents(baseConfigNode)
         // init the configuration (merge from component and runtime conf files)
-//        confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
+        confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot);
 
 //        reconfigureLog4j()
-//        workerPool = makeWorkerPool()
+        workerPool = makeWorkerPool();
         preFacadeInit();
 
         // this init order is important as some facades will use others
         cacheFacade = new CacheFacadeImpl(this);
         logger.info("Cache Facade initialized");
-//        loggerFacade = new LoggerFacadeImpl(this)
-        // logger.info("LoggerFacadeImpl initialized")
+        loggerFacade = new LoggerFacadeImpl(this);
+         logger.info("LoggerFacadeImpl initialized");
         resourceFacade = new ResourceFacadeImpl(this);
         logger.info("Resource Facade initialized");
 
@@ -303,8 +313,8 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //        }
 //        checkSortDependentComponents()
 //    }
-//    protected MNode initConfig(MNode baseConfigNode, MNode runtimeConfXmlRoot) {
-//        // merge any config files in components
+    protected MNode initConfig(MNode baseConfigNode, MNode runtimeConfXmlRoot) {
+        // merge any config files in components
 //        for (ComponentInfo ci in componentInfoMap.values()) {
 //            ResourceReference compXmlRr = ci.componentRr.getChild("MoquiConf.xml")
 //            if (compXmlRr.getExists()) {
@@ -313,98 +323,103 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //                mergeConfigNodes(baseConfigNode, compXmlNode)
 //            }
 //        }
-//
-//        // merge the runtime conf file into the default one to override any settings (they both have the same root node, go from there)
-//        logger.info("Merging runtime configuration at ${runtimeConfPath}")
-//        mergeConfigNodes(baseConfigNode, runtimeConfXmlRoot)
-//
-//        // set default System properties now that all is merged
-//        for (MNode defPropNode in baseConfigNode.children("default-property")) {
-//            String propName = defPropNode.attribute("name")
-//            if (System.getProperty(propName)) {
-//                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
-//                    logger.info("Found pw/key property ${propName}, not setting from env var or default")
-//                } else {
-//                    logger.info("Found property ${propName} with value [${System.getProperty(propName)}], not setting from env var or default")
-//                }
-//                continue
-//            }
-//            if (System.getenv(propName) && !System.getProperty(propName)) {
-//                // make env vars available as Java System properties
-//                System.setProperty(propName, System.getenv(propName))
-//                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
-//                    logger.info("Setting pw/key property ${propName} from env var")
-//                } else {
-//                    logger.info("Setting property ${propName} from env var with value [${System.getProperty(propName)}]")
-//                }
-//            }
-//            if (!System.getProperty(propName) && !System.getenv(propName)) {
-//                String valueAttr = defPropNode.attribute("value")
-//                if (valueAttr != null && !valueAttr.isEmpty()) {
-//                    System.setProperty(propName, SystemBinding.expand(valueAttr))
-//                    if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
-//                        logger.info("Setting pw/key property ${propName} from default")
-//                    } else {
-//                        logger.info("Setting property ${propName} from default with value [${System.getProperty(propName)}]")
-//                    }
-//                }
-//            }
-//        }
-//
-//        // if there are default_locale or default_time_zone Java props or system env vars set defaults
-//        String localeStr = SystemBinding.getPropOrEnv("default_locale")
-//        if (localeStr) {
-//            try {
-//                int usIdx = localeStr.indexOf("_")
-//                Locale.setDefault(usIdx < 0 ? new Locale(localeStr) :
-//                        new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase()))
-//            } catch (Throwable t) {
-//                logger.error("Error setting default locale to ${localeStr}: ${t.toString()}")
-//            }
-//        }
-//        String tzStr = SystemBinding.getPropOrEnv("default_time_zone")
-//        if (tzStr) {
-//            try {
-//                logger.info("Found default_time_zone ${tzStr}: ${TimeZone.getTimeZone(tzStr)}")
-//                TimeZone.setDefault(TimeZone.getTimeZone(tzStr))
-//            } catch (Throwable t) {
-//                logger.error("Error setting default time zone to ${tzStr}: ${t.toString()}")
-//            }
-//        }
-//        logger.info("Default locale ${Locale.getDefault()}, time zone ${TimeZone.getDefault()}")
-//
-//        return baseConfigNode
-//    }
 
-//    private ThreadPoolExecutor makeWorkerPool() {
-//        MNode toolsNode = confXmlRoot.first('tools')
-//
-//        int workerQueueSize = (toolsNode.attribute("worker-queue") ?: "65536") as int
-//        BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(workerQueueSize)
-//
-//        int coreSize = (toolsNode.attribute("worker-pool-core") ?: "16") as int
-//        int maxSize = (toolsNode.attribute("worker-pool-max") ?: "24") as int
-//        int availableProcessorsSize = Runtime.getRuntime().availableProcessors() * 2
-//        if (availableProcessorsSize > maxSize) {
-//            logger.info("Setting worker pool size to ${availableProcessorsSize} based on available processors * 2")
-//            maxSize = availableProcessorsSize
-//        }
-//        long aliveTime = (toolsNode.attribute("worker-pool-alive") ?: "60") as long
-//
-//        logger.info("Initializing worker ThreadPoolExecutor: queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
-//        return new ContextJavaUtil.WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue)
-//    }
-//    boolean waitWorkerPoolEmpty(int retryLimit) {
-//        int count = 0
-//        logger.warn("Wait for workerPool empty: queue size ${workerPool.getQueue().size()} active ${workerPool.getActiveCount()}")
-//        while (count < retryLimit && (workerPool.getQueue().size() > 0 || workerPool.getActiveCount() > 0)) {
-//            Thread.sleep(100)
-//            count++
-//        }
-//        int afterSize = workerPool.getQueue().size() + workerPool.getActiveCount()
-//        if (afterSize > 0) logger.warn("After ${retryLimit} 100ms waits worker pool size is still ${afterSize}")
-//        return afterSize == 0
-//    }
+        // merge the runtime conf file into the default one to override any settings (they both have the same root node, go from there)
+//        logger.info("Merging runtime configuration at ${runtimeConfPath}");
+//        mergeConfigNodes(baseConfigNode, runtimeConfXmlRoot)
+
+        // set default System properties now that all is merged
+        for (MNode defPropNode : baseConfigNode.children("default-property")) {
+            String propName = defPropNode.attribute("name");
+            if (System.getProperty(propName) != null) {
+                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
+                    logger.info("Found pw/key property ${propName}, not setting from env var or default");
+                } else {
+                    logger.info("Found property ${propName} with value [${System.getProperty(propName)}], not setting from env var or default");
+                }
+                continue;
+            }
+            if (System.getenv(propName) != null && System.getProperty(propName) == null) {
+                // make env vars available as Java System properties
+                System.setProperty(propName, System.getenv(propName));
+                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
+                    logger.info("Setting pw/key property ${propName} from env var");
+                } else {
+                    logger.info("Setting property ${propName} from env var with value [${System.getProperty(propName)}]");
+                }
+            }
+            if (System.getProperty(propName) == null && System.getenv(propName) == null) {
+                String valueAttr = defPropNode.attribute("value");
+                if (valueAttr != null && !valueAttr.isEmpty()) {
+                    System.setProperty(propName, SystemBinding.expand(valueAttr));
+                    if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
+                        logger.info("Setting pw/key property "+propName+" from default");
+                    } else {
+                        logger.info("Setting property ${propName} from default with value [${System.getProperty(propName)}]");
+                    }
+                }
+            }
+        }
+
+        // if there are default_locale or default_time_zone Java props or system env vars set defaults
+        String localeStr = SystemBinding.getPropOrEnv("default_locale");
+        if (localeStr != null) {
+            try {
+                int usIdx = localeStr.indexOf("_");
+                Locale.setDefault(usIdx < 0 ? new Locale(localeStr) :
+                        new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase()));
+            } catch (Throwable t) {
+                logger.error("Error setting default locale to ${localeStr}: ${t.toString()}");
+            }
+        }
+        String tzStr = SystemBinding.getPropOrEnv("default_time_zone");
+        if (tzStr != null) {
+            try {
+                logger.info("Found default_time_zone ${tzStr}: ${TimeZone.getTimeZone(tzStr)}");
+                TimeZone.setDefault(TimeZone.getTimeZone(tzStr));
+            } catch (Throwable t) {
+                logger.error("Error setting default time zone to ${tzStr}: ${t.toString()}");
+            }
+        }
+        logger.info("Default locale ${Locale.getDefault()}, time zone ${TimeZone.getDefault()}");
+
+        return baseConfigNode;
+    }
+
+    private ThreadPoolExecutor makeWorkerPool() {
+        MNode toolsNode = confXmlRoot.first("tools");
+
+        int workerQueueSize = Integer.valueOf(toolsNode.attribute("worker-queue") != null? toolsNode.attribute("worker-queue") : "65536");
+        BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(workerQueueSize);
+
+        int coreSize = Integer.valueOf(toolsNode.attribute("worker-pool-core") != null ? toolsNode.attribute("worker-pool-core"): "16");
+        int maxSize = Integer.valueOf(toolsNode.attribute("worker-pool-max") != null ? toolsNode.attribute("worker-pool-max"): "24");
+        int availableProcessorsSize = Runtime.getRuntime().availableProcessors() * 2;
+        if (availableProcessorsSize > maxSize) {
+            logger.info("Setting worker pool size to "+availableProcessorsSize+" based on available processors * 2");
+            maxSize = availableProcessorsSize;
+        }
+        long aliveTime = Long.valueOf(toolsNode.attribute("worker-pool-alive") != null? toolsNode.attribute("worker-pool-alive"): "60");
+
+        logger.info("Initializing worker ThreadPoolExecutor: queue limit "+workerQueueSize+", pool-core "+coreSize+", pool-max "+maxSize+", pool-alive "+aliveTime+"s");
+        return new ContextJavaUtil.WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue);
+    }
+
+    boolean waitWorkerPoolEmpty(int retryLimit) {
+        int count = 0;
+        logger.warn("Wait for workerPool empty: queue size ${workerPool.getQueue().size()} active ${workerPool.getActiveCount()}");
+        while (count < retryLimit && (workerPool.getQueue().size() > 0 || workerPool.getActiveCount() > 0)) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            count++;
+        }
+        int afterSize = workerPool.getQueue().size() + workerPool.getActiveCount();
+        if (afterSize > 0) logger.warn("After ${retryLimit} 100ms waits worker pool size is still ${afterSize}");
+        return afterSize == 0;
+    }
 
     private void preFacadeInit() {
         // save the current configuration in a file for debugging/reference
@@ -927,7 +942,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override @Nonnull public CacheFacade getCache() { return this.cacheFacade; }
     @Override @Nonnull public TransactionFacade getTransaction() { return this.transactionFacade; }
     @Override @Nonnull public EntityFacade getEntity() { return this.entityFacade; }
-//    @Override @Nonnull LoggerFacade getLogger() { loggerFacade }
+    @Override @Nonnull public LoggerFacade getLogger() { return this.loggerFacade;}
 //    @Override @Nonnull ServiceFacade getService() { serviceFacade }
 //    @Override @Nonnull ScreenFacade getScreen() { screenFacade }
 

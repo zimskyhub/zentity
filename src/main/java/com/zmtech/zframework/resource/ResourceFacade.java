@@ -84,4 +84,5 @@ public interface ResourceFacade {
     void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType);
 
     String getContentType(String filename);
+    void destroyAllInThread();
 }

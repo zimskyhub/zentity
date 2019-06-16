@@ -16,6 +16,7 @@ package com.zmtech.zframework.context;
 import com.zmtech.zframework.cache.CacheFacade;
 import com.zmtech.zframework.entity.EntityFacade;
 import com.zmtech.zframework.l10n.L10nFacade;
+import com.zmtech.zframework.logger.LoggerFacade;
 import com.zmtech.zframework.resource.ResourceFacade;
 import com.zmtech.zframework.transaction.TransactionFacade;
 import com.zmtech.zframework.util.ContextBinding;
@@ -87,10 +88,8 @@ public interface ExecutionContext {
 //    ArtifactExecutionFacade getArtifactExecution();
 //
 //
-//    /** For trace, error, etc logging to the console, files, etc. */
-//    @Nonnull
-//    LoggerFacade getLogger();
-//
+    /** For trace, error, etc logging to the console, files, etc. */
+    @Nonnull LoggerFacade getLogger();
 
     /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and uses
      * the current ExecutionContext in the separate thread (retaining user, authz context, etc). */
