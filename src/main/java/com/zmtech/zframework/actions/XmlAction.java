@@ -1,16 +1,3 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
 package com.zmtech.zframework.actions;
 
 import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
@@ -33,26 +20,26 @@ public class XmlAction {
     private static final Logger logger = LoggerFactory.getLogger(XmlAction.class);
     private static final boolean isDebugEnabled = logger.isDebugEnabled();
 
-    protected final ExecutionContextFactoryImpl effi;
+    protected final ExecutionContextFactoryImpl ecfi;
 
     private final MNode xmlNode;
     protected final String location;
     /** The Groovy class compiled from the script transformed from the XML actions text using the FTL template. */
     private Class groovyClassInternal = null;
 
-    public XmlAction(ExecutionContextFactoryImpl effi, MNode xmlNode, String location) {
-        this.effi = effi;
+    public XmlAction(ExecutionContextFactoryImpl ecfi, MNode xmlNode, String location) {
+        this.ecfi = ecfi;
         this.xmlNode = xmlNode;
         this.location = location;
     }
 
-    public XmlAction(ExecutionContextFactoryImpl effi, String xmlText, String location) {
-        this.effi = effi;
+    public XmlAction(ExecutionContextFactoryImpl ecfi, String xmlText, String location) {
+        this.ecfi = ecfi;
         this.location = location;
         if (xmlText != null && !xmlText.isEmpty()) {
             xmlNode = MNode.parseText(location, xmlText);
         } else {
-            xmlNode = MNode.parseText(location, effi.resourceFacade.getLocationText(location, false));
+            xmlNode = MNode.parseText(location, ecfi.getResource().getLocationText(location, false));
         }
     }
 
@@ -98,7 +85,7 @@ public class XmlAction {
         String curGroovy = getGroovyString();
         // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${curGroovy}")
         try {
-            groovyClassInternal = effi.compileGroovy(curGroovy, StringUtil.cleanStringForJavaName(location));
+            groovyClassInternal = ecfi.compileGroovy(curGroovy, StringUtil.cleanStringForJavaName(location));
         } catch (Throwable t) {
             groovyClassInternal = null;
             logger.error("Error parsing groovy String at [" + location + "]:\n" + writeGroovyWithLines() + "\n");
@@ -115,8 +102,8 @@ public class XmlAction {
             root.put("xmlActionsRoot", xmlNode);
 
             Writer outWriter = new StringWriter();
-//            Environment env = ecfi.resourceFacade.getXmlActionsScriptRunner().getXmlActionsTemplate().createProcessingEnvironment(root, outWriter);
-//            env.process();
+            Environment env = ecfi.resourceFacade.getXmlActionsScriptRunner().getXmlActionsTemplate().createProcessingEnvironment(root, outWriter);
+            env.process();
 
             groovyString = outWriter.toString();
         } catch (Exception e) {

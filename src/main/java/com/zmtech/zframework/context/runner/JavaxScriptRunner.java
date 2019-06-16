@@ -5,6 +5,7 @@ import com.zmtech.zframework.context.ExecutionContext;
 import com.zmtech.zframework.context.ExecutionContextFactory;
 import com.zmtech.zframework.context.ScriptRunner;
 import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zframework.exception.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +34,7 @@ public class JavaxScriptRunner implements ScriptRunner {
 
     public Object run(String location, String method, ExecutionContext ec) {
         // this doesn't support methods, so if passed warn about that
-        if (method!=null && !method.isEmpty()) logger.warn("Tried to invoke script at [${location}] with method [${method}] through javax.script (JSR-223) runner which does NOT support methods, so it is being ignored.", new BaseException("Script Run Location"))
+        if (method!=null && !method.isEmpty()) logger.warn("Tried to invoke script at [${location}] with method [${method}] through javax.script (JSR-223) runner which does NOT support methods, so it is being ignored.", new BaseException("Script Run Location"));
 
         ScriptEngine engine = mgr.getEngineByName(engineName);
         return bindAndRun(location, ec, engine, scriptLocationCache);
@@ -45,15 +46,23 @@ public class JavaxScriptRunner implements ScriptRunner {
         Bindings bindings = new SimpleBindings();
         for (Map.Entry ce : ec.getContext().entrySet()) bindings.put((String) ce.getKey(), ce.getValue());
 
-        Object result;
+        Object result = null;
         if (engine instanceof Compilable) {
             // cache the CompiledScript
             CompiledScript script = (CompiledScript) scriptLocationCache.get(location);
             if (script == null) {
-                script = engine.compile(ec.getResource().getLocationText(location, false));
+                try {
+                    script = ((Compilable) engine).compile(ec.getResource().getLocationText(location, false));
+                } catch (ScriptException e) {
+                    e.printStackTrace();
+                }
                 scriptLocationCache.put(location, script);
             }
-            result = script.eval(bindings);
+            try {
+                result = script.eval(bindings);
+            } catch (ScriptException e) {
+                e.printStackTrace();
+            }
         } else {
             // cache the script text
             String scriptText = (String) scriptLocationCache.get(location);
@@ -61,9 +70,13 @@ public class JavaxScriptRunner implements ScriptRunner {
                 scriptText = ec.getResource().getLocationText(location, false);
                 scriptLocationCache.put(location, scriptText);
             }
-            result = engine.eval(scriptText, bindings);
+            try {
+                result = engine.eval(scriptText, bindings);
+            } catch (ScriptException e) {
+                e.printStackTrace();
+            }
         }
 
-        return result
+        return result;
     }
 }
