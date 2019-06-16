@@ -14,18 +14,12 @@ public class ZEntry<K, V> implements Cache.Entry<K, V> {
     long accessCount = 0;
     boolean isExpired = false;
 
-    /**
-     * Use this only to create ZEntry to compare with an existing entry
-     */
-    ZEntry(K key, V value) {
+    public ZEntry(K key, V value) {
         this.key = key;
         this.value = value;
     }
 
-    /**
-     * Always use this for ZEntry that may be put in the cache
-     */
-    ZEntry(K key, V value, long createdTime) {
+    public ZEntry(K key, V value, long createdTime) {
         this.key = key;
         this.value = value;
         this.createdTime = createdTime;
@@ -46,7 +40,7 @@ public class ZEntry<K, V> implements Cache.Entry<K, V> {
     @Override
     public <T> T unwrap(Class<T> clazz) {
         if (clazz.isAssignableFrom(this.getClass())) return clazz.cast(this);
-        throw new IllegalArgumentException("Class " + clazz.getName() + " not compatible with ZCache.ZEntry");
+        throw new IllegalArgumentException("类型: " + clazz.getName() + " 不是 ZCache.ZEntry 类型!");
     }
 
     boolean valueEquals(V otherValue) {
