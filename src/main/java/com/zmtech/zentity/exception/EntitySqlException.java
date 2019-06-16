@@ -1,7 +1,5 @@
 package com.zmtech.zentity.exception;
 
-import com.zmtech.zentity.entity.EntityContext;
-
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

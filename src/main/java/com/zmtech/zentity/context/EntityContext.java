@@ -11,16 +11,15 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package com.zmtech.zentity.entity;
+package com.zmtech.zentity.context;
 
+import com.zmtech.zentity.entity.EntityFacade;
 import com.zmtech.zentity.transaction.TransactionFacade;
 import com.zmtech.zentity.util.ContextBinding;
 import com.zmtech.zentity.util.ContextStack;
 import groovy.lang.Closure;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Map;
 
 /**

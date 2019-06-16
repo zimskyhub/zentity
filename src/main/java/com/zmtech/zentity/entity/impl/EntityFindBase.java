@@ -1,5 +1,6 @@
 package com.zmtech.zentity.entity.impl;
 
+import com.zmtech.zentity.context.impl.EntityContextImpl;
 import com.zmtech.zentity.entity.*;
 import com.zmtech.zentity.entity.impl.condition.*;
 import com.zmtech.zentity.etl.SimpleEtl;

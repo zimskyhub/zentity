@@ -1,8 +1,8 @@
 
 package com.zmtech.zentity.transaction.impl;
 
-import com.zmtech.zentity.entity.impl.EntityContextFactoryImpl;
-import com.zmtech.zentity.entity.impl.EntityContextImpl;
+import com.zmtech.zentity.context.impl.EntityContextFactoryImpl;
+import com.zmtech.zentity.context.impl.EntityContextImpl;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.exception.TransactionException;
 import com.zmtech.zentity.transaction.TransactionFacade;

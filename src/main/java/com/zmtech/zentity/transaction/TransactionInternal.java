@@ -14,7 +14,7 @@
 package com.zmtech.zentity.transaction;
 
 
-import com.zmtech.zentity.entity.EntityContextFactory;
+import com.zmtech.zentity.context.EntityContextFactory;
 import com.zmtech.zentity.entity.EntityFacade;
 import com.zmtech.zentity.util.MNode;
 

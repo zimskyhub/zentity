@@ -1,8 +1,9 @@
-package com.zmtech.zentity.entity.impl;
+package com.zmtech.zentity.context.impl;
 
-import com.zmtech.zentity.entity.EntityContext;
-import com.zmtech.zentity.entity.EntityContextFactory;
+import com.zmtech.zentity.context.EntityContext;
+import com.zmtech.zentity.context.EntityContextFactory;
 import com.zmtech.zentity.entity.EntityFacade;
+import com.zmtech.zentity.entity.impl.EntityFacadeImpl;
 import com.zmtech.zentity.l10n.L10nFacade;
 import com.zmtech.zentity.l10n.impl.L10nFacadeImpl;
 import com.zmtech.zentity.transaction.TransactionFacade;
@@ -15,10 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.cache.Cache;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 
 public class EntityContextImpl implements EntityContext {

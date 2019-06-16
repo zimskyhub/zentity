@@ -1,6 +1,7 @@
 
 package com.zmtech.zentity.util;
 
+import com.zmtech.zentity.context.impl.EntityContextImpl;
 import com.zmtech.zentity.entity.EntityCondition;
 import com.zmtech.zentity.entity.EntityDatasourceFactory;
 import com.zmtech.zentity.entity.impl.*;

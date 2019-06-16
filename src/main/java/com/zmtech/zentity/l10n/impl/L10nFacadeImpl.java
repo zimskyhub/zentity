@@ -3,7 +3,7 @@ package com.zmtech.zentity.l10n.impl;
 
 import com.zmtech.zentity.entity.EntityFind;
 import com.zmtech.zentity.entity.EntityValue;
-import com.zmtech.zentity.entity.impl.EntityContextImpl;
+import com.zmtech.zentity.context.impl.EntityContextImpl;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.l10n.L10nFacade;
 import com.zmtech.zentity.util.ObjectUtil;

@@ -1,11 +1,10 @@
-package com.zmtech.zentity.entity;
+package com.zmtech.zentity.context;
 
+import com.zmtech.zentity.entity.EntityFacade;
 import com.zmtech.zentity.transaction.TransactionFacade;
 import groovy.lang.GroovyClassLoader;
 
 import javax.annotation.Nonnull;
-import java.util.LinkedHashMap;
-import java.util.List;
 
 public interface EntityContextFactory {
     /** Get the EntityContext associated with the current thread or initialize one and associate it with the thread. */
@@ -51,7 +50,8 @@ public interface EntityContextFactory {
     @Nonnull TransactionFacade getTransaction();
 
     /** For interactions with a relational database. */
-    @Nonnull EntityFacade getEntity();
+    @Nonnull
+    EntityFacade getEntity();
 
 //    /** For calling services (local or remote, sync or async or scheduled). */
 //    @Nonnull ServiceFacade getService();
