@@ -31,7 +31,7 @@ import java.util.Map;
  */
 @SuppressWarnings("unused")
 public interface ExecutionContext {
-    /** 取EntityContextFactory。. */
+    /** 取ExecutionContextFactory。. */
     @Nonnull
     ExecutionContextFactory getFactory();
 

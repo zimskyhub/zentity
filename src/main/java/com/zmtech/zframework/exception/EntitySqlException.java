@@ -59,7 +59,7 @@ public class EntitySqlException extends EntityException {
             // localize and append
 //            if (msg != null) {
 //                try {
-//                    ExecutionContext ec = Moqui.getEntityContext();
+//                    ExecutionContext ec = Moqui.getExecutionContext();
 //                    // TODO: need a different approach for localization, getting from DB may not be reliable after an error and may cause other errors (especially with Postgres and the auto rollback only)
 //                    // overrideMessage += ': ' + ec.l10n.localize(msg)
 //                    overrideMessage += ": " + msg;

@@ -13,7 +13,7 @@
  */
 package com.zmtech.zframework.resource;
 
-import org.moqui.resource.ResourceReference;
+import com.zmtech.zframework.resource.impl.ResourceReference;
 
 import javax.activation.DataSource;
 import javax.xml.transform.stream.StreamSource;

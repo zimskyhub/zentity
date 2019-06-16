@@ -51,7 +51,7 @@ public class EntityListImpl implements EntityList {
     @SuppressWarnings("unchecked")
     public EntityFacadeImpl getEfi() {
         if (efiTransient == null)
-            efiTransient = ((ExecutionContextFactoryImpl) Moqui.getEntityContextFactory()).entityFacade;
+            efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).entityFacade;
         return efiTransient;
     }
 

@@ -1,64 +1,52 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
-package com.zmtech.zframework.context.renderer
+package com.zmtech.zframework.context.renderer;
 
+import com.zmtech.zframework.context.ExecutionContextFactory;
+import com.zmtech.zframework.context.TemplateRenderer;
+import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
 import groovy.lang.Writable;
-import groovy.text.GStringTemplateEngine
-import groovy.text.Template
-import groovy.transform.CompileStatic
-import org.moqui.BaseArtifactException
-import org.moqui.context.ExecutionContextFactory
-import org.moqui.context.TemplateRenderer
-import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.jcache.MCache
-import org.moqui.resource.ResourceReference
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import groovy.text.GStringTemplateEngine;
+import groovy.text.Template;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import javax.cache.Cache
+import javax.cache.Cache;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Writer;
 
-@CompileStatic
-class GStringTemplateRenderer implements TemplateRenderer {
-    protected final static Logger logger = LoggerFactory.getLogger(GStringTemplateRenderer.class)
 
-    protected ExecutionContextFactoryImpl ecfi
-    protected Cache<String, Template> templateGStringLocationCache
+public class GStringTemplateRenderer implements TemplateRenderer {
+    protected final static Logger logger = LoggerFactory.getLogger(GStringTemplateRenderer.class);
 
-    GStringTemplateRenderer() { }
+    protected ExecutionContextFactoryImpl ecfi;
+    protected Cache<String, Template> templateGStringLocationCache;
 
-    TemplateRenderer init(ExecutionContextFactory ecf) {
-        this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateGStringLocationCache = ecfi.cacheFacade.getCache("resource.gstring.location", String.class, Template.class)
+    public GStringTemplateRenderer() { }
+
+    public TemplateRenderer init(ExecutionContextFactory ecf) {
+        this.ecfi = (ExecutionContextFactoryImpl) ecf;
+        this.templateGStringLocationCache = ecfi.getCache().getCache("resource.gstring.location", String.class, Template.class);
         return this
     }
 
-    void render(String location, Writer writer) {
-        Template theTemplate = getGStringTemplateByLocation(location)
-        Writable writable = theTemplate.make(ecfi.executionContext.context)
-        writable.writeTo(writer)
+    public void render(String location, Writer writer) {
+        Template theTemplate = getGStringTemplateByLocation(location);
+        Writable writable = theTemplate.make(ecfi.getExecutionContext().getContext());
+        try {
+            writable.writeTo(writer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    String stripTemplateExtension(String fileName) {
+    public String stripTemplateExtension(String fileName) {
         return fileName.contains(".gstring") ? fileName.replace(".gstring", "") : fileName
     }
 
-    void destroy() { }
+    public void destroy() { }
 
-    Template getGStringTemplateByLocation(String location) {
+    public Template getGStringTemplateByLocation(String location) {
         Template theTemplate;
         if (templateGStringLocationCache instanceof MCache) {
             MCache<String, Template> mCache = (MCache) templateGStringLocationCache;

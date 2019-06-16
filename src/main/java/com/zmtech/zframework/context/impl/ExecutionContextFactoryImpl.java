@@ -600,7 +600,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //        if (enumCount == 0) {
 //            logger.info("Found ${enumCount} Enumeration records, loading empty-db-load data types (${emptyDbLoad})")
 //
-//            ExecutionContext ec = getEntityContext();
+//            ExecutionContext ec = getExecutionContext();
 //            try {
 ////                ec.getArtifactExecution().disableAuthz()
 ////                ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
@@ -628,7 +628,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //            // if this instance_purpose is test load type 'test' data
 //            if ("test".equals(System.getProperty("instance_purpose"))) {
 //                logger.warn("Loading 'test' type data (instance_purpose=test)");
-//                ExecutionContext ec = getEntityContext();
+//                ExecutionContext ec = getExecutionContext();
 //                try {
 ////                    ec.getArtifactExecution().disableAuthz()
 ////                    ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
@@ -743,7 +743,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         activeContext.remove();
 
         // use System.out directly for this as logger may already be stopped
-        System.out.println("ZEntityContextFactory Destroyed");
+        System.out.println("ZFramework ExecutionContextFactory Destroyed");
     }
     @Override
     public boolean isDestroyed() { return this.destroyed.get(); }
@@ -872,7 +872,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ====================================================
 
     @Override @Nonnull
-    public ExecutionContext getEntityContext() { return this.getEci(); }
+    public ExecutionContext getExecutionContext() { return this.getEci(); }
 
     public ExecutionContextImpl getEci() {
         // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
@@ -888,7 +888,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return ec;
     }
 
-    public void destroyActiveEntityContext() {
+    public void destroyActiveExecutionContext() {
         ExecutionContext ec = this.activeContext.get();
         if (ec != null) {
             ec.destroy();
@@ -898,7 +898,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     /** Using an EC in multiple threads is dangerous as much of the ECI is not designed to be thread safe. */
-    public void useEntityContextInThread(ExecutionContextImpl eci) {
+    public void useExecutionContextInThread(ExecutionContextImpl eci) {
         ExecutionContextImpl curEc = activeContext.get();
         if (curEc != null) curEc.destroy();
         activeContext.set(eci);

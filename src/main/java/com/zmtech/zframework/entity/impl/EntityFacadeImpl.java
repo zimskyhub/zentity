@@ -148,7 +148,7 @@ public class EntityFacadeImpl implements EntityFacade {
     @Override
     public Calendar getCalendarForTzLc() {
         // the OLD approach using user's TimeZone/Locale, bad idea because user may change for same record, getting different value, etc
-        // return efi.getEcfi().getEntityContext().getUser().getCalendarForTzLcOnly()
+        // return efi.getEcfi().getExecutionContext().getUser().getCalendarForTzLcOnly()
 
         // the safest approach but from profiling tests this is VERY slow
         // return Calendar.getInstance(databaseTimeZone, databaseLocale)

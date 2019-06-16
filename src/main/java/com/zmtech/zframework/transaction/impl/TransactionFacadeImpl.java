@@ -185,7 +185,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
 
             try {
                 txThread = Thread.start('RequireNewTx', ()->{
-                    if (threadReuseEci) ecfi.useEntityContextInThread(eci);
+                    if (threadReuseEci) ecfi.useExecutionContextInThread(eci);
                     try {
                         if (beginTx) {
                             result = runUseOrBegin(timeout, rollbackMessage, closure);

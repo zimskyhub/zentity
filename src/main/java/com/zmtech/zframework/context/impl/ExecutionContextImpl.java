@@ -237,13 +237,13 @@ public class ExecutionContextImpl implements ExecutionContext {
 
         @Override
         public void run() {
-            if (threadEci != null) ecfi.useEntityContextInThread(threadEci);
+            if (threadEci != null) ecfi.useExecutionContextInThread(threadEci);
             try {
                 closure.call();
             } catch (Throwable t) {
                 loggerDirect.error("Error in EC worker Runnable", t);
             } finally {
-                if (threadEci == null) ecfi.destroyActiveEntityContext();
+                if (threadEci == null) ecfi.destroyActiveExecutionContext();
             }
         }
 

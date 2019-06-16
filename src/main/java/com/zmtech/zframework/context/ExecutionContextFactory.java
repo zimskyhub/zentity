@@ -13,10 +13,10 @@ import javax.annotation.Nonnull;
 public interface ExecutionContextFactory {
     /** Get the ExecutionContext associated with the current thread or initialize one and associate it with the thread. */
     @Nonnull
-    ExecutionContext getEntityContext();
+    ExecutionContext getExecutionContext();
 
     /** Destroy the active Execution Context. When another is requested in this thread a new one will be created. */
-    void destroyActiveEntityContext();
+    void destroyActiveExecutionContext();
 
     /** Called after construction but before registration with Moqui/Servlet, check for empty database and load configured data. */
     boolean checkEmptyDb();

@@ -1,31 +1,16 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
 package com.zmtech.zframework.context.renderer;
 
+import com.zmtech.zframework.cache.impl.ZCache;
+import com.zmtech.zframework.context.ExecutionContextFactory;
+import com.zmtech.zframework.context.TemplateRenderer;
+import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zframework.exception.BaseException;
+import com.zmtech.zframework.resource.impl.ResourceReference;
 import freemarker.core.Environment;
 import freemarker.core.InvalidReferenceException;
 import freemarker.ext.beans.BeansWrapper;
 import freemarker.ext.beans.BeansWrapperBuilder;
 import freemarker.template.*;
-import groovy.transform.CompileStatic;
-import org.moqui.BaseArtifactException;
-import org.moqui.BaseException;
-import org.moqui.context.ExecutionContextFactory;
-import org.moqui.context.TemplateRenderer;
-import org.moqui.impl.context.ExecutionContextFactoryImpl;
-import org.moqui.jcache.MCache;
-import org.moqui.resource.ResourceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +18,6 @@ import javax.cache.Cache;
 import java.io.*;
 import java.util.Locale;
 
-@CompileStatic
 public class FtlTemplateRenderer implements TemplateRenderer {
     public static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
     private static final Logger logger = LoggerFactory.getLogger(FtlTemplateRenderer.class);
@@ -48,7 +32,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
     public TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf;
         defaultFtlConfiguration = makeFtlConfiguration(ecfi);
-        templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location", String.class, Template.class);
+        templateFtlLocationCache = ecfi.getCache().getCache("resource.ftl.location", String.class, Template.class);
         return this;
     }
 
@@ -56,7 +40,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         Template theTemplate = getFtlTemplateByLocation(location);
         try {
             theTemplate.createProcessingEnvironment(ecfi.getEci().contextStack, writer).process();
-        } catch (Exception e) { throw new BaseArtifactException("Error rendering template at " + location, e); }
+        } catch (Exception e) { throw new BaseException("Error rendering template at " + location, e); }
     }
     public String stripTemplateExtension(String fileName) { return fileName.contains(".ftl") ? fileName.replace(".ftl", "") : fileName; }
 
@@ -67,9 +51,9 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         boolean hasVersion = location.indexOf("#") > 0;
         Template theTemplate = null;
         if (!hasVersion) {
-            if (templateFtlLocationCache instanceof MCache) {
-                MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
-                ResourceReference rr = ecfi.resourceFacade.getLocationReference(location);
+            if (templateFtlLocationCache instanceof ZCache) {
+                ZCache<String, Template> mCache = (ZCache) templateFtlLocationCache;
+                ResourceReference rr = ecfi.getResource().getLocationReference(location);
                 // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
                 //     updated time is older/less than rr.lastModified)
                 long lastModified = rr != null ? rr.getLastModified() : 0L;
@@ -80,7 +64,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             }
         }
         if (theTemplate == null) theTemplate = makeTemplate(location, hasVersion);
-        if (theTemplate == null) throw new BaseArtifactException("Could not find template at " + location);
+        if (theTemplate == null) throw new BaseException("Could not find template at " + location);
         return theTemplate;
     }
 
@@ -93,10 +77,10 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         Template newTemplate;
         Reader templateReader = null;
         try {
-            templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(location), "UTF-8");
+            templateReader = new InputStreamReader(ecfi.getResource().getLocationStream(location), "UTF-8");
             newTemplate = new Template(location, templateReader, getFtlConfiguration());
         } catch (Exception e) {
-            throw new BaseArtifactException("Error while initializing template at " + location, e);
+            throw new BaseException("Error while initializing template at " + location, e);
         } finally {
             if (templateReader != null) {
                 try { templateReader.close(); }
@@ -142,9 +126,9 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             // NOTE: doing this because template loading behavior with cache/etc not desired and was having issues
             Template theTemplate;
             if (parseAsFTL) {
-                theTemplate = ecfi.resourceFacade.getFtlTemplateRenderer().getFtlTemplateByLocation(name);
+                theTemplate = ecfi.getResource().getFtlTemplateRenderer().getFtlTemplateByLocation(name);
             } else {
-                String text = ecfi.resourceFacade.getLocationText(name, true);
+                String text = ecfi.getResource().getLocationText(name, true);
                 theTemplate = Template.getPlainTextTemplate(name, text, this);
             }
 
