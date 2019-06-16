@@ -1,8 +1,8 @@
 package com.zmtech.zentity.util;
 
 import com.zmtech.zentity.actions.XmlAction;
+import com.zmtech.zentity.context.impl.ExecutionContextImpl;
 import com.zmtech.zentity.entity.EntityValue;
-import com.zmtech.zentity.context.impl.EntityContextImpl;
 import com.zmtech.zentity.exception.EntityException;
 import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;
@@ -88,7 +88,7 @@ public class AggregationUtil {
 
 
     @SuppressWarnings("unchecked")
-    public ArrayList<Map<String, Object>> aggregateList(Object listObj, Set<String> includeFields, boolean makeSubList, EntityContextImpl eci) {
+    public ArrayList<Map<String, Object>> aggregateList(Object listObj, Set<String> includeFields, boolean makeSubList, ExecutionContextImpl eci) {
         if (groupFields == null || groupFields.length == 0) makeSubList = false;
         ArrayList<Map<String, Object>> resultList = new ArrayList<>();
         if (listObj == null) return resultList;
@@ -160,7 +160,7 @@ public class AggregationUtil {
     @SuppressWarnings("unchecked")
     private void processAggregateOriginal(Object curObject, ArrayList<Map<String, Object>> resultList, Set<String> includeFields,
                                           Map<Map<String, Object>, Map<String, Object>> groupRows, Map<String, Object> totalsMap,
-                                          int index, boolean hasNext, boolean makeSubList, EntityContextImpl eci) {
+                                          int index, boolean hasNext, boolean makeSubList, ExecutionContextImpl eci) {
         Map curMap = null;
         if (curObject instanceof EntityValue) {
             curMap = ((EntityValue) curObject).getMap();

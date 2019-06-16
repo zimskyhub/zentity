@@ -1,6 +1,6 @@
 package com.zmtech.zentity.entity.impl;
 
-import com.zmtech.zentity.context.impl.EntityContextImpl;
+import com.zmtech.zentity.context.impl.ExecutionContextImpl;
 import com.zmtech.zentity.entity.*;
 import com.zmtech.zentity.entity.impl.condition.*;
 import com.zmtech.zentity.etl.SimpleEtl;
@@ -356,7 +356,7 @@ public abstract class EntityFindBase implements EntityFind {
 //    }
 //    public EntityFind searchFormInputs(String inputFieldsMapName, Map<String, Object> defaultParameters, String skipFields,
 //                                String defaultOrderBy, boolean alwaysPaginate) {
-//        EntityContextImpl ec = efi.ecfi.getEci()
+//        ExecutionContextImpl ec = efi.ecfi.getEci()
 //        Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ec.resource.expression(inputFieldsMapName, "") : ec.context
 //        return searchFormMap(inf, defaultParameters, skipFields, defaultOrderBy, alwaysPaginate)
 //    }
@@ -364,7 +364,7 @@ public abstract class EntityFindBase implements EntityFind {
 //    @Override
 //    public EntityFind searchFormMap(Map<String, Object> inputFieldsMap, Map<String, Object> defaultParameters, String skipFields,
 //                             String defaultOrderBy, boolean alwaysPaginate) {
-//        EntityContextImpl ec = efi.ecfi.getEci();
+//        ExecutionContextImpl ec = efi.ecfi.getEci();
 //
 //        // to avoid issues with entities that have cache=true, if no cache value is specified for this set it to false (avoids pagination errors, etc)
 //        if (useCache == null) useCache(false);
@@ -412,7 +412,7 @@ public abstract class EntityFindBase implements EntityFind {
 //        return this
 //    }
 //
-//    protected boolean processInputFields(Map<String, Object> inputFieldsMap, Set<String> skipFieldSet, EntityContextImpl ec) {
+//    protected boolean processInputFields(Map<String, Object> inputFieldsMap, Set<String> skipFieldSet, ExecutionContextImpl ec) {
 //        EntityDefinition ed = getEntityDef()
 //        boolean addedConditions = false
 //        for (FieldInfo fi in ed.allFieldInfoList) {
@@ -684,7 +684,7 @@ public abstract class EntityFindBase implements EntityFind {
                 "OFFSET ["+offset+"] LIMIT ["+limit+"] FOR UPDATE ["+forUpdate+"]";
     }
 
-    private static String makeErrorMsg(String baseMsg, String expandMsg, EntityConditionImplBase cond, EntityDefinition ed, EntityContextImpl ec) {
+    private static String makeErrorMsg(String baseMsg, String expandMsg, EntityConditionImplBase cond, EntityDefinition ed, ExecutionContextImpl ec) {
         Map<String, Object> errorContext = new HashMap<>();
         errorContext.put("entityName", ed.getEntityName());
         errorContext.put("condition", cond);
@@ -703,7 +703,7 @@ public abstract class EntityFindBase implements EntityFind {
 
     @Override
     public EntityValue one() throws EntityException {
-        EntityContextImpl ec = efi.ecfi.getEci();
+        ExecutionContextImpl ec = efi.ecfi.getEci();
 //        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 //        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false;
         try {
@@ -729,7 +729,7 @@ public abstract class EntityFindBase implements EntityFind {
     }
     @Override
     public Map<String, Object> oneMaster(String name) {
-        EntityContextImpl ec = efi.ecfi.getEci();
+        ExecutionContextImpl ec = efi.ecfi.getEci();
 //        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 //        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
         try {
@@ -755,7 +755,7 @@ public abstract class EntityFindBase implements EntityFind {
         return null;
     }
 
-    protected EntityValue oneInternal(EntityContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
+    protected EntityValue oneInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         if (this.dynamicView != null) throw new EntityException("Dynamic View not supported for 'one' find.");
 
         boolean isViewEntity = ed.isViewEntity;
@@ -965,7 +965,7 @@ public abstract class EntityFindBase implements EntityFind {
 
     @Override
     public EntityList list() throws EntityException {
-        EntityContextImpl ec = efi.ecfi.getEci();
+        ExecutionContextImpl ec = efi.ecfi.getEci();
 //        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 //        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false;
         try {
@@ -985,7 +985,7 @@ public abstract class EntityFindBase implements EntityFind {
     }
     @Override
     public List<Map<String, Object>> listMaster(String name) {
-        EntityContextImpl ec = efi.ecfi.getEci();
+        ExecutionContextImpl ec = efi.ecfi.getEci();
 //        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 //        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
         try {
@@ -1007,7 +1007,7 @@ public abstract class EntityFindBase implements EntityFind {
         return null;
     }
 
-    protected EntityList listInternal(EntityContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
+    protected EntityList listInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         if (requireSearchFormParameters && !hasSearchFormParameters) return new EntityListImpl(efi);
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
@@ -1149,7 +1149,7 @@ public abstract class EntityFindBase implements EntityFind {
 
     @Override
     public EntityListIterator iterator() throws EntityException {
-        EntityContextImpl ec = efi.ecfi.getEci();
+        ExecutionContextImpl ec = efi.ecfi.getEci();
 //        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 //        boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
         try {
@@ -1167,7 +1167,7 @@ public abstract class EntityFindBase implements EntityFind {
 //            if (enableAuthz) ec.artifactExecutionFacade.enableAuthz()
         }
     }
-    protected EntityListIterator iteratorInternal(EntityContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
+    protected EntityListIterator iteratorInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         if (requireSearchFormParameters && !hasSearchFormParameters) return null;
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
@@ -1274,7 +1274,7 @@ public abstract class EntityFindBase implements EntityFind {
 
     @Override
     public long count() throws EntityException {
-        EntityContextImpl ec = efi.ecfi.getEci();
+        ExecutionContextImpl ec = efi.ecfi.getEci();
 //        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 //        boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
         try {
@@ -1292,7 +1292,7 @@ public abstract class EntityFindBase implements EntityFind {
 //            if (enableAuthz) ec.artifactExecutionFacade.enableAuthz()
         }
     }
-    protected long countInternal(EntityContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
+    protected long countInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         if (requireSearchFormParameters && !hasSearchFormParameters) return 0L;
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;

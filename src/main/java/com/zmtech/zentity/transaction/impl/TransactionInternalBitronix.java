@@ -3,9 +3,9 @@ package com.zmtech.zentity.transaction.impl;
 import bitronix.tm.BitronixTransactionManager;
 import bitronix.tm.TransactionManagerServices;
 import bitronix.tm.resource.jdbc.PoolingDataSource;
-import com.zmtech.zentity.context.EntityContextFactory;
+import com.zmtech.zentity.context.ExecutionContextFactory;
+import com.zmtech.zentity.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zentity.entity.EntityFacade;
-import com.zmtech.zentity.context.impl.EntityContextFactoryImpl;
 import com.zmtech.zentity.entity.impl.EntityFacadeImpl;
 import com.zmtech.zentity.transaction.TransactionInternal;
 import com.zmtech.zentity.util.MNode;
@@ -22,7 +22,7 @@ import java.util.List;
 public class TransactionInternalBitronix implements TransactionInternal {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionInternalBitronix.class);
 
-    protected EntityContextFactoryImpl ecfi;
+    protected ExecutionContextFactoryImpl ecfi;
 
     protected BitronixTransactionManager btm;
     protected UserTransaction ut;
@@ -31,8 +31,8 @@ public class TransactionInternalBitronix implements TransactionInternal {
     protected List<PoolingDataSource> pdsList = new ArrayList<>();
 
     @Override
-    public TransactionInternal init(EntityContextFactory ecf) {
-        this.ecfi = (EntityContextFactoryImpl) ecf;
+    public TransactionInternal init(ExecutionContextFactory ecf) {
+        this.ecfi = (ExecutionContextFactoryImpl) ecf;
 
         // NOTE: see the bitronix-default-config.properties file for more config
 

@@ -6,17 +6,17 @@ import groovy.lang.GroovyClassLoader;
 
 import javax.annotation.Nonnull;
 
-public interface EntityContextFactory {
-    /** Get the EntityContext associated with the current thread or initialize one and associate it with the thread. */
+public interface ExecutionContextFactory {
+    /** Get the ExecutionContext associated with the current thread or initialize one and associate it with the thread. */
     @Nonnull
-    EntityContext getEntityContext();
+    ExecutionContext getEntityContext();
 
     /** Destroy the active Execution Context. When another is requested in this thread a new one will be created. */
     void destroyActiveEntityContext();
 
     /** Called after construction but before registration with Moqui/Servlet, check for empty database and load configured data. */
     boolean checkEmptyDb();
-    /** Destroy this EntityContextFactory and all resources it uses (all facades, tools, etc) */
+    /** Destroy this ExecutionContextFactory and all resources it uses (all facades, tools, etc) */
     void destroy();
     boolean isDestroyed();
 

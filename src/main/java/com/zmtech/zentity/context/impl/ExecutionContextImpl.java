@@ -1,7 +1,7 @@
 package com.zmtech.zentity.context.impl;
 
-import com.zmtech.zentity.context.EntityContext;
-import com.zmtech.zentity.context.EntityContextFactory;
+import com.zmtech.zentity.context.ExecutionContext;
+import com.zmtech.zentity.context.ExecutionContextFactory;
 import com.zmtech.zentity.entity.EntityFacade;
 import com.zmtech.zentity.entity.impl.EntityFacadeImpl;
 import com.zmtech.zentity.l10n.L10nFacade;
@@ -20,11 +20,11 @@ import javax.cache.Cache;
 import java.util.ArrayList;
 import java.util.Map;
 
-public class EntityContextImpl implements EntityContext {
+public class ExecutionContextImpl implements ExecutionContext {
 
-    private static final Logger loggerDirect = LoggerFactory.getLogger(EntityContextFactoryImpl.class);
+    private static final Logger loggerDirect = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class);
 
-    public final EntityContextFactoryImpl ecfi;
+    public final ExecutionContextFactoryImpl ecfi;
     public final ContextStack contextStack = new ContextStack();
     public final ContextBinding contextBindingInternal = new ContextBinding(contextStack);
 
@@ -42,7 +42,7 @@ public class EntityContextImpl implements EntityContext {
     public final long forThreadId;
     // public final Exception createLoc;
 
-    public EntityContextImpl(EntityContextFactoryImpl ecfi, Thread forThread) {
+    public ExecutionContextImpl(ExecutionContextFactoryImpl ecfi, Thread forThread) {
         this.ecfi = ecfi;
         // NOTE: no WebFacade init here, wait for call in to do that
         // put reference to this in the context root
@@ -74,7 +74,7 @@ public class EntityContextImpl implements EntityContext {
 
         initCaches();
 
-        if (loggerDirect.isTraceEnabled()) loggerDirect.trace("EntityContextImpl initialized");
+        if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl initialized");
     }
 
     @SuppressWarnings("unchecked")
@@ -85,7 +85,8 @@ public class EntityContextImpl implements EntityContext {
     Cache<String, String> getL10nMessageCache() { return l10nMessageCache; }
     public Cache<String, ArrayList> getTarpitHitCache() { return tarpitHitCache; }
 
-    @Override public @Nonnull EntityContextFactory getFactory() { return ecfi; }
+    @Override public @Nonnull
+    ExecutionContextFactory getFactory() { return ecfi; }
 
     @Override public @Nonnull ContextStack getContext() { return contextStack; }
     @Override public @Nonnull Map<String, Object> getContextRoot() { return contextStack.getRootMap(); }
@@ -158,7 +159,7 @@ public class EntityContextImpl implements EntityContext {
 //        String visitorId = userFacade.getVisitorId();
 //        if (visitorId != null && !visitorId.isEmpty()) MDC.put("moqui_visitorId", visitorId);
 //
-//        if (loggerDirect.isTraceEnabled()) loggerDirect.trace("EntityContextImpl WebFacade initialized");
+//        if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl WebFacade initialized");
 //    }
 
     /** Meant to be used to set a test stub that implements the WebFacade interface */
@@ -204,24 +205,24 @@ public class EntityContextImpl implements EntityContext {
         MDC.remove("moqui_userId");
         MDC.remove("moqui_visitorId");
 
-        if (loggerDirect.isTraceEnabled()) loggerDirect.trace("EntityContextImpl destroyed");
+        if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl destroyed");
     }
 
-    @Override public String toString() { return "EntityContext"; }
+    @Override public String toString() { return "ExecutionContext"; }
 
     public static class ThreadPoolRunnable implements Runnable {
-        private EntityContextImpl threadEci;
-        private EntityContextFactoryImpl ecfi;
+        private ExecutionContextImpl threadEci;
+        private ExecutionContextFactoryImpl ecfi;
         private Closure closure;
         /** With this constructor (passing ECI) the ECI is used in the separate thread */
-        public ThreadPoolRunnable(EntityContextImpl eci, Closure closure) {
+        public ThreadPoolRunnable(ExecutionContextImpl eci, Closure closure) {
             threadEci = eci;
             ecfi = eci.ecfi;
             this.closure = closure;
         }
 
         /** With this constructor (passing ECFI) a new ECI is created for the separate thread */
-        public ThreadPoolRunnable(EntityContextFactoryImpl ecfi, Closure closure) {
+        public ThreadPoolRunnable(ExecutionContextFactoryImpl ecfi, Closure closure) {
             this.ecfi = ecfi;
             threadEci = null;
             this.closure = closure;
@@ -239,8 +240,8 @@ public class EntityContextImpl implements EntityContext {
             }
         }
 
-        public EntityContextFactoryImpl getEcfi() { return ecfi; }
-        public void setEcfi(EntityContextFactoryImpl ecfi) { this.ecfi = ecfi; }
+        public ExecutionContextFactoryImpl getEcfi() { return ecfi; }
+        public void setEcfi(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi; }
         public Closure getClosure() { return closure; }
         public void setClosure(Closure closure) { this.closure = closure; }
     }

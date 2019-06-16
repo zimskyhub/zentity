@@ -1,7 +1,7 @@
 package com.zmtech.zentity.entity.impl;
 
-import com.zmtech.zentity.context.impl.EntityContextFactoryImpl;
-import com.zmtech.zentity.context.impl.EntityContextImpl;
+import com.zmtech.zentity.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zentity.context.impl.ExecutionContextImpl;
 import com.zmtech.zentity.entity.*;
 import com.zmtech.zentity.etl.SimpleEtl;
 import com.zmtech.zentity.exception.EntityException;
@@ -32,7 +32,7 @@ public class EntityFacadeImpl implements EntityFacade {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFacadeImpl.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
 
-    public final EntityContextFactoryImpl ecfi;
+    public final ExecutionContextFactoryImpl ecfi;
     public final EntityConditionFactoryImpl entityConditionFactory;
 
     protected final HashMap<String, EntityDatasourceFactory> datasourceFactoryByGroupMap = new ConcurrentHashMap<>();
@@ -72,7 +72,7 @@ public class EntityFacadeImpl implements EntityFacade {
 
     protected final EntityListImpl emptyList;
 
-    public EntityFacadeImpl(EntityContextFactoryImpl ecfi) {
+    public EntityFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi;
         entityConditionFactory = new EntityConditionFactoryImpl(this);
 
@@ -1382,7 +1382,7 @@ public class EntityFacadeImpl implements EntityFacade {
     /** Simple, fast find by primary key; doesn't filter find based on authz; doesn't use TransactionCache
      * For cached queries this is about 50% faster (6M/s vs 4M/s) for non-cached queries only about 10% faster (500K vs 450K) */
     public EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values) {
-        EntityContextImpl ec = ecfi.getEci()
+        ExecutionContextImpl ec = ecfi.getEci()
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
         try {

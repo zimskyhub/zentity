@@ -1,9 +1,9 @@
 package com.zmtech.zentity.l10n.impl;
 
 
+import com.zmtech.zentity.context.impl.ExecutionContextImpl;
 import com.zmtech.zentity.entity.EntityFind;
 import com.zmtech.zentity.entity.EntityValue;
-import com.zmtech.zentity.context.impl.EntityContextImpl;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.l10n.L10nFacade;
 import com.zmtech.zentity.util.ObjectUtil;
@@ -26,9 +26,9 @@ public class L10nFacadeImpl implements L10nFacade {
     final static BigDecimalValidator bigDecimalValidator = new BigDecimalValidator(false);
     final static CalendarValidator calendarValidator = new CalendarValidator();
 
-    protected final EntityContextImpl eci;
+    protected final ExecutionContextImpl eci;
 
-    public L10nFacadeImpl(EntityContextImpl eci) { this.eci = eci; }
+    public L10nFacadeImpl(ExecutionContextImpl eci) { this.eci = eci; }
 
     protected Locale getLocale() { return eci.userFacade.getLocale(); }
     protected TimeZone getTimeZone() { return eci.userFacade.getTimeZone(); }

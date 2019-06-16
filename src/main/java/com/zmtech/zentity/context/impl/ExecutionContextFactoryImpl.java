@@ -1,7 +1,7 @@
 package com.zmtech.zentity.context.impl;
 
-import com.zmtech.zentity.context.EntityContext;
-import com.zmtech.zentity.context.EntityContextFactory;
+import com.zmtech.zentity.context.ExecutionContext;
+import com.zmtech.zentity.context.ExecutionContextFactory;
 import com.zmtech.zentity.entity.*;
 import com.zmtech.zentity.entity.impl.EntityFacadeImpl;
 import com.zmtech.zentity.transaction.TransactionFacade;
@@ -20,17 +20,17 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class EntityContextFactoryImpl implements EntityContextFactory {
+public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
-    protected final static Logger logger = LoggerFactory.getLogger(EntityContextFactoryImpl.class);
+    protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
 
     private AtomicBoolean destroyed = new AtomicBoolean(false);
     protected ZClassLoader zClassLoader;
     protected GroovyClassLoader groovyClassLoader;
     protected CompilerConfiguration groovyCompilerConf;
-    public final ThreadLocal<EntityContextImpl> activeContext = new ThreadLocal<>();
-    protected final Map<Long, EntityContextImpl> activeContextMap = new HashMap<>();
+    public final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>();
+    protected final Map<Long, ExecutionContextImpl> activeContextMap = new HashMap<>();
     // NOTE: this is experimental, don't set to true! still issues with unique class names, etc
     // also issue with how to support recompile of actions on change, could just use for expressions but that only helps so much
     // maybe some way to load from disk only if timestamp newer for XmlActions and GroovyScriptRunner
@@ -101,7 +101,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
      * it can initialize on its own. This is the constructor to be used by the ServiceLoader in the Moqui.java file,
      * or by init methods in a servlet or context filter or OSGi component or Spring component or whatever.
      */
-    public EntityContextFactoryImpl() {
+    public ExecutionContextFactoryImpl() {
 
         long initStartTime = System.currentTimeMillis();
 
@@ -182,7 +182,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
     }
 
     /** This constructor takes the runtime directory path and conf file path directly. */
-    public EntityContextFactoryImpl(String runtimePathParm, String confPathParm) {
+    public ExecutionContextFactoryImpl(String runtimePathParm, String confPathParm) {
         long initStartTime = System.currentTimeMillis();
 
 //        // setup the runtimeFile
@@ -594,7 +594,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 //        if (enumCount == 0) {
 //            logger.info("Found ${enumCount} Enumeration records, loading empty-db-load data types (${emptyDbLoad})")
 //
-//            EntityContext ec = getEntityContext();
+//            ExecutionContext ec = getEntityContext();
 //            try {
 ////                ec.getArtifactExecution().disableAuthz()
 ////                ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
@@ -622,7 +622,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 //            // if this instance_purpose is test load type 'test' data
 //            if ("test".equals(System.getProperty("instance_purpose"))) {
 //                logger.warn("Loading 'test' type data (instance_purpose=test)");
-//                EntityContext ec = getEntityContext();
+//                ExecutionContext ec = getEntityContext();
 //                try {
 ////                    ec.getArtifactExecution().disableAuthz()
 ////                    ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
@@ -653,7 +653,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
     @Override
     public void destroy() {
         if (destroyed.getAndSet(true)) {
-            logger.warn("Not destroying EntityContextFactory, already destroyed (or destroying)");
+            logger.warn("Not destroying ExecutionContextFactory, already destroyed (or destroying)");
             return;
         }
 
@@ -747,10 +747,10 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
         try {
             if (!this.isDestroyed()) {
                 this.destroy();
-                logger.warn("EntityContextFactoryImpl not destroyed, caught in finalize.");
+                logger.warn("ExecutionContextFactoryImpl not destroyed, caught in finalize.");
             }
         } catch (Exception e) {
-            logger.warn("Error in destroy, called in finalize of EntityContextFactoryImpl", e);
+            logger.warn("Error in destroy, called in finalize of ExecutionContextFactoryImpl", e);
         }
         super.finalize();
     }
@@ -759,7 +759,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 //    public void triggerDynamicReInit() {
 //        Thread.start("EcfiReInit", (e ->{
 //            sleep(2000); // wait 2 seconds
-//            Moqui.dynamicReInit(EntityContextFactoryImpl.class, internalServletContext)
+//            Moqui.dynamicReInit(ExecutionContextFactoryImpl.class, internalServletContext)
 //        }))
 //    }
 
@@ -804,7 +804,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
     /** This is called when message received from topic (possibly distributed) */
 //    void notifyNotificationMessageListeners(NotificationMessageImpl nmi) {
 //        // process notifications in the worker thread pool
-//        EntityContextImpl.ThreadPoolRunnable runnable = new EntityContextImpl.ThreadPoolRunnable(this, {
+//        ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(this, {
 //        int nmlSize = registeredNotificationMessageListeners.size()
 //        for (int i = 0; i < nmlSize; i++) {
 //            NotificationMessageListener nml = (NotificationMessageListener) registeredNotificationMessageListeners.get(i)
@@ -866,24 +866,24 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
     // ====================================================
 
     @Override @Nonnull
-    public EntityContext getEntityContext() { return this.getEci(); }
+    public ExecutionContext getEntityContext() { return this.getEci(); }
 
-    public EntityContextImpl getEci() {
-        // the EntityContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
-        EntityContextImpl ec = (EntityContextImpl) activeContext.get();
+    public ExecutionContextImpl getEci() {
+        // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
+        ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get();
         if (ec != null) return ec;
 
         Thread currentThread = Thread.currentThread();
-//        if (logger.traceEnabled) logger.trace("Creating new EntityContext in thread [${currentThread.id}:${currentThread.name}]")
+//        if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${currentThread.id}:${currentThread.name}]")
         if (!currentThread.getContextClassLoader().equals(zClassLoader)) currentThread.setContextClassLoader(zClassLoader);
-        ec = new EntityContextImpl(this, currentThread);
+        ec = new ExecutionContextImpl(this, currentThread);
         this.activeContext.set(ec);
         this.activeContextMap.put(currentThread.getId(), ec);
         return ec;
     }
 
     public void destroyActiveEntityContext() {
-        EntityContext ec = this.activeContext.get();
+        ExecutionContext ec = this.activeContext.get();
         if (ec != null) {
             ec.destroy();
             this.activeContext.remove();
@@ -892,8 +892,8 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
     }
 
     /** Using an EC in multiple threads is dangerous as much of the ECI is not designed to be thread safe. */
-    public void useEntityContextInThread(EntityContextImpl eci) {
-        EntityContextImpl curEc = activeContext.get();
+    public void useEntityContextInThread(ExecutionContextImpl eci) {
+        ExecutionContextImpl curEc = activeContext.get();
         if (curEc != null) curEc.destroy();
         activeContext.set(eci);
     }
@@ -1161,18 +1161,18 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 //    }
 
 //    static class ComponentInfo {
-//        EntityContextFactoryImpl ecfi
+//        ExecutionContextFactoryImpl ecfi
 //        String name, location, version
 //        Map versionMap = null
 //        ResourceReference componentRr
 //        Set<String> dependsOnNames = new LinkedHashSet<String>()
-//        ComponentInfo(String baseLocation, MNode componentNode, EntityContextFactoryImpl ecfi) {
+//        ComponentInfo(String baseLocation, MNode componentNode, ExecutionContextFactoryImpl ecfi) {
 //            this.ecfi = ecfi
 //            String curLoc = null
 //            if (baseLocation) curLoc = baseLocation + "/" + componentNode.attribute("location")
 //            init(curLoc, componentNode)
 //        }
-//        ComponentInfo(String location, EntityContextFactoryImpl ecfi) {
+//        ComponentInfo(String location, ExecutionContextFactoryImpl ecfi) {
 //            this.ecfi = ecfi
 //            init(location, null)
 //        }
@@ -1353,7 +1353,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 //        // Always save slow hits above userImpactMinMillis regardless of settings
 //        if (!isEntity && ((isSlowHit && runningTimeMillis > ContextJavaUtil.userImpactMinMillis) ||
 //                Boolean.TRUE.is((Boolean) artifactPersistHitByTypeEnum.get(artifactTypeEnum)))) {
-//            EntityContextImpl eci = getEci()
+//            ExecutionContextImpl eci = getEci()
 //            ArtifactHitInfo ahi = new ArtifactHitInfo(eci, isSlowHit, artifactTypeEnum, artifactSubType, artifactName,
 //                    startTime, runningTimeMillis, parameters, outputSize)
 //            deferredHitInfoQueue.add(ahi)
@@ -1363,10 +1363,10 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 //    static class DeferredHitInfoFlush implements Runnable {
 //        // max creates per chunk, one transaction per chunk (unless error)
 //        final static int maxCreates = 1000
-//        final EntityContextFactoryImpl ecfi
-//        DeferredHitInfoFlush(EntityContextFactoryImpl ecfi) { this.ecfi = ecfi }
+//        final ExecutionContextFactoryImpl ecfi
+//        DeferredHitInfoFlush(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi }
 //        @Override synchronized void run() {
-//            EntityContextImpl eci = ecfi.getEci()
+//            ExecutionContextImpl eci = ecfi.getEci()
 //            eci.artifactExecutionFacade.disableAuthz()
 //            try {
 //                try {
@@ -1388,7 +1388,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 //        }
 //
 //        void flushQueue(ConcurrentLinkedQueue<ArtifactHitInfo> queue) {
-//            EntityContextFactoryImpl localEcfi = ecfi
+//            ExecutionContextFactoryImpl localEcfi = ecfi
 //            ArrayList<ArtifactHitInfo> createList = new ArrayList<>(maxCreates)
 //            int createCount = 0
 //            while (createCount < maxCreates) {
@@ -1426,7 +1426,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 //        }
 //    }
 
-//    protected synchronized void advanceArtifactHitBin(EntityContextImpl eci, ArtifactStatsInfo statsInfo,
+//    protected synchronized void advanceArtifactHitBin(ExecutionContextImpl eci, ArtifactStatsInfo statsInfo,
 //                                                      long startTime, long hitBinLengthMillis) {
 //        ArtifactBinInfo abi = statsInfo.curHitBin
 //        if (abi == null) {
@@ -1656,7 +1656,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 //        boolean httpsEnabled
 //        boolean requireSessionToken
 //
-//        WebappInfo(String webappName, EntityContextFactoryImpl ecfi) {
+//        WebappInfo(String webappName, ExecutionContextFactoryImpl ecfi) {
 //            this.webappName = webappName
 //            webappNode = ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
 //            if (webappNode == null) throw new BaseException("Could not find webapp element for name ${webappName}")
@@ -1727,6 +1727,6 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
 //    }
 
     @Override
-    public String toString() { return "EntityContextFactory ";}
+    public String toString() { return "ExecutionContextFactory ";}
 
 }

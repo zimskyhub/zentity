@@ -27,10 +27,10 @@ import java.util.Map;
  * 对于运行代码的每个线程，将存在此对象的一个实例，并且仅适用于该线程。
  */
 @SuppressWarnings("unused")
-public interface EntityContext {
+public interface ExecutionContext {
     /** 取EntityContextFactory。. */
     @Nonnull
-    EntityContextFactory getFactory();
+    ExecutionContextFactory getFactory();
 
     /**
      * 返回一个Map，

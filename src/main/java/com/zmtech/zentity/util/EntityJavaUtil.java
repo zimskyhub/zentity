@@ -1,7 +1,7 @@
 
 package com.zmtech.zentity.util;
 
-import com.zmtech.zentity.context.impl.EntityContextImpl;
+import com.zmtech.zentity.context.impl.ExecutionContextImpl;
 import com.zmtech.zentity.entity.EntityCondition;
 import com.zmtech.zentity.entity.EntityDatasourceFactory;
 import com.zmtech.zentity.entity.impl.*;
@@ -339,7 +339,7 @@ public class EntityJavaUtil {
         public void setFields(Map<String, Object> src, Map<String, Object> dest, boolean setIfEmpty, String namePrefix, Boolean pks) {
             if (src == null || dest == null) return;
 
-            EntityContextImpl eci = efi.ecfi.getEci();
+            ExecutionContextImpl eci = efi.ecfi.getEci();
             boolean destIsEntityValueBase = dest instanceof EntityValueBase;
             EntityValueBase destEvb = destIsEntityValueBase ? (EntityValueBase) dest : null;
 
@@ -404,7 +404,7 @@ public class EntityJavaUtil {
             // like above with setIfEmpty=true, namePrefix=null, pks=null
             if (src == null || dest == null) return;
 
-            EntityContextImpl eci = efi.ecfi.getEci();
+            ExecutionContextImpl eci = efi.ecfi.getEci();
             boolean srcIsEntityValueBase = src instanceof EntityValueBase;
             EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null;
             FieldInfo[] fieldInfoArray = pks == null ? allFieldInfoArray :

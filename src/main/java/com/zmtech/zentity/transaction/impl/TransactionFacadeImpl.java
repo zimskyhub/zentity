@@ -1,8 +1,8 @@
 
 package com.zmtech.zentity.transaction.impl;
 
-import com.zmtech.zentity.context.impl.EntityContextFactoryImpl;
-import com.zmtech.zentity.context.impl.EntityContextImpl;
+import com.zmtech.zentity.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zentity.context.impl.ExecutionContextImpl;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.exception.TransactionException;
 import com.zmtech.zentity.transaction.TransactionFacade;
@@ -30,7 +30,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionFacadeImpl.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
 
-    protected final EntityContextFactoryImpl ecfi;
+    protected final ExecutionContextFactoryImpl ecfi;
 
     protected TransactionInternal transactionInternal = null;
 
@@ -43,7 +43,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
     private ThreadLocal<TxStackInfo> txStackInfoCurThread = new ThreadLocal<TxStackInfo>();
     private ThreadLocal<LinkedList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<LinkedList<TxStackInfo>>();
 
-    public TransactionFacadeImpl(EntityContextFactoryImpl ecfi) {
+    public TransactionFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi;
 
         MNode transactionFacadeNode = ecfi.getConfXmlRoot().first("transaction-facade");
@@ -176,7 +176,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
             long threadWait = timeout != null ? timeout * 10000 : 60000;
 
             Thread txThread = null;
-            EntityContextImpl eci = ecfi.getEci();
+            ExecutionContextImpl eci = ecfi.getEci();
             Throwable threadThrown = null;
 
             try {

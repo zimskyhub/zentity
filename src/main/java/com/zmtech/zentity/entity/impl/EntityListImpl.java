@@ -1,6 +1,6 @@
 package com.zmtech.zentity.entity.impl;
 
-import com.zmtech.zentity.context.impl.EntityContextFactoryImpl;
+import com.zmtech.zentity.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zentity.entity.EntityCondition;
 import com.zmtech.zentity.entity.EntityList;
 import com.zmtech.zentity.entity.EntityValue;
@@ -51,7 +51,7 @@ public class EntityListImpl implements EntityList {
     @SuppressWarnings("unchecked")
     public EntityFacadeImpl getEfi() {
         if (efiTransient == null)
-            efiTransient = ((EntityContextFactoryImpl) Moqui.getEntityContextFactory()).entityFacade;
+            efiTransient = ((ExecutionContextFactoryImpl) Moqui.getEntityContextFactory()).entityFacade;
         return efiTransient;
     }
 

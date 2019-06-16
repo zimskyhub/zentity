@@ -1,6 +1,6 @@
 package com.zmtech.zentity.transaction.impl
 
-import com.zmtech.zentity.context.impl.EntityContextFactoryImpl;
+import com.zmtech.zentity.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zentity.entity.EntityCondition;
 import com.zmtech.zentity.entity.EntityValue;
 import com.zmtech.zentity.entity.impl.*;
@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TransactionCache implements Synchronization {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionCache.class);
 
-    protected EntityContextFactoryImpl ecfi;
+    protected ExecutionContextFactoryImpl ecfi;
     private boolean readOnly;
 
     private Map<Map, EntityValueBase> readOneCache = new HashMap<>();
@@ -37,7 +37,7 @@ public class TransactionCache implements Synchronization {
     private ArrayList<EntityWriteInfo> writeInfoList = new ArrayList<EntityWriteInfo>(50);
     private LinkedHashMap<String, LinkedHashMap<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<>();
 
-    public TransactionCache(EntityContextFactoryImpl ecfi, boolean readOnly) {
+    public TransactionCache(ExecutionContextFactoryImpl ecfi, boolean readOnly) {
         this.ecfi = ecfi;
         this.readOnly = readOnly;
     }

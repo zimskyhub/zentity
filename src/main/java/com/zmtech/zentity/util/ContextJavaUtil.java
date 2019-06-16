@@ -54,7 +54,7 @@ public class ContextJavaUtil {
         if (value instanceof CharSequence || value instanceof Number || value instanceof java.util.Date) {
             return value;
         }
-//        else if (value instanceof EntityFind || value instanceof EntityContextImpl || value instanceof ScreenRenderImpl || value instanceof ContextStack) {
+//        else if (value instanceof EntityFind || value instanceof ExecutionContextImpl || value instanceof ScreenRenderImpl || value instanceof ContextStack) {
 //            // intentionally skip, commonly left in context by entity-find XML action
 //            return null;
 //        }
@@ -171,7 +171,7 @@ public class ContextJavaUtil {
 //            if (runningTime > maxTimeMillis) maxTimeMillis = runningTime;
 //        }
 //
-//        public EntityValue makeAhbValue(EntityContextFactoryImpl ecfi, Timestamp binEndDateTime) {
+//        public EntityValue makeAhbValue(ExecutionContextFactoryImpl ecfi, Timestamp binEndDateTime) {
 //            EntityValueBase ahb = (EntityValueBase) ecfi.entityFacade.makeValue("moqui.server.ArtifactHitBin");
 //            ahb.putNoCheck("artifactType", statsInfo.artifactTypeEnum.name());
 //            ahb.putNoCheck("artifactSubType", statsInfo.artifactSubType);
@@ -204,7 +204,7 @@ public class ContextJavaUtil {
 //        String errorMessage = null;
 //        String requestUrl = null, referrerUrl = null;
 //
-//        ArtifactHitInfo(EntityContextImpl eci, boolean isSlowHit, ArtifactExecutionInfo.ArtifactType artifactTypeEnum,
+//        ArtifactHitInfo(ExecutionContextImpl eci, boolean isSlowHit, ArtifactExecutionInfo.ArtifactType artifactTypeEnum,
 //                        String artifactSubType, String artifactName, long startTime, double runningTimeMillis,
 //                        Map<String, Object> parameters, Long outputSize) {
 //            visitId = eci.userFacade.getVisitId();
@@ -230,7 +230,7 @@ public class ContextJavaUtil {
 //                referrerUrl = wfi.getRequest().getHeader("Referrer");
 //            }
 //        }
-//        EntityValue makeAhiValue(EntityContextFactoryImpl ecfi) {
+//        EntityValue makeAhiValue(ExecutionContextFactoryImpl ecfi) {
 //            EntityValueBase ahp = (EntityValueBase) ecfi.entityFacade.makeValue("moqui.server.ArtifactHit");
 //            ahp.putNoCheck("visitId", visitId);
 //            ahp.putNoCheck("userId", userId);

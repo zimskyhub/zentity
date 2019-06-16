@@ -13,8 +13,8 @@
  */
 package com.zmtech.zentity.actions;
 
-import com.zmtech.zentity.context.impl.EntityContextFactoryImpl;
-import com.zmtech.zentity.context.impl.EntityContextImpl;
+import com.zmtech.zentity.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zentity.context.impl.ExecutionContextImpl;
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.util.MNode;
 import com.zmtech.zentity.util.StringUtil;
@@ -33,20 +33,20 @@ public class XmlAction {
     private static final Logger logger = LoggerFactory.getLogger(XmlAction.class);
     private static final boolean isDebugEnabled = logger.isDebugEnabled();
 
-    protected final EntityContextFactoryImpl effi;
+    protected final ExecutionContextFactoryImpl effi;
 
     private final MNode xmlNode;
     protected final String location;
     /** The Groovy class compiled from the script transformed from the XML actions text using the FTL template. */
     private Class groovyClassInternal = null;
 
-    public XmlAction(EntityContextFactoryImpl effi, MNode xmlNode, String location) {
+    public XmlAction(ExecutionContextFactoryImpl effi, MNode xmlNode, String location) {
         this.effi = effi;
         this.xmlNode = xmlNode;
         this.location = location;
     }
 
-    public XmlAction(EntityContextFactoryImpl effi, String xmlText, String location) {
+    public XmlAction(ExecutionContextFactoryImpl effi, String xmlText, String location) {
         this.effi = effi;
         this.location = location;
         if (xmlText != null && !xmlText.isEmpty()) {
@@ -57,7 +57,7 @@ public class XmlAction {
     }
 
     /** Run the XML actions in the current context of the ExecutionContext */
-    public Object run(EntityContextImpl eci) {
+    public Object run(ExecutionContextImpl eci) {
         Class curClass = getGroovyClass();
         if (curClass == null) throw new IllegalStateException("No Groovy class in place for XML actions, look earlier in log for the error in init");
         if (isDebugEnabled) logger.debug("Running groovy script: \n" + writeGroovyWithLines() + "\n");
@@ -74,7 +74,7 @@ public class XmlAction {
         }
     }
 
-    public boolean checkCondition(EntityContextImpl eci) {
+    public boolean checkCondition(ExecutionContextImpl eci) {
         Object result = run(eci);
         if (result == null) return false;
         return DefaultGroovyMethods.asType(run(eci), Boolean.class);
