@@ -1,19 +1,8 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
 package com.zmtech.zentity.entity.impl;
 
 
+import com.zmtech.zentity.exception.EntityException;
+import com.zmtech.zentity.util.EntityJavaUtil.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +22,7 @@ public class EntityQueryBuilder {
 
     private static final int sqlInitSize = 500;
     public final StringBuilder sqlTopLevel = new StringBuilder(sqlInitSize);
-    String finalSql = null;
+    public String finalSql = null;
 
     private static final int parametersInitSize = 20;
     public final ArrayList<EntityConditionParameter> parameters = new ArrayList<>(parametersInitSize);
@@ -79,7 +68,7 @@ public class EntityQueryBuilder {
         return ps;
     }
 
-    ResultSet executeQuery() throws SQLException {
+    public ResultSet executeQuery() throws SQLException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
@@ -100,7 +89,7 @@ public class EntityQueryBuilder {
         }
     }
 
-    int executeUpdate() throws SQLException {
+    public int executeUpdate() throws SQLException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
@@ -123,7 +112,7 @@ public class EntityQueryBuilder {
     }
 
     /** NOTE: this should be called in a finally clause to make sure things are closed */
-    void closeAll() throws SQLException {
+    public void closeAll() throws SQLException {
         if (ps != null) {
             ps.close();
             ps = null;
@@ -139,7 +128,7 @@ public class EntityQueryBuilder {
     }
 
     /** For when closing to be done in other places, like a EntityListIteratorImpl */
-    void releaseAll() {
+    public void releaseAll() {
         ps = null;
         rs = null;
         connection = null;
@@ -169,11 +158,11 @@ public class EntityQueryBuilder {
         return interim.toString();
     }
 
-    void setPreparedStatementValue(int index, Object value, FieldInfo fieldInfo) throws EntityException {
+    public void setPreparedStatementValue(int index, Object value, FieldInfo fieldInfo) throws EntityException {
         fieldInfo.setPreparedStatementValue(this.ps, index, value, this.mainEntityDefinition, this.efi);
     }
 
-    void setPreparedStatementValues() {
+    public void setPreparedStatementValues() {
         // set all of the values from the SQL building in efb
         ArrayList<EntityConditionParameter> parms = parameters;
         int size = parms.size();
@@ -226,7 +215,7 @@ public class EntityQueryBuilder {
             if (fieldInfo == null) break;
             if (i > 0) sqlTopLevel.append(" AND ");
             sqlTopLevel.append(fieldInfo.getFullColumnName()).append("=?");
-            parameters.add(new EntityJavaUtil.EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), this));
+            parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), this));
         }
     }
 }

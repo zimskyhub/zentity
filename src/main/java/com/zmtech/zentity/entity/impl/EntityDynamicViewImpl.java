@@ -2,8 +2,8 @@ package com.zmtech.zentity.entity.impl;
 
 import com.zmtech.zentity.entity.EntityDynamicView;
 import com.zmtech.zentity.exception.EntityException;
+import com.zmtech.zentity.util.EntityJavaUtil;
 import com.zmtech.zentity.util.MNode;
-import groovy.lang.Closure;
 
 
 import java.util.List;

@@ -115,8 +115,8 @@ public class XmlAction {
             root.put("xmlActionsRoot", xmlNode);
 
             Writer outWriter = new StringWriter();
-            Environment env = ecfi.resourceFacade.getXmlActionsScriptRunner().getXmlActionsTemplate().createProcessingEnvironment(root, outWriter);
-            env.process();
+//            Environment env = ecfi.resourceFacade.getXmlActionsScriptRunner().getXmlActionsTemplate().createProcessingEnvironment(root, outWriter);
+//            env.process();
 
             groovyString = outWriter.toString();
         } catch (Exception e) {

@@ -3,7 +3,7 @@ package com.zmtech.zentity.transaction.impl
 import com.zmtech.zentity.entity.EntityCondition;
 import com.zmtech.zentity.entity.EntityValue;
 import com.zmtech.zentity.entity.impl.*;
-import com.zmtech.zentity.entity.impl.EntityJavaUtil.*;
+import com.zmtech.zentity.util.EntityJavaUtil.*;
 import com.zmtech.zentity.exception.EntityException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

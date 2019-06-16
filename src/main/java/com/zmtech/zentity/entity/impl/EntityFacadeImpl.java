@@ -6,6 +6,7 @@ import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.exception.EntityNotFoundException;
 import com.zmtech.zentity.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zentity.util.CollectionUtil;
+import com.zmtech.zentity.util.EntityJavaUtil;
 import com.zmtech.zentity.util.MNode;
 import com.zmtech.zentity.util.SystemBinding;
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException;

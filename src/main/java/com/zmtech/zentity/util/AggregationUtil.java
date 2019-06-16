@@ -2,6 +2,7 @@ package com.zmtech.zentity.util;
 
 import com.zmtech.zentity.actions.XmlAction;
 import com.zmtech.zentity.entity.EntityValue;
+import com.zmtech.zentity.entity.impl.EntityContextImpl;
 import com.zmtech.zentity.exception.EntityException;
 import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;

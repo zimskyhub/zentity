@@ -15,6 +15,7 @@ package com.zmtech.zentity.entity.impl;
 
 import com.zmtech.zentity.entity.EntityValue;
 import com.zmtech.zentity.exception.EntityException;
+import com.zmtech.zentity.util.EntityJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

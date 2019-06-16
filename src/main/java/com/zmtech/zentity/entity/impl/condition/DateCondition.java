@@ -1,23 +1,7 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
-package com.zmtech.zentity.entity.impl.condition
+package com.zmtech.zentity.entity.impl.condition;
 
-import groovy.transform.CompileStatic
-import org.moqui.entity.EntityCondition
-import org.moqui.entity.EntityException
-import org.moqui.impl.entity.EntityDefinition
-import org.moqui.impl.entity.EntityQueryBuilder
+import com.zmtech.zentity.entity.EntityCondition;
+import com.zmtech.zentity.exception.EntityException;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -27,15 +11,14 @@ import java.sql.Timestamp
 import java.util.Map;
 import java.util.Set;
 
-@CompileStatic
-class DateCondition implements EntityConditionImplBase, Externalizable {
+public class DateCondition implements EntityConditionImplBase, Externalizable {
     protected String fromFieldName
     protected String thruFieldName
     protected Timestamp compareStamp
     private EntityConditionImplBase conditionInternal
     private int hashCodeInternal
 
-    DateCondition(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
+    public DateCondition(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
         this.fromFieldName = fromFieldName ?: "fromDate"
         this.thruFieldName = thruFieldName ?: "thruDate"
         if (compareStamp == (Timestamp) null) compareStamp = new Timestamp(System.currentTimeMillis())
@@ -44,24 +27,32 @@ class DateCondition implements EntityConditionImplBase, Externalizable {
         hashCodeInternal = createHashCode()
     }
 
-    @Override void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) { conditionInternal.makeSqlWhere(eqb, subMemberEd) }
+    @Override
+    public void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) { conditionInternal.makeSqlWhere(eqb, subMemberEd) }
 
     @Override
-    void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
+    public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         fieldAliasSet.add(fromFieldName)
         fieldAliasSet.add(thruFieldName)
     }
-    @Override EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) { return conditionInternal.filter(entityAlias, mainEd) }
+    @Override
+    public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) { return conditionInternal.filter(entityAlias, mainEd) }
 
-    @Override boolean mapMatches(Map<String, Object> map) { return conditionInternal.mapMatches(map) }
-    @Override boolean mapMatchesAny(Map<String, Object> map) { return conditionInternal.mapMatchesAny(map) }
-    @Override boolean mapKeysNotContained(Map<String, Object> map) { return conditionInternal.mapKeysNotContained(map) }
+    @Override
+    public boolean mapMatches(Map<String, Object> map) { return conditionInternal.mapMatches(map) }
+    @Override
+    public boolean mapMatchesAny(Map<String, Object> map) { return conditionInternal.mapMatchesAny(map) }
+    @Override
+    public boolean mapKeysNotContained(Map<String, Object> map) { return conditionInternal.mapKeysNotContained(map) }
 
-    @Override boolean populateMap(Map<String, Object> map) { return false }
+    @Override
+    public boolean populateMap(Map<String, Object> map) { return false }
 
-    @Override EntityCondition ignoreCase() { throw new EntityException("Ignore case not supported for DateCondition.") }
+    @Override
+    public EntityCondition ignoreCase() { throw new EntityException("Ignore case not supported for DateCondition.") }
 
-    @Override String toString() { return conditionInternal.toString() }
+    @Override
+    public String toString() { return conditionInternal.toString() }
 
     private EntityConditionImplBase makeConditionInternal() {
         ConditionField fromFieldCf = new ConditionField(fromFieldName)
@@ -76,13 +67,14 @@ class DateCondition implements EntityConditionImplBase, Externalizable {
         ] as List<EntityConditionImplBase>, EntityCondition.JoinOperator.AND)
     }
 
-    @Override int hashCode() { return hashCodeInternal }
+    @Override
+    public int hashCode() { return hashCodeInternal }
     private int createHashCode() {
         return compareStamp.hashCode() + fromFieldName.hashCode() + thruFieldName.hashCode()
     }
 
     @Override
-    boolean equals(Object o) {
+    public boolean equals(Object o) {
         if (o == null || o.getClass() != this.getClass()) return false
         DateCondition that = (DateCondition) o
         if (!this.compareStamp.equals(that.compareStamp)) return false
@@ -92,13 +84,13 @@ class DateCondition implements EntityConditionImplBase, Externalizable {
     }
 
     @Override
-    void writeExternal(ObjectOutput out) throws IOException {
+    public void writeExternal(ObjectOutput out) throws IOException {
         out.writeUTF(fromFieldName);
         out.writeUTF(thruFieldName);
         out.writeLong(compareStamp.getTime());
     }
     @Override
-    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+    public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
         fromFieldName = objectInput.readUTF();
         thruFieldName = objectInput.readUTF();
         compareStamp = new Timestamp(objectInput.readLong());

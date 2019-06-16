@@ -3,6 +3,7 @@ package com.zmtech.zentity.entity.impl;
 
 import com.zmtech.zentity.exception.EntityException;
 import com.zmtech.zentity.entity.impl.condition.ConditionField;
+import com.zmtech.zentity.util.EntityJavaUtil;
 import com.zmtech.zentity.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

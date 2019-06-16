@@ -1,10 +1,10 @@
 
-package com.zmtech.zentity.entity.impl;
+package com.zmtech.zentity.util;
 
 import com.zmtech.zentity.entity.EntityCondition;
 import com.zmtech.zentity.entity.EntityDatasourceFactory;
+import com.zmtech.zentity.entity.impl.*;
 import com.zmtech.zentity.exception.EntityException;
-import com.zmtech.zentity.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -93,11 +93,11 @@ public class EntityJavaUtil {
         Boolean caseUpperLower = null;
 
         public String getFieldName() { return fieldName; }
-        Boolean getNullsFirstLast() { return nullsFirstLast; }
+        public Boolean getNullsFirstLast() { return nullsFirstLast; }
         public boolean getDescending() { return descending; }
-        Boolean getCaseUpperLower() { return caseUpperLower; }
+        public Boolean getCaseUpperLower() { return caseUpperLower; }
 
-        FieldOrderOptions(String orderByName) {
+        public FieldOrderOptions(String orderByName) {
             StringBuilder fnSb = new StringBuilder(40);
             // simple first parse pass, single run through and as fast as possible
             boolean containsSpace = false;
@@ -208,10 +208,10 @@ public class EntityJavaUtil {
         EntityInfo(EntityDefinition ed, boolean memberNeverCache) {
 
             this.ed = ed;
-            this.efi = ed.efi;
+            this.efi = ed.getEfi();
             MNode internalEntityNode = ed.internalEntityNode;
-            EntityFacadeImpl efi = ed.efi;
-            ArrayList<FieldInfo> allFieldInfoList = ed.allFieldInfoList;
+            EntityFacadeImpl efi = ed.getEfi();
+            ArrayList<FieldInfo> allFieldInfoList = ed.getAllFieldNames();
 
             internalEntityName = internalEntityNode.attribute("entity-name");
             String packageName = internalEntityNode.attribute("package");
@@ -335,10 +335,10 @@ public class EntityJavaUtil {
             }
         }
 
-        void setFields(Map<String, Object> src, Map<String, Object> dest, boolean setIfEmpty, String namePrefix, Boolean pks) {
+        public void setFields(Map<String, Object> src, Map<String, Object> dest, boolean setIfEmpty, String namePrefix, Boolean pks) {
             if (src == null || dest == null) return;
 
-            ExecutionContextImpl eci = efi.ecfi.getEci();
+            EntityContextImpl eci = efi.ecfi.getEci();
             boolean destIsEntityValueBase = dest instanceof EntityValueBase;
             EntityValueBase destEvb = destIsEntityValueBase ? (EntityValueBase) dest : null;
 
@@ -378,7 +378,7 @@ public class EntityJavaUtil {
                                 Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
                                 if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, converted);
                                 else dest.put(fieldName, converted);
-                            } catch (BaseException be) {
+                            } catch (EntityException be) {
                                 eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
                             }
                         } else {
@@ -403,7 +403,7 @@ public class EntityJavaUtil {
             // like above with setIfEmpty=true, namePrefix=null, pks=null
             if (src == null || dest == null) return;
 
-            ExecutionContextImpl eci = efi.ecfi.getEci();
+            EntityContextImpl eci = efi.ecfi.getEci();
             boolean srcIsEntityValueBase = src instanceof EntityValueBase;
             EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null;
             FieldInfo[] fieldInfoArray = pks == null ? allFieldInfoArray :
@@ -597,7 +597,7 @@ public class EntityJavaUtil {
 
         public Object getValue() { return value; }
 
-        void setPreparedStatementValue(int index) throws EntityException {
+        public void setPreparedStatementValue(int index) throws EntityException {
             eqb.setPreparedStatementValue(index, value, fieldInfo);
         }
 

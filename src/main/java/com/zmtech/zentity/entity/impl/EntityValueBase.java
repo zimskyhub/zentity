@@ -2,6 +2,7 @@ package com.zmtech.zentity.entity.impl;
 
 import com.zmtech.zentity.entity.EntityValue;
 import com.zmtech.zentity.transaction.impl.TransactionCache;
+import com.zmtech.zentity.util.EntityJavaUtil;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

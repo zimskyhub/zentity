@@ -13,6 +13,7 @@
  */
 package com.zmtech.zentity.entity.impl
 
+import com.zmtech.zentity.util.EntityJavaUtil;
 import groovy.json.JsonOutput
 import groovy.transform.CompileStatic
 import org.moqui.entity.*

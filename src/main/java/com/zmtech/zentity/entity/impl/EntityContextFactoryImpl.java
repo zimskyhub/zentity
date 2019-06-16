@@ -929,7 +929,7 @@ public class EntityContextFactoryImpl implements EntityContextFactory {
     @Override @Nonnull
     public GroovyClassLoader getGroovyClassLoader() { return this.groovyClassLoader; }
 
-    synchronized Class compileGroovy(String script, String className) {
+    public synchronized Class compileGroovy(String script, String className) {
         boolean hasClassName = className != null && !className.isEmpty();
         if (groovyCompileCacheToDisk && hasClassName) {
             // if the className already exists just return it
