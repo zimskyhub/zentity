@@ -24,7 +24,7 @@ public class JCSCacheToolFactory implements ToolFactory<CacheManager> {
     protected CacheManager cacheManager = null;
 
     /** Default empty constructor */
-    JCSCacheToolFactory() { }
+    public JCSCacheToolFactory() { }
 
     @Override
     public String getName() { return TOOL_NAME; }

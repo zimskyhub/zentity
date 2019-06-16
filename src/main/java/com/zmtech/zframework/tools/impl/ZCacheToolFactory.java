@@ -39,5 +39,5 @@ public class ZCacheToolFactory implements ToolFactory<CacheManager> {
     @Override
     public void destroy() { cacheManager.close(); }
 
-    ExecutionContextFactory getEcf() { return ecf; }
+    public ExecutionContextFactory getEcf() { return ecf; }
 }

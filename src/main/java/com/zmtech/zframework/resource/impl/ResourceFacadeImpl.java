@@ -1,72 +1,53 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a 
- * Grant of Patent License.
- * 
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- * 
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
-package com.zmtech.zframework.resource.impl
+package com.zmtech.zframework.resource.impl;
 
-import groovy.transform.CompileStatic
-import org.codehaus.groovy.runtime.InvokerHelper
-import org.moqui.BaseArtifactException
-import org.moqui.context.*
-import org.moqui.impl.context.reference.BaseResourceReference
-import org.moqui.impl.context.renderer.FtlTemplateRenderer
-import org.moqui.impl.context.runner.JavaxScriptRunner
-import org.moqui.impl.context.runner.XmlActionsScriptRunner
-import org.moqui.impl.entity.EntityValueBase
-import org.moqui.jcache.MCache
-import org.moqui.resource.ResourceReference
-import org.moqui.util.*
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zframework.resource.ResourceFacade;
+import groovy.lang.Script;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import javax.activation.DataSource
-import javax.cache.Cache
-import javax.jcr.Repository
-import javax.jcr.RepositoryFactory
-import javax.jcr.Session
-import javax.jcr.SimpleCredentials
-import javax.mail.util.ByteArrayDataSource
-import javax.script.ScriptEngine
-import javax.script.ScriptEngineManager
-import javax.xml.transform.Source
-import javax.xml.transform.Transformer
-import javax.xml.transform.TransformerFactory
-import javax.xml.transform.URIResolver
-import javax.xml.transform.sax.SAXResult
-import javax.xml.transform.stream.StreamSource
+import javax.activation.DataSource;
+import javax.cache.Cache;
+import javax.jcr.Repository;
+import javax.jcr.RepositoryFactory;
+import javax.jcr.Session;
+import javax.jcr.SimpleCredentials;
+import javax.mail.util.ByteArrayDataSource;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.URIResolver;
+import javax.xml.transform.sax.SAXResult;
+import javax.xml.transform.stream.StreamSource;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.net.URL;
+import java.util.*;
 
-@CompileStatic
 class ResourceFacadeImpl implements ResourceFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ResourceFacadeImpl.class)
 
-    protected final ExecutionContextFactoryImpl ecfi
-
-    final FtlTemplateRenderer ftlTemplateRenderer
-    final XmlActionsScriptRunner xmlActionsScriptRunner
+    protected final ExecutionContextFactoryImpl ecfil;
+    final XmlActionsScriptRunner xmlActionsScriptRunner;
 
     // the groovy Script object is not thread safe, so have one per thread per expression; can be reused as thread is reused
-    protected final ThreadLocal<Map<String, Script>> threadScriptByExpression = new ThreadLocal<>()
-    protected final Map<String, Class> scriptGroovyExpressionCache = new HashMap<>()
+    protected final ThreadLocal<Map<String, Script>> threadScriptByExpression = new ThreadLocal<>();
+    protected final Map<String, Class> scriptGroovyExpressionCache = new HashMap<>();
 
-    protected final Cache<String, String> textLocationCache
-    protected final Cache<String, ResourceReference> resourceReferenceByLocation
+    protected final Cache<String, String> textLocationCache;
+    protected final Cache<String, ResourceReference> resourceReferenceByLocation;
 
-    protected final Map<String, Class> resourceReferenceClasses = new HashMap<>()
-    protected final Map<String, TemplateRenderer> templateRenderers = new HashMap<>()
-    protected final ArrayList<String> templateRendererExtensions = new ArrayList<>()
-    protected final ArrayList<Integer> templateRendererExtensionsDots = new ArrayList<>()
-    protected final Map<String, ScriptRunner> scriptRunners = new HashMap<>()
-    protected final ScriptEngineManager scriptEngineManager = new ScriptEngineManager()
-    protected final ToolFactory<org.xml.sax.ContentHandler> xslFoHandlerFactory
+    protected final Map<String, Class> resourceReferenceClasses = new HashMap<>();
+    protected final Map<String, TemplateRenderer> templateRenderers = new HashMap<>();
+    protected final ArrayList<String> templateRendererExtensions = new ArrayList<>();
+    protected final ArrayList<Integer> templateRendererExtensionsDots = new ArrayList<>();
+    protected final Map<String, ScriptRunner> scriptRunners = new HashMap<>();
+    protected final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
+    protected final ToolFactory<org.xml.sax.ContentHandler> xslFoHandlerFactory;
 
     protected final Map<String, Repository> contentRepositories = new HashMap<>()
     protected final ThreadLocal<Map<String, Session>> contentSessions = new ThreadLocal<Map<String, Session>>()
@@ -139,7 +120,7 @@ class ResourceFacadeImpl implements ResourceFacade {
             Repository repo = null
             Map parameters = new HashMap()
             for (MNode paramNode in repositoryNode.children("init-param"))
-                parameters.put(paramNode.attribute("name"), paramNode.attribute("value"))
+            parameters.put(paramNode.attribute("name"), paramNode.attribute("value"))
 
             try {
                 for (RepositoryFactory factory : ServiceLoader.load(RepositoryFactory.class)) {
@@ -241,7 +222,8 @@ class ResourceFacadeImpl implements ResourceFacade {
         return scheme
     }
 
-    @Override InputStream getLocationStream(String location) {
+    @Override
+    InputStream getLocationStream(String location) {
         int hashIdx = location.indexOf("#")
         String versionName = null
         if (hashIdx > 0) {
@@ -580,8 +562,8 @@ class ResourceFacadeImpl implements ResourceFacade {
         // https://issues.apache.org/jira/browse/XALANJ-2195
         BaseArtifactException transformException = null
         ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi.getEci(), {
-            try { transformer.transform(xslFoSrc, new SAXResult(contentHandler)) }
-            catch (Throwable t) { transformException = new BaseArtifactException("Error transforming XSL-FO to ${contentType}", t) }
+        try { transformer.transform(xslFoSrc, new SAXResult(contentHandler)) }
+        catch (Throwable t) { transformException = new BaseArtifactException("Error transforming XSL-FO to ${contentType}", t) }
         })
         Thread transThread = new Thread(runnable)
         transThread.start()
