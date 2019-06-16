@@ -1,6 +1,11 @@
 package com.zmtech.zentity.entity.impl;
 
 import com.zmtech.zentity.entity.EntityContext;
+import com.zmtech.zentity.entity.EntityContextFactory;
+import com.zmtech.zentity.entity.EntityFacade;
+import com.zmtech.zentity.l10n.L10nFacade;
+import com.zmtech.zentity.l10n.impl.L10nFacadeImpl;
+import com.zmtech.zentity.transaction.TransactionFacade;
 import com.zmtech.zentity.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zentity.util.ContextBinding;
 import com.zmtech.zentity.util.ContextStack;
@@ -14,7 +19,6 @@ import javax.annotation.Nullable;
 import javax.cache.Cache;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class EntityContextImpl implements EntityContext {
@@ -29,6 +33,7 @@ public class EntityContextImpl implements EntityContext {
 
 
     public final TransactionFacadeImpl transactionFacade;
+    public final L10nFacadeImpl l10nFacade;
 
     private Boolean skipStats = null;
     private Cache<String, String> l10nMessageCache;
@@ -47,24 +52,25 @@ public class EntityContextImpl implements EntityContext {
         forThreadId = forThread.getId();
         // createLoc = new BaseException("ec create");
 
-        activeEntityFacade = ecfi.entityFacade;
-        userFacade = new UserFacadeImpl(this);
-        messageFacade = new MessageFacadeImpl();
-        artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this);
+        activeEntityFacade = (EntityFacadeImpl)ecfi.getEntity();
+//        userFacade = new UserFacadeImpl(this);
+//        messageFacade = new MessageFacadeImpl();
+//        artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this);
         l10nFacade = new L10nFacadeImpl(this);
 
-        cacheFacade = ecfi.cacheFacade;
-        loggerFacade = ecfi.loggerFacade;
-        resourceFacade = ecfi.resourceFacade;
-        screenFacade = ecfi.screenFacade;
-        serviceFacade = ecfi.serviceFacade;
-        transactionFacade = ecfi.transactionFacade;
+//        cacheFacade = ecfi.cacheFacade;
+//        loggerFacade = ecfi.loggerFacade;
+//        resourceFacade = ecfi.resourceFacade;
+//        screenFacade = ecfi.screenFacade;
+//        serviceFacade = ecfi.serviceFacade;
+        transactionFacade = (TransactionFacadeImpl)ecfi.getTransaction();
 
-        if (cacheFacade == null) throw new IllegalStateException("cacheFacade was null");
-        if (loggerFacade == null) throw new IllegalStateException("loggerFacade was null");
-        if (resourceFacade == null) throw new IllegalStateException("resourceFacade was null");
-        if (screenFacade == null) throw new IllegalStateException("screenFacade was null");
-        if (serviceFacade == null) throw new IllegalStateException("serviceFacade was null");
+//        if (cacheFacade == null) throw new IllegalStateException("cacheFacade was null");
+//        if (loggerFacade == null) throw new IllegalStateException("loggerFacade was null");
+//        if (resourceFacade == null) throw new IllegalStateException("resourceFacade was null");
+//        if (screenFacade == null) throw new IllegalStateException("screenFacade was null");
+//        if (serviceFacade == null) throw new IllegalStateException("serviceFacade was null");
+        if (l10nFacade == null) throw new IllegalStateException("serviceFacade was null");
         if (transactionFacade == null) throw new IllegalStateException("transactionFacade was null");
 
         initCaches();
@@ -80,12 +86,10 @@ public class EntityContextImpl implements EntityContext {
     Cache<String, String> getL10nMessageCache() { return l10nMessageCache; }
     public Cache<String, ArrayList> getTarpitHitCache() { return tarpitHitCache; }
 
-    @Override public @Nonnull
-    EntityContextFactory getFactory() { return ecfi; }
+    @Override public @Nonnull EntityContextFactory getFactory() { return ecfi; }
 
     @Override public @Nonnull ContextStack getContext() { return contextStack; }
-    @Override public @Nonnull
-    Map<String, Object> getContextRoot() { return contextStack.getRootMap(); }
+    @Override public @Nonnull Map<String, Object> getContextRoot() { return contextStack.getRootMap(); }
     @Override public @Nonnull ContextBinding getContextBinding() { return contextBindingInternal; }
 
     @Override
@@ -93,87 +97,86 @@ public class EntityContextImpl implements EntityContext {
         return ecfi.getTool(toolName, instanceClass, parameters);
     }
 
-    @Override public @Nullable
-    WebFacade getWeb() { return webFacade; }
-    public @Nullable WebFacadeImpl getWebImpl() { return webFacadeImpl; }
+//    @Override public @Nullable WebFacade getWeb() { return webFacade; }
+//    public @Nullable WebFacadeImpl getWebImpl() { return webFacadeImpl; }
 
-    @Override public @Nonnull UserFacade getUser() { return userFacade; }
-    @Override public @Nonnull MessageFacade getMessage() { return messageFacade; }
-    @Override public @Nonnull ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
+//    @Override public @Nonnull UserFacade getUser() { return userFacade; }
+//    @Override public @Nonnull MessageFacade getMessage() { return messageFacade; }
+//    @Override public @Nonnull ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
     @Override public @Nonnull L10nFacade getL10n() { return l10nFacade; }
-    @Override public @Nonnull ResourceFacade getResource() { return resourceFacade; }
-    @Override public @Nonnull LoggerFacade getLogger() { return loggerFacade; }
-    @Override public @Nonnull CacheFacade getCache() { return cacheFacade; }
+//    @Override public @Nonnull ResourceFacade getResource() { return resourceFacade; }
+//    @Override public @Nonnull LoggerFacade getLogger() { return loggerFacade; }
+//    @Override public @Nonnull CacheFacade getCache() { return cacheFacade; }
     @Override public @Nonnull TransactionFacade getTransaction() { return transactionFacade; }
 
     @Override public @Nonnull EntityFacade getEntity() { return activeEntityFacade; }
     public @Nonnull EntityFacadeImpl getEntityFacade() { return activeEntityFacade; }
 
-    @Override public @Nonnull ServiceFacade getService() { return serviceFacade; }
-    @Override public @Nonnull ScreenFacade getScreen() { return screenFacade; }
+//    @Override public @Nonnull ServiceFacade getService() { return serviceFacade; }
+//    @Override public @Nonnull ScreenFacade getScreen() { return screenFacade; }
 
-    @Override public @Nonnull NotificationMessage makeNotificationMessage() { return new NotificationMessageImpl(ecfi); }
+//    @Override public @Nonnull NotificationMessage makeNotificationMessage() { return new NotificationMessageImpl(ecfi); }
 
-    @Override
-    public @Nonnull
-    List<NotificationMessage> getNotificationMessages(@Nullable String topic) {
-        String userId = userFacade.getUserId();
-        if (userId == null || userId.isEmpty()) return new ArrayList<>();
+//    @Override
+//    public @Nonnull
+//    List<NotificationMessage> getNotificationMessages(@Nullable String topic) {
+//        String userId = userFacade.getUserId();
+//        if (userId == null || userId.isEmpty()) return new ArrayList<>();
+//
+//        List<NotificationMessage> nmList = new ArrayList<>();
+//        boolean alreadyDisabled = artifactExecutionFacade.disableAuthz();
+//        try {
+//            EntityFind nmbuFind = activeEntityFacade.find("moqui.security.user.NotificationMessageByUser").condition("userId", userId);
+//            if (topic != null && !topic.isEmpty()) nmbuFind.condition("topic", topic);
+//            EntityList nmbuList = nmbuFind.list();
+//            for (EntityValue nmbu : nmbuList) {
+//                NotificationMessageImpl nmi = new NotificationMessageImpl(ecfi);
+//                nmi.populateFromValue(nmbu);
+//                nmList.add(nmi);
+//            }
+//        } finally {
+//            if (!alreadyDisabled) artifactExecutionFacade.enableAuthz();
+//        }
+//
+//        return nmList;
+//    }
 
-        List<NotificationMessage> nmList = new ArrayList<>();
-        boolean alreadyDisabled = artifactExecutionFacade.disableAuthz();
-        try {
-            EntityFind nmbuFind = activeEntityFacade.find("moqui.security.user.NotificationMessageByUser").condition("userId", userId);
-            if (topic != null && !topic.isEmpty()) nmbuFind.condition("topic", topic);
-            EntityList nmbuList = nmbuFind.list();
-            for (EntityValue nmbu : nmbuList) {
-                NotificationMessageImpl nmi = new NotificationMessageImpl(ecfi);
-                nmi.populateFromValue(nmbu);
-                nmList.add(nmi);
-            }
-        } finally {
-            if (!alreadyDisabled) artifactExecutionFacade.enableAuthz();
-        }
-
-        return nmList;
-    }
-
-    @Override
-    public void initWebFacade(@Nonnull String webappMoquiName, @Nonnull HttpServletRequest request, @Nonnull HttpServletResponse response) {
-        WebFacadeImpl wfi = new WebFacadeImpl(webappMoquiName, request, response, this);
-        webFacade = wfi;
-        webFacadeImpl = wfi;
-
-        // now that we have the webFacade in place we can do init UserFacade
-        userFacade.initFromHttpRequest(request, response);
-        // for convenience (and more consistent code in screen actions, services, etc) add all requestParameters to the context
-        contextStack.putAll(webFacade.getRequestParameters());
-        // this is the beginning of a request, so trigger before-request actions
-        wfi.runBeforeRequestActions();
-
-        String userId = userFacade.getUserId();
-        if (userId != null && !userId.isEmpty()) MDC.put("moqui_userId", userId);
-        String visitorId = userFacade.getVisitorId();
-        if (visitorId != null && !visitorId.isEmpty()) MDC.put("moqui_visitorId", visitorId);
-
-        if (loggerDirect.isTraceEnabled()) loggerDirect.trace("EntityContextImpl WebFacade initialized");
-    }
+//    @Override
+//    public void initWebFacade(@Nonnull String webappMoquiName, @Nonnull HttpServletRequest request, @Nonnull HttpServletResponse response) {
+//        WebFacadeImpl wfi = new WebFacadeImpl(webappMoquiName, request, response, this);
+//        webFacade = wfi;
+//        webFacadeImpl = wfi;
+//
+//        // now that we have the webFacade in place we can do init UserFacade
+//        userFacade.initFromHttpRequest(request, response);
+//        // for convenience (and more consistent code in screen actions, services, etc) add all requestParameters to the context
+//        contextStack.putAll(webFacade.getRequestParameters());
+//        // this is the beginning of a request, so trigger before-request actions
+//        wfi.runBeforeRequestActions();
+//
+//        String userId = userFacade.getUserId();
+//        if (userId != null && !userId.isEmpty()) MDC.put("moqui_userId", userId);
+//        String visitorId = userFacade.getVisitorId();
+//        if (visitorId != null && !visitorId.isEmpty()) MDC.put("moqui_visitorId", visitorId);
+//
+//        if (loggerDirect.isTraceEnabled()) loggerDirect.trace("EntityContextImpl WebFacade initialized");
+//    }
 
     /** Meant to be used to set a test stub that implements the WebFacade interface */
-    public void setWebFacade(WebFacade wf) {
-        webFacade = wf;
-        if (wf instanceof WebFacadeImpl) webFacadeImpl = (WebFacadeImpl) wf;
-        contextStack.putAll(webFacade.getRequestParameters());
-    }
+//    public void setWebFacade(WebFacade wf) {
+//        webFacade = wf;
+//        if (wf instanceof WebFacadeImpl) webFacadeImpl = (WebFacadeImpl) wf;
+//        contextStack.putAll(webFacade.getRequestParameters());
+//    }
 
-    public boolean getSkipStats() {
-        if (skipStats != null) return skipStats;
-        String skipStatsCond = ecfi.skipStatsCond;
-        Map<String, Object> skipParms = new HashMap<>();
-        if (webFacade != null) skipParms.put("pathInfo", webFacade.getPathInfo());
-        skipStats = (skipStatsCond != null && !skipStatsCond.isEmpty()) && ecfi.resourceFacade.condition(skipStatsCond, null, skipParms);
-        return skipStats;
-    }
+//    public boolean getSkipStats() {
+//        if (skipStats != null) return skipStats;
+//        String skipStatsCond = ecfi.skipStatsCond;
+//        Map<String, Object> skipParms = new HashMap<>();
+//        if (webFacade != null) skipParms.put("pathInfo", webFacade.getPathInfo());
+//        skipStats = (skipStatsCond != null && !skipStatsCond.isEmpty()) && ecfi.resourceFacade.condition(skipStatsCond, null, skipParms);
+//        return skipStats;
+//    }
 
     @Override
     public void runAsync(@Nonnull Closure closure) {
@@ -189,12 +192,12 @@ public class EntityContextImpl implements EntityContext {
     @Override
     public void destroy() {
         // if webFacade exists this is the end of a request, so trigger after-request actions
-        if (webFacadeImpl != null) webFacadeImpl.runAfterRequestActions();
+//        if (webFacadeImpl != null) webFacadeImpl.runAfterRequestActions();
 
         // make sure there are no transactions open, if any commit them all now
-        ecfi.transactionFacade.destroyAllInThread();
+        ecfi.getTransaction().destroyAllInThread();
         // clean up resources, like JCR session
-        ecfi.resourceFacade.destroyAllInThread();
+//        ecfi.resourceFacade.destroyAllInThread();
         // clear out the ECFI's reference to this as well
         ecfi.activeContext.remove();
         ecfi.activeContextMap.remove(Thread.currentThread().getId());
