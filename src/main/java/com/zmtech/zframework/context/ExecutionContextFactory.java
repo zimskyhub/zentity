@@ -1,6 +1,7 @@
 package com.zmtech.zframework.context;
 
 import com.zmtech.zframework.entity.EntityFacade;
+import com.zmtech.zframework.l10n.L10nFacade;
 import com.zmtech.zframework.transaction.TransactionFacade;
 import groovy.lang.GroovyClassLoader;
 
@@ -35,7 +36,7 @@ public interface ExecutionContextFactory {
 //    LinkedHashMap<String, String> getComponentBaseLocations();
 //
 //    /** For localization (l10n) functionality, like localizing messages. */
-//    @Nonnull L10nFacade getL10n();
+    @Nonnull L10nFacade getL10n();
 //
 //    /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
 //    @Nonnull ResourceFacade getResource();

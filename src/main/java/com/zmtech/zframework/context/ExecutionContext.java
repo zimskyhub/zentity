@@ -13,7 +13,9 @@
  */
 package com.zmtech.zframework.context;
 
+import com.zmtech.zframework.cache.CacheFacade;
 import com.zmtech.zframework.entity.EntityFacade;
+import com.zmtech.zframework.l10n.L10nFacade;
 import com.zmtech.zframework.transaction.TransactionFacade;
 import com.zmtech.zframework.util.ContextBinding;
 import com.zmtech.zframework.util.ContextStack;
@@ -69,9 +71,8 @@ public interface ExecutionContext {
 //    ArtifactExecutionFacade getArtifactExecution();
 //
 //    /** For localization (l10n) functionality, like localizing messages. */
-//    @Nonnull
-//    L10nFacade getL10n();
-//
+    @Nonnull L10nFacade getL10n();
+
 //    /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
 //    @Nonnull
 //    ResourceFacade getResource();
@@ -81,8 +82,7 @@ public interface ExecutionContext {
 //    LoggerFacade getLogger();
 //
 //    /** For managing and accessing caches. */
-//    @Nonnull
-//    CacheFacade getCache();
+    @Nonnull CacheFacade getCache();
 
     /** For transaction operations use this facade instead of the JTA UserTransaction and TransactionManager. See javadoc comments there for examples of code usage. */
     @Nonnull

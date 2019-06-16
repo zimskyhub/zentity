@@ -4,6 +4,7 @@ import com.zmtech.zframework.context.ExecutionContext;
 import com.zmtech.zframework.context.ExecutionContextFactory;
 import com.zmtech.zframework.entity.*;
 import com.zmtech.zframework.entity.impl.EntityFacadeImpl;
+import com.zmtech.zframework.l10n.L10nFacade;
 import com.zmtech.zframework.transaction.TransactionFacade;
 import com.zmtech.zframework.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zframework.util.MNode;
@@ -916,7 +917,8 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //        return compLocMap
 //    }
 
-//    @Override @Nonnull L10nFacade getL10n() { getEci().l10nFacade }
+    @Override @Nonnull
+    public L10nFacade getL10n() { return getEci().l10nFacade; }
 //    @Override @Nonnull ResourceFacade getResource() { resourceFacade }
 //    @Override @Nonnull LoggerFacade getLogger() { loggerFacade }
 //    @Override @Nonnull CacheFacade getCache() { cacheFacade }

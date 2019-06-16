@@ -53,8 +53,12 @@ public class TransactionFacadeImpl implements TransactionFacade {
             // initialize internal
             MNode transactionInternalNode = transactionFacadeNode.first("transaction-internal");
             String tiClassName = transactionInternalNode.attribute("class");
-            transactionInternal = (TransactionInternal) Thread.currentThread().getContextClassLoader()
-                    .loadClass(tiClassName).newInstance();
+            try {
+                transactionInternal = (TransactionInternal) Thread.currentThread().getContextClassLoader()
+                        .loadClass(tiClassName).newInstance();
+            } catch (Exception e) {
+                throw new IllegalArgumentException("todo 错误");
+            }
             transactionInternal.init(ecfi);
 
             ut = transactionInternal.getUserTransaction();
@@ -63,8 +67,8 @@ public class TransactionFacadeImpl implements TransactionFacade {
             throw new IllegalArgumentException("No transaction-jndi or transaction-internal elements found in Moqui Conf XML file");
         }
 
-        if (transactionFacadeNode.attribute("use-transaction-cache") == "false") useTransactionCache = false;
-        if (transactionFacadeNode.attribute("use-connection-stash") == "false") useConnectionStash = false;
+        if (transactionFacadeNode.attribute("use-transaction-cache").equals("false")) useTransactionCache = false;
+        if (transactionFacadeNode.attribute("use-connection-stash").equals( "false")) useConnectionStash = false;
     }
 
     public void destroy() {
@@ -292,17 +296,24 @@ public class TransactionFacadeImpl implements TransactionFacade {
     }
 
     @Override
-    public boolean isTransactionInPlace() { getStatus() != Status.STATUS_NO_TRANSACTION; }
+    public boolean isTransactionInPlace() { return getStatus() != Status.STATUS_NO_TRANSACTION; }
 
-    public boolean isTransactionActive() { getStatus() == Status.STATUS_ACTIVE; }
+    public boolean isTransactionActive() { return getStatus() == Status.STATUS_ACTIVE; }
     public boolean isTransactionOperable() {
         int curStatus = getStatus();
         return curStatus == Status.STATUS_ACTIVE || curStatus == Status.STATUS_NO_TRANSACTION;
     }
 
     @Override
-    public boolean begin(Integer timeout) throws Exception {
-        int currentStatus = ut.getStatus();
+    public boolean begin(Integer timeout) throws TransactionException {
+        int currentStatus = 0;
+        try {
+            currentStatus = ut.getStatus();
+        } catch (SystemException e) {
+            logger.error("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ");
+            throw new TransactionException( "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: ");
+            e.printStackTrace();
+        }
         // logger.warn("================ begin TX, currentStatus=${currentStatus}", new BaseException("beginning transaction at"))
 
         if (currentStatus == Status.STATUS_ACTIVE) {
@@ -317,7 +328,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
             }
             if (txStackInfo.rollbackOnlyInfo != null) {
                 logger.warn("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation);
-                throw new TransactionException((String) "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable);
+                throw new TransactionException( "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable);
             } else {
                 return false;
             }
