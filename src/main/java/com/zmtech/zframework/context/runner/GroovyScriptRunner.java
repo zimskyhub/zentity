@@ -6,14 +6,10 @@ import com.zmtech.zframework.context.ScriptRunner;
 import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zframework.util.StringUtil;
 import groovy.lang.Script;
-import groovy.transform.CompileStatic;
 import org.codehaus.groovy.runtime.InvokerHelper;
-
-
 import javax.cache.Cache;
 
-@CompileStatic
-class GroovyScriptRunner implements ScriptRunner {
+public class GroovyScriptRunner implements ScriptRunner {
     private ExecutionContextFactoryImpl ecfi;
     private Cache<String, Class> scriptGroovyLocationCache;
 
@@ -22,7 +18,7 @@ class GroovyScriptRunner implements ScriptRunner {
     @Override
     public ScriptRunner init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf;
-        this.scriptGroovyLocationCache = ecfi.cacheFacade.getCache("resource.groovy.location", String.class, Class.class);
+        this.scriptGroovyLocationCache = ecfi.getCache().getCache("resource.groovy.location", String.class, Class.class);
         return this;
     }
 
@@ -49,10 +45,10 @@ class GroovyScriptRunner implements ScriptRunner {
     private synchronized Class loadGroovy(String location) {
         Class gc = (Class) scriptGroovyLocationCache.get(location);
         if (gc == null) {
-            String groovyText = ecfi.resourceFacade.getLocationText(location, false);
+            String groovyText = ecfi.getResource().getLocationText(location, false);
             gc = ecfi.compileGroovy(groovyText, StringUtil.cleanStringForJavaName(location));
             scriptGroovyLocationCache.put(location, gc);
         }
-        return gc
+        return gc;
     }
 }

@@ -16,6 +16,7 @@ package com.zmtech.zframework.context;
 import com.zmtech.zframework.cache.CacheFacade;
 import com.zmtech.zframework.entity.EntityFacade;
 import com.zmtech.zframework.l10n.L10nFacade;
+import com.zmtech.zframework.resource.ResourceFacade;
 import com.zmtech.zframework.transaction.TransactionFacade;
 import com.zmtech.zframework.util.ContextBinding;
 import com.zmtech.zframework.util.ContextStack;
@@ -45,6 +46,22 @@ public interface ExecutionContext {
     /** Returns a Map that represents the global/root variable space (context), ie the bottom of the context stack. */
     @Nonnull
     Map<String, Object> getContextRoot();
+    /** For localization (l10n) functionality, like localizing messages. */
+    @Nonnull
+    L10nFacade getL10n();
+    /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
+    @Nonnull
+    ResourceFacade getResource();
+    /** For managing and accessing caches. */
+    @Nonnull
+    CacheFacade getCache();
+    /** For transaction operations use this facade instead of the JTA UserTransaction and TransactionManager. See javadoc comments there for examples of code usage. */
+    @Nonnull
+    TransactionFacade getTransaction();
+    /** For interactions with a relational database. */
+    @Nonnull
+    EntityFacade getEntity();
+
 
     /** Get an instance object from the named ToolFactory instance (loaded by configuration). Some tools return a
      * singleton instance, others a new instance each time it is used and that instance is saved with this
@@ -65,33 +82,15 @@ public interface ExecutionContext {
 //    /** For user messages including general feedback, errors, and field-specific validation errors. */
 //    @Nonnull
 //    MessageFacade getMessage();
-
 //    /** For information about artifacts as they are being executed. */
 //    @Nonnull
 //    ArtifactExecutionFacade getArtifactExecution();
 //
-//    /** For localization (l10n) functionality, like localizing messages. */
-    @Nonnull L10nFacade getL10n();
-
-//    /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
-//    @Nonnull
-//    ResourceFacade getResource();
 //
 //    /** For trace, error, etc logging to the console, files, etc. */
 //    @Nonnull
 //    LoggerFacade getLogger();
 //
-//    /** For managing and accessing caches. */
-    @Nonnull CacheFacade getCache();
-
-    /** For transaction operations use this facade instead of the JTA UserTransaction and TransactionManager. See javadoc comments there for examples of code usage. */
-    @Nonnull
-    TransactionFacade getTransaction();
-
-    /** For interactions with a relational database. */
-    @Nonnull
-    EntityFacade getEntity();
-
 
     /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and uses
      * the current ExecutionContext in the separate thread (retaining user, authz context, etc). */

@@ -4,6 +4,7 @@ import com.zmtech.zframework.cache.CacheFacade;
 import com.zmtech.zframework.entity.EntityFacade;
 import com.zmtech.zframework.l10n.L10nFacade;
 import com.zmtech.zframework.resource.ResourceFacade;
+import com.zmtech.zframework.tools.ToolFactory;
 import com.zmtech.zframework.transaction.TransactionFacade;
 import groovy.lang.GroovyClassLoader;
 
@@ -27,34 +28,43 @@ public interface ExecutionContextFactory {
     @Nonnull String getRuntimePath();
     @Nonnull String getZEntityVersion();
 
-//    /** Get the named ToolFactory instance (loaded by configuration) */
-//    <V> ToolFactory<V> getToolFactory(@Nonnull String toolName);
-//    /** Get an instance object from the named ToolFactory instance (loaded by configuration); the instanceClass may be
-//     * null in scripts or other contexts where static typing is not needed */
-//    <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters);
+    /** For managing and accessing caches. */
+    @Nonnull CacheFacade getCache();
+    /** For localization (l10n) functionality, like localizing messages. */
+    @Nonnull L10nFacade getL10n();
+    /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
+    @Nonnull ResourceFacade getResource();
+    /** For interactions with a relational database. */
+    @Nonnull EntityFacade getEntity();
+    /** For transaction operations use this facade instead of the JTA UserTransaction and TransactionManager. See javadoc comments there for examples of code usage. */
+    @Nonnull TransactionFacade getTransaction();
+    /** Get the framework ClassLoader, aware of all additional classes in runtime and in components. */
+    @Nonnull ClassLoader getClassLoader();
+    /** Get a GroovyClassLoader for runtime compilation, etc. */
+    @Nonnull
+    GroovyClassLoader getGroovyClassLoader();
+    /** Get the named ToolFactory instance (loaded by configuration) */
+    <V> ToolFactory<V> getToolFactory(@Nonnull String toolName);
+    /** Get an instance object from the named ToolFactory instance (loaded by configuration); the instanceClass may be
+     * null in scripts or other contexts where static typing is not needed */
+    <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters);
 //
 //    /** Get a Map where each key is a component name and each value is the component's base location. */
 //    @Nonnull
 //    LinkedHashMap<String, String> getComponentBaseLocations();
 //
-//    /** For localization (l10n) functionality, like localizing messages. */
-    @Nonnull L10nFacade getL10n();
+
 //
-//    /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
-    @Nonnull ResourceFacade getResource();
+
 //
 //    /** For trace, error, etc logging to the console, files, etc. */
 //    @Nonnull LoggerFacade getLogger();
 //
-//    /** For managing and accessing caches. */
-    @Nonnull CacheFacade getCache();
 
-    /** For transaction operations use this facade instead of the JTA UserTransaction and TransactionManager. See javadoc comments there for examples of code usage. */
-    @Nonnull TransactionFacade getTransaction();
 
-    /** For interactions with a relational database. */
-    @Nonnull
-    EntityFacade getEntity();
+
+
+
 
 //    /** For calling services (local or remote, sync or async or scheduled). */
 //    @Nonnull ServiceFacade getService();
@@ -62,11 +72,7 @@ public interface ExecutionContextFactory {
 //    /** For rendering screens for general use (mostly for things other than web pages or web page snippets). */
 //    @Nonnull ScreenFacade getScreen();
 
-    /** Get the framework ClassLoader, aware of all additional classes in runtime and in components. */
-    @Nonnull ClassLoader getClassLoader();
-    /** Get a GroovyClassLoader for runtime compilation, etc. */
-    @Nonnull
-    GroovyClassLoader getGroovyClassLoader();
+
 
 //    /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
 //    @Nonnull ServletContext getServletContext();

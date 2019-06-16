@@ -2,9 +2,11 @@ package com.zmtech.zframework.resource.impl;
 
 import com.zmtech.zframework.context.ScriptRunner;
 import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zframework.context.runner.JavaxScriptRunner;
 import com.zmtech.zframework.context.runner.XmlActionsScriptRunner;
 import com.zmtech.zframework.resource.ResourceFacade;
 import com.zmtech.zframework.tools.ToolFactory;
+import com.zmtech.zframework.util.MNode;
 import groovy.lang.Script;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,9 +35,9 @@ import java.net.URL;
 import java.util.*;
 
 public class ResourceFacadeImpl implements ResourceFacade {
-    protected final static Logger logger = LoggerFactory.getLogger(ResourceFacadeImpl.class)
+    protected final static Logger logger = LoggerFactory.getLogger(ResourceFacadeImpl.class);
 
-    protected final ExecutionContextFactoryImpl ecfil;
+    protected final ExecutionContextFactoryImpl ecfi;
 
     public final XmlActionsScriptRunner xmlActionsScriptRunner;
 
@@ -53,56 +55,43 @@ public class ResourceFacadeImpl implements ResourceFacade {
     protected final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
     protected final ToolFactory<ContentHandler> xslFoHandlerFactory;
 
-    protected final Map<String, Repository> contentRepositories = new HashMap<>()
-    protected final ThreadLocal<Map<String, Session>> contentSessions = new ThreadLocal<Map<String, Session>>()
+    protected final Map<String, Repository> contentRepositories = new HashMap<>();
+    protected final ThreadLocal<Map<String, Session>> contentSessions = new ThreadLocal<>();
 
     public ResourceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
-        this.ecfi = ecfi
+        this.ecfi = ecfi;
 
-        ftlTemplateRenderer = new FtlTemplateRenderer()
-        ftlTemplateRenderer.init(ecfi)
 
-        xmlActionsScriptRunner = new XmlActionsScriptRunner()
-        xmlActionsScriptRunner.init(ecfi)
+        xmlActionsScriptRunner = new XmlActionsScriptRunner();
+        xmlActionsScriptRunner.init(ecfi);
 
-        textLocationCache = ecfi.cacheFacade.getCache("resource.text.location", String.class, String.class)
+        textLocationCache = ecfi.getCache().getCache("resource.text.location", String.class, String.class);
         // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.cacheFacade.getCache("resource.groovy.expression")
-        resourceReferenceByLocation = ecfi.cacheFacade.getCache("resource.reference.location", String.class, ResourceReference.class)
+        resourceReferenceByLocation = ecfi.getCache().getCache("resource.reference.location", String.class, ResourceReference.class);
 
-        MNode resourceFacadeNode = ecfi.confXmlRoot.first("resource-facade")
+        MNode resourceFacadeNode = ecfi.confXmlRoot.first("resource-facade");
 
         // Setup resource reference classes
-        for (MNode rrNode in resourceFacadeNode.children("resource-reference")) {
+        for (MNode rrNode : resourceFacadeNode.children("resource-reference")) {
             try {
-                Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"))
-                resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass)
+                Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"));
+                resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass);
             } catch (ClassNotFoundException e) {
-                logger.info("Class [${rrNode.attribute("class")}] not found (${e.toString()})")
+                logger.info("Class ["+rrNode.attribute("class")+"] not found ("+e.toString()+")");
             }
         }
 
-        // Setup template renderers
-        for (MNode templateRendererNode in resourceFacadeNode.children("template-renderer")) {
-            TemplateRenderer tr = (TemplateRenderer) Thread.currentThread().getContextClassLoader()
-                    .loadClass(templateRendererNode.attribute("class")).newInstance()
-            templateRenderers.put(templateRendererNode.attribute("extension"), tr.init(ecfi))
-        }
-        for (String ext in templateRenderers.keySet()) {
-            templateRendererExtensions.add(ext)
-            templateRendererExtensionsDots.add(ObjectUtilities.countChars(ext, (char) '.'))
-        }
-
         // Setup script runners
-        for (MNode scriptRunnerNode in resourceFacadeNode.children("script-runner")) {
-            if (scriptRunnerNode.attribute("class")) {
+        for (MNode scriptRunnerNode : resourceFacadeNode.children("script-runner")) {
+            if (scriptRunnerNode.attribute("class") != null) {
                 ScriptRunner sr = (ScriptRunner) Thread.currentThread().getContextClassLoader()
-                        .loadClass(scriptRunnerNode.attribute("class")).newInstance()
-                scriptRunners.put(scriptRunnerNode.attribute("extension"), sr.init(ecfi))
-            } else if (scriptRunnerNode.attribute("engine")) {
-                ScriptRunner sr = new JavaxScriptRunner(scriptRunnerNode.attribute("engine")).init(ecfi)
-                scriptRunners.put(scriptRunnerNode.attribute("extension"), sr)
+                        .loadClass(scriptRunnerNode.attribute("class")).newInstance();
+                scriptRunners.put(scriptRunnerNode.attribute("extension"), sr.init(ecfi));
+            } else if (scriptRunnerNode.attribute("engine") != null) {
+                ScriptRunner sr = new JavaxScriptRunner(scriptRunnerNode.attribute("engine")).init(ecfi);
+                scriptRunners.put(scriptRunnerNode.attribute("extension"), sr);
             } else {
-                logger.error("Configured script-runner for extension [${scriptRunnerNode.attribute("extension")}] must have either a class or engine attribute and has neither.")
+                logger.error("Configured script-runner for extension [${scriptRunnerNode.attribute("extension")}] must have either a class or engine attribute and has neither.");
             }
         }
 

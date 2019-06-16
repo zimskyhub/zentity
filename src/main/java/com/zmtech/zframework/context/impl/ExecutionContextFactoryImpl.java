@@ -9,6 +9,7 @@ import com.zmtech.zframework.entity.impl.EntityFacadeImpl;
 import com.zmtech.zframework.l10n.L10nFacade;
 import com.zmtech.zframework.resource.ResourceFacade;
 import com.zmtech.zframework.resource.impl.ResourceFacadeImpl;
+import com.zmtech.zframework.tools.ToolFactory;
 import com.zmtech.zframework.transaction.TransactionFacade;
 import com.zmtech.zframework.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zframework.util.MNode;
@@ -36,6 +37,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected CompilerConfiguration groovyCompilerConf;
     public final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>();
     protected final Map<Long, ExecutionContextImpl> activeContextMap = new HashMap<>();
+    protected final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>();
     // NOTE: this is experimental, don't set to true! still issues with unique class names, etc
     // also issue with how to support recompile of actions on change, could just use for expressions but that only helps so much
     // maybe some way to load from disk only if timestamp newer for XmlActions and GroovyScriptRunner
@@ -902,17 +904,17 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         activeContext.set(eci);
     }
 
-//    @Override
-//    <V> ToolFactory<V> getToolFactory(@Nonnull String toolName) {
-//        ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
-//        return toolFactory
-//    }
-//    @Override
-//    <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters) {
-//        ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
-//        if (toolFactory == null) throw new IllegalArgumentException("No ToolFactory found with name ${toolName}")
-//        return toolFactory.getInstance(parameters)
-//    }
+    @Override
+    public <V> ToolFactory<V> getToolFactory(@Nonnull String toolName) {
+        ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName);
+        return toolFactory;
+    }
+    @Override
+    public <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters) {
+        ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName);
+        if (toolFactory == null) throw new IllegalArgumentException("No ToolFactory found with name ${toolName}");
+        return toolFactory.getInstance(parameters);
+    }
 
 //    @Override @Nonnull LinkedHashMap<String, String> getComponentBaseLocations() {
 //        LinkedHashMap<String, String> compLocMap = new LinkedHashMap<String, String>()

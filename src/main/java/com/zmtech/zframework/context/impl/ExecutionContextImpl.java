@@ -1,12 +1,15 @@
 package com.zmtech.zframework.context.impl;
 
 import com.zmtech.zframework.cache.CacheFacade;
+import com.zmtech.zframework.cache.impl.CacheFacadeImpl;
 import com.zmtech.zframework.context.ExecutionContext;
 import com.zmtech.zframework.context.ExecutionContextFactory;
 import com.zmtech.zframework.entity.EntityFacade;
 import com.zmtech.zframework.entity.impl.EntityFacadeImpl;
 import com.zmtech.zframework.l10n.L10nFacade;
 import com.zmtech.zframework.l10n.impl.L10nFacadeImpl;
+import com.zmtech.zframework.resource.ResourceFacade;
+import com.zmtech.zframework.resource.impl.ResourceFacadeImpl;
 import com.zmtech.zframework.transaction.TransactionFacade;
 import com.zmtech.zframework.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zframework.util.ContextBinding;
@@ -31,8 +34,9 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     private EntityFacadeImpl activeEntityFacade;
 
-    public final CacheFacadeImpl cacheFacade;
     public final TransactionFacadeImpl transactionFacade;
+    public final CacheFacadeImpl cacheFacade;
+    public final ResourceFacadeImpl resourceFacade;
     public final L10nFacadeImpl l10nFacade;
 
     private Boolean skipStats = null;
@@ -52,26 +56,28 @@ public class ExecutionContextImpl implements ExecutionContext {
         forThreadId = forThread.getId();
         // createLoc = new BaseException("ec create");
 
+        l10nFacade = new L10nFacadeImpl(this);
         activeEntityFacade = (EntityFacadeImpl)ecfi.getEntity();
+        cacheFacade = (CacheFacadeImpl)ecfi.getCache();
+        transactionFacade = (TransactionFacadeImpl)ecfi.getTransaction();
+        resourceFacade = (ResourceFacadeImpl)ecfi.getResource();
 //        userFacade = new UserFacadeImpl(this);
 //        messageFacade = new MessageFacadeImpl();
 //        artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this);
-        l10nFacade = new L10nFacadeImpl(this);
 
-        cacheFacade = ecfi.cacheFacade;
 //        loggerFacade = ecfi.loggerFacade;
-//        resourceFacade = ecfi.resourceFacade;
+
 //        screenFacade = ecfi.screenFacade;
 //        serviceFacade = ecfi.serviceFacade;
-        transactionFacade = (TransactionFacadeImpl)ecfi.getTransaction();
 
         if (cacheFacade == null) throw new IllegalStateException("cacheFacade was null");
-//        if (loggerFacade == null) throw new IllegalStateException("loggerFacade was null");
-//        if (resourceFacade == null) throw new IllegalStateException("resourceFacade was null");
-//        if (screenFacade == null) throw new IllegalStateException("screenFacade was null");
-//        if (serviceFacade == null) throw new IllegalStateException("serviceFacade was null");
+        if (resourceFacade == null) throw new IllegalStateException("resourceFacade was null");
         if (l10nFacade == null) throw new IllegalStateException("serviceFacade was null");
         if (transactionFacade == null) throw new IllegalStateException("transactionFacade was null");
+
+//        if (loggerFacade == null) throw new IllegalStateException("loggerFacade was null");
+//        if (screenFacade == null) throw new IllegalStateException("screenFacade was null");
+//        if (serviceFacade == null) throw new IllegalStateException("serviceFacade was null");
 
         initCaches();
 
@@ -98,20 +104,20 @@ public class ExecutionContextImpl implements ExecutionContext {
         return ecfi.getTool(toolName, instanceClass, parameters);
     }
 
+    @Override public @Nonnull L10nFacade getL10n() { return l10nFacade; }
+    @Override public @Nonnull ResourceFacade getResource() { return resourceFacade; }
+    @Override public @Nonnull CacheFacade getCache() { return cacheFacade; }
+    @Override public @Nonnull TransactionFacade getTransaction() { return transactionFacade; }
+    @Override public @Nonnull EntityFacade getEntity() { return activeEntityFacade; }
+    public @Nonnull EntityFacadeImpl getEntityFacade() { return activeEntityFacade; }
 //    @Override public @Nullable WebFacade getWeb() { return webFacade; }
 //    public @Nullable WebFacadeImpl getWebImpl() { return webFacadeImpl; }
 
 //    @Override public @Nonnull UserFacade getUser() { return userFacade; }
 //    @Override public @Nonnull MessageFacade getMessage() { return messageFacade; }
 //    @Override public @Nonnull ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
-    @Override public @Nonnull L10nFacade getL10n() { return l10nFacade; }
-//    @Override public @Nonnull ResourceFacade getResource() { return resourceFacade; }
 //    @Override public @Nonnull LoggerFacade getLogger() { return loggerFacade; }
-    @Override public @Nonnull CacheFacade getCache() { return cacheFacade; }
-    @Override public @Nonnull TransactionFacade getTransaction() { return transactionFacade; }
 
-    @Override public @Nonnull EntityFacade getEntity() { return activeEntityFacade; }
-    public @Nonnull EntityFacadeImpl getEntityFacade() { return activeEntityFacade; }
 
 //    @Override public @Nonnull ServiceFacade getService() { return serviceFacade; }
 //    @Override public @Nonnull ScreenFacade getScreen() { return screenFacade; }
