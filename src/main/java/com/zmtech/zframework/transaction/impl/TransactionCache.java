@@ -1,4 +1,4 @@
-package com.zmtech.zframework.transaction.impl
+package com.zmtech.zframework.transaction.impl;
 
 import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zframework.entity.EntityCondition;
@@ -45,7 +45,11 @@ public class TransactionCache implements Synchronization {
     public boolean isReadOnly() { return readOnly; }
     public void makeReadOnly() {
         if (readOnly) return;
-        flushCache(false);
+        try {
+            flushCache(false);
+        } catch (XAException e) {
+            e.printStackTrace();
+        }
         readOnly = true;
     }
     public void makeWriteThrough() { readOnly = false;}
@@ -265,7 +269,7 @@ public class TransactionCache implements Synchronization {
             // if this has been deleted return a DeletedEntityValue instance so caller knows it was deleted and doesn't look in the DB for another record
             EntityWriteInfo currentEwi = (EntityWriteInfo) lastWriteInfoMap.get(key);
             if (currentEwi != null && currentEwi.writeMode == WriteMode.DELETE)
-                return new EntityValueBase.DeletedEntityValue(efb.getEntityDef(), ecfi.entityFacade);
+                return new EntityValueBase.DeletedEntityValue(efb.getEntityDef(), (EntityFacadeImpl) ecfi.getEntity());
         }
 
         // cloneValue() so that updates aren't in the read cache until an update is done
@@ -326,7 +330,7 @@ public class TransactionCache implements Synchronization {
                     }
                 }
                 if (foundCreatedDependent) {
-                    EntityListImpl createdValueList = new EntityListImpl(ecfi.entityFacade);
+                    EntityListImpl createdValueList = new EntityListImpl((EntityFacadeImpl) ecfi.getEntity());
                     Map createMap = createByEntityRef.get(ed.getFullEntityName());
                     if (createMap != null) {
                         for (Object createEvbObj : createMap.values()) {
@@ -421,7 +425,7 @@ public class TransactionCache implements Synchronization {
             int writeInfoListSize = writeInfoList.size();
             if (writeInfoListSize > 0) {
                 // logger.error("Tx cache flush at", new BaseException("txc flush"))
-                EntityFacadeImpl efi = ecfi.entityFacade;
+                EntityFacadeImpl efi = (EntityFacadeImpl) ecfi.getEntity();
 
                 long startTime = System.currentTimeMillis();
                 int createCount = 0;
@@ -478,7 +482,13 @@ public class TransactionCache implements Synchronization {
     }
 
     @Override
-    public void beforeCompletion() { this.flushCache(true); }
+    public void beforeCompletion() {
+        try {
+            this.flushCache(true);
+        } catch (XAException e) {
+            e.printStackTrace();
+        }
+    }
     @Override
     public void afterCompletion(int i) { }
 }

@@ -52,14 +52,14 @@ public interface ResourceFacade {
      * @return The value returned by the script, if any.
      */
     Object script(String location, String method);
-    Object script(String location, String method, Map additionalContext);
+    Object script(String location, String method, Map<String,Object> additionalContext);
 
     /** Evaluate a Groovy expression as a condition.
      *
      * @return boolean representing the result of evaluating the expression
      */
     boolean condition(String expression, String debugLocation);
-    boolean condition(String expression, String debugLocation, Map additionalContext);
+    boolean condition(String expression, String debugLocation, Map<String,Object> additionalContext);
 
     /** Evaluate a Groovy expression as a context field, or more generally as an expression that evaluates to an Object
      * reference. This can be used to get a value from an expression or to run any general expression or script.
@@ -67,7 +67,7 @@ public interface ResourceFacade {
      * @return Object reference representing result of evaluating the expression
      */
     Object expression(String expr, String debugLocation);
-    Object expression(String expr, String debugLocation, Map additionalContext);
+    Object expression(String expr, String debugLocation, Map<String,Object> additionalContext);
 
     /** Evaluate a Groovy expression as a GString to be expanded/interpolated into a simple String.
      *
@@ -77,8 +77,8 @@ public interface ResourceFacade {
      * @return String representing localized and expanded inputString
      */
     String expand(String inputString, String debugLocation);
-    String expand(String inputString, String debugLocation, Map additionalContext);
-    String expand(String inputString, String debugLocation, Map additionalContext, boolean localize);
+    String expand(String inputString, String debugLocation, Map<String,Object> additionalContext);
+    String expand(String inputString, String debugLocation, Map<String,Object> additionalContext, boolean localize);
     String expandNoL10n(String inputString, String debugLocation);
 
     void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType);

@@ -35,7 +35,7 @@ public class EntityFacadeImpl implements EntityFacade {
     public final ExecutionContextFactoryImpl ecfi;
     public final EntityConditionFactoryImpl entityConditionFactory;
 
-    protected final HashMap<String, EntityDatasourceFactory> datasourceFactoryByGroupMap = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<String, EntityDatasourceFactory> datasourceFactoryByGroupMap = new ConcurrentHashMap<>();
 
     /** Cache with entity name as the key and an EntityDefinition as the value; clear this cache to reload entity def */
     public final Cache<String, EntityDefinition> entityDefinitionCache;
@@ -90,7 +90,7 @@ public class EntityFacadeImpl implements EntityFacade {
         }
         databaseTimeZone = theTimeZone != null ? theTimeZone : TimeZone.getDefault();
         logger.info("Database time zone is ${databaseTimeZone}");
-        Locale theLocale = null
+        Locale theLocale = null;
         if (entityFacadeNode.attribute("database-locale") != null) {
             try {
                 String localeStr = entityFacadeNode.attribute("database-locale");
@@ -102,10 +102,10 @@ public class EntityFacadeImpl implements EntityFacade {
         databaseLocale = theLocale != null ?theLocale: Locale.getDefault();
 
         // init entity meta-data
-        entityDefinitionCache = ecfi.cacheFacade.getCache("entity.definition");
-        entityLocationSingleCache = ecfi.cacheFacade.getCache("entity.location");
+        entityDefinitionCache = ecfi.getCache().getCache("entity.definition");
+        entityLocationSingleCache = ecfi.getCache().getCache("entity.location");
         // NOTE: don't try to load entity locations before constructor is complete; this.loadAllEntityLocations()
-        entitySequenceBankCache = ecfi.cacheFacade.getCache("entity.sequence.bank");
+        entitySequenceBankCache = ecfi.getCache().getCache("entity.sequence.bank");
 
         // init connection pool (DataSource) for each group
         initAllDatasources();
@@ -122,7 +122,7 @@ public class EntityFacadeImpl implements EntityFacade {
         // load entity definitions
         logger.info("Loading entity definitions");
         long entityStartTime = System.currentTimeMillis();
-        loadAllEntityLocations()
+        loadAllEntityLocations();
         int entityCount = loadAllEntityDefinitions();
         // don't always load/warm framework entities, in production warms anyway and in dev not needed: entityFacade.loadFrameworkEntities()
         logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms");

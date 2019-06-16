@@ -5,6 +5,7 @@ import com.zmtech.zframework.context.impl.ExecutionContextImpl;
 import com.zmtech.zframework.exception.EntityException;
 import com.zmtech.zframework.util.MNode;
 import com.zmtech.zframework.util.StringUtil;
+import freemarker.core.Environment;
 import groovy.lang.Script;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.codehaus.groovy.runtime.InvokerHelper;
@@ -102,7 +103,7 @@ public class XmlAction {
             root.put("xmlActionsRoot", xmlNode);
 
             Writer outWriter = new StringWriter();
-            Environment env = ecfi.resourceFacade.getXmlActionsScriptRunner().getXmlActionsTemplate().createProcessingEnvironment(root, outWriter);
+            Environment env = ecfi.getResource().getXmlActionsScriptRunner().getXmlActionsTemplate().createProcessingEnvironment(root, outWriter);
             env.process();
 
             groovyString = outWriter.toString();

@@ -1,8 +1,8 @@
-
 package com.zmtech.zframework.transaction.impl;
 
 import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zframework.context.impl.ExecutionContextImpl;
+import com.zmtech.zframework.exception.BaseException;
 import com.zmtech.zframework.exception.EntityException;
 import com.zmtech.zframework.exception.TransactionException;
 import com.zmtech.zframework.transaction.TransactionFacade;
@@ -24,6 +24,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Hashtable;
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 public class TransactionFacadeImpl implements TransactionFacade {
@@ -174,52 +175,64 @@ public class TransactionFacadeImpl implements TransactionFacade {
     }
     protected final static boolean requireNewThread = true;
     public Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, boolean threadReuseEci, Closure closure) {
-        Object result = null;
+        AtomicReference<Object> result = new AtomicReference<>();
         if (requireNewThread) {
             // if there is a timeout for this thread wait 10x the timeout (so multiple seconds by 10k instead of 1k)
             long threadWait = timeout != null ? timeout * 10000 : 60000;
 
             Thread txThread = null;
             ExecutionContextImpl eci = ecfi.getEci();
-            Throwable threadThrown = null;
+            AtomicReference<Throwable> threadThrown = new AtomicReference<>();
 
             try {
-                txThread = Thread.start('RequireNewTx', ()->{
+                txThread = new Thread(()->{
                     if (threadReuseEci) ecfi.useExecutionContextInThread(eci);
                     try {
                         if (beginTx) {
-                            result = runUseOrBegin(timeout, rollbackMessage, closure);
+                            result.set(runUseOrBegin(timeout, rollbackMessage, closure));
                         } else {
-                            result = closure.call();
+                            result.set(closure.call());
                         }
                     } catch (Throwable t) {
-                        threadThrown = t;
+
+                        threadThrown.set(t);
                     }
-                });
+                },"RequireNewTx");
+
+                txThread.start();
+
             } finally {
                 if (txThread != null) {
-                    txThread.join(threadWait);
+                    try {
+                        txThread.join(threadWait);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     if (txThread.getState() != Thread.State.TERMINATED) {
                         // TODO: do more than this?
                         logger.warn("New transaction thread not terminated, in state ${txThread.state}");
                     }
                 }
             }
-            if (threadThrown != null) throw threadThrown;
+            if (threadThrown.get() != null) try {
+                throw threadThrown.get();
+            } catch (Throwable throwable) {
+                throwable.printStackTrace();
+            }
         } else {
             boolean suspendedTransaction = false;
             try {
                 if (isTransactionInPlace()) suspendedTransaction = suspend();
                 if (beginTx) {
-                    result = runUseOrBegin(timeout, rollbackMessage, closure);
+                    result.set(runUseOrBegin(timeout, rollbackMessage, closure));
                 } else {
-                    result = closure.call();
+                    result.set(closure.call());
                 }
             } finally {
                 if (suspendedTransaction) resume();
             }
         }
-        return result;
+        return result.get();
     }
 
     @Override
@@ -312,7 +325,6 @@ public class TransactionFacadeImpl implements TransactionFacade {
         } catch (SystemException e) {
             logger.error("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ");
             throw new TransactionException( "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: ");
-            e.printStackTrace();
         }
         // logger.warn("================ begin TX, currentStatus=${currentStatus}", new BaseException("beginning transaction at"))
 
@@ -359,35 +371,41 @@ public class TransactionFacadeImpl implements TransactionFacade {
             throw new TransactionException("Could not begin transaction", e);
         } finally {
             // make sure the timeout always gets reset to the default
-            if (timeout != null) ut.setTransactionTimeout(0);
+            if (timeout != null) {
+                try {
+                    ut.setTransactionTimeout(0);
+                } catch (SystemException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
     @Override
-    public void commit(boolean beganTransaction) { if (beganTransaction) this.commit() }
+    public void commit(boolean beganTransaction) { if (beganTransaction) this.commit(); }
 
     @Override
     public void commit() {
-        TxStackInfo txStackInfo = getTxStackInfo()
+        TxStackInfo txStackInfo = getTxStackInfo();
         try {
-            int status = ut.getStatus()
+            int status = ut.getStatus();
             // logger.warn("================ commit TX, currentStatus=${status}")
 
-            txStackInfo.closeTxConnections()
+            txStackInfo.closeTxConnections();
             if (status == Status.STATUS_MARKED_ROLLBACK) {
                 if (txStackInfo.rollbackOnlyInfo != null) {
-                    logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; rollback-only was set here:", txStackInfo.rollbackOnlyInfo.rollbackLocation)
+                    logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; rollback-only was set here:", txStackInfo.rollbackOnlyInfo.rollbackLocation);
                 } else {
-                    logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; no rollback-only info, current location:", new BaseException("Rollback instead of commit location"))
+                    logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; no rollback-only info, current location:", new BaseException("Rollback instead of commit location"));
                 }
-                ut.rollback()
+                ut.rollback();
             } else if (status != Status.STATUS_NO_TRANSACTION && status != Status.STATUS_COMMITTING &&
                     status != Status.STATUS_COMMITTED && status != Status.STATUS_ROLLING_BACK &&
                     status != Status.STATUS_ROLLEDBACK) {
-                ut.commit()
+                ut.commit();
             } else {
                 if (status != Status.STATUS_NO_TRANSACTION)
-                    logger.warn((String) "Not committing transaction because status is " + getStatusString(), new Exception("Bad TX status location"));
+                    logger.warn("Not committing transaction because status is " + getStatusString(), new Exception("Bad TX status location"));
             }
         } catch (RollbackException e) {
             if (txStackInfo.rollbackOnlyInfo != null) {
@@ -406,7 +424,12 @@ public class TransactionFacadeImpl implements TransactionFacade {
             throw new TransactionException("Could not commit transaction", e);
         } finally {
             // there shouldn't be a TX around now, but if there is the commit may have failed so rollback to clean things up
-            int status = ut.getStatus();
+            int status = 0;
+            try {
+                status = ut.getStatus();
+            } catch (SystemException e) {
+                e.printStackTrace();
+            }
             if (status != Status.STATUS_NO_TRANSACTION && status != Status.STATUS_COMMITTING &&
                     status != Status.STATUS_COMMITTED && status != Status.STATUS_ROLLING_BACK &&
                     status != Status.STATUS_ROLLEDBACK) {
@@ -609,13 +632,19 @@ public class TransactionFacadeImpl implements TransactionFacade {
             if (isTraceEnabled) {
                 StringBuilder infoString = new StringBuilder();
                 infoString.append("Initializing TX cache at:");
-                for (infoAei : ecfi.getEci().artifactExecutionFacade.getStack()) infoString.append(infoAei.getName());
+//                for (infoAei : ecfi.getEci().artifactExecutionFacade.getStack()) infoString.append(infoAei.getName());
                 logger.trace(infoString.toString());
                 // } else if (logger.isInfoEnabled()) {
                 //     logger.info("Initializing TX cache in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
             }
 
-            if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
+            try {
+                if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active");
+            } catch (SystemException e) {
+                e.printStackTrace();
+            } catch (XAException e) {
+                e.printStackTrace();
+            }
 
             TransactionCache txCache = new TransactionCache(this.ecfi, false);
             txStackInfo.txCache = txCache;
@@ -651,13 +680,21 @@ public class TransactionFacadeImpl implements TransactionFacade {
         ConnectionWrapper con = txStackInfo.txConByGroup.get(conKey);
         if (con == null) return null;
 
-        if (con.isClosed()) {
-            txStackInfo.txConByGroup.remove(conKey);
-            logger.info("Stashed connection closed elsewhere for group ${groupName}: ${con.toString()}");
-            return null;
+        try {
+            if (con.isClosed()) {
+                txStackInfo.txConByGroup.remove(conKey);
+                logger.info("Stashed connection closed elsewhere for group ${groupName}: ${con.toString()}");
+                return null;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         if (!isTransactionActive()) {
-            con.close();
+            try {
+                con.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
             txStackInfo.txConByGroup.remove(conKey);
             logger.info("Stashed connection found but transaction is not active (${getStatusString()}) for group ${groupName}: ${con.toString()}");
             return null;
