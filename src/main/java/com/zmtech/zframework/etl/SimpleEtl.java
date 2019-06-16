@@ -25,36 +25,39 @@ public class SimpleEtl {
     }
 
 
-    /** Call this to add a transformer to run for any type, will be run in order added */
+    /** 调用此方法添加运行任何类型转换器，将按顺序运行添加 */
     public SimpleEtl addTransformer(Transformer transformer) {
         if (internalConfig == null) internalConfig = new TransformConfiguration();
         internalConfig.addTransformer(transformer);
         return this;
     }
-    /** Call this to add a transformer to run a particular type, which will be run in order for entries of the type */
+    /** 调用此方法添加运行指定类型转换器，将按顺序运行添加 */
     public SimpleEtl addTransformer(String type, Transformer transformer) {
         if (internalConfig == null) internalConfig = new TransformConfiguration();
         internalConfig.addTransformer(type, transformer);
         return this;
     }
-    /** Add from an external TransformConfiguration, copies configuration to avoid modification */
+    /** 从外部TransformConfiguration添加，复制配置以避免修改 */
     public SimpleEtl addConfiguration(TransformConfiguration config) {
         if (internalConfig == null) internalConfig = new TransformConfiguration();
         internalConfig.copyFrom(config);
         return this;
     }
-    /** Use an external configuration as-is. Overrides any previous addTransformer() and addConfiguration() calls.
-     * Any calls to addTransformer() and addConfiguration() will modify this configuration. */
+    /**
+     * 从外部TransformConfiguration设置。
+     * 覆盖任何先前的addTransformer（）和addConfiguration（）。
+     * 对addTransformer（）和addConfiguration（）的任何调用都将修改此配置。
+     */
     public SimpleEtl setConfiguration(TransformConfiguration config) {
         internalConfig = config;
         return this;
     }
-    /** Call this to set stop on error flag */
+    /** 设置错误停止标志 */
     public SimpleEtl stopOnError() { this.stopOnError = true; return this; }
-    /** Set timeout in seconds; passed to Loader.init() for transactions, etc */
+    /** 设置超时秒数; 传递给Loader.init（）进行传输等用途 */
     public SimpleEtl setTimeout(Integer timeout) { this.timeout = timeout; return this; }
 
-    /** Call this to process the ETL */
+    /** 调用此方法来处理ETL */
     public SimpleEtl process() {
         startTime = System.currentTimeMillis();
         // initialize loader
@@ -96,9 +99,9 @@ public class SimpleEtl {
     }
 
     /**
-     * Called by the Extractor to process an extracted entry.
-     * @return true if the entry loaded, false otherwise
-     * @throws StopException if thrown extraction should stop and return
+     * 由提取器调用以处理提取的数据。
+     * @return 如果数据加载，则为true，否则为false
+     * @throws StopException 如果抛出提取应停止并返回
      */
     public boolean processEntry(Entry extractEntry) throws StopException {
         if (extractEntry == null) return false;
@@ -142,21 +145,21 @@ public class SimpleEtl {
 
         public TransformConfiguration() { }
 
-        /** Call this to add a transformer to run for any type, which will be run in order */
+        /** 调用此方法添加一个转换器以运行任何类型，它将按顺序运行 */
         public TransformConfiguration addTransformer(@Nonnull Transformer transformer) {
             anyTransformers.add(transformer);
             anyTransformerSize = anyTransformers.size();
             hasTransformers = true;
             return this;
         }
-        /** Call this to add a transformer to run a particular type, which will be run in order for entries of the type */
+        /** 调用此方法添加一个转换器以运行特定类型，它将按顺序运行 */
         public TransformConfiguration addTransformer(@Nonnull String type, @Nonnull Transformer transformer) {
             typeTransformers.computeIfAbsent(type, k -> new ArrayList<>()).add(transformer);
             hasTransformers = true;
             return this;
         }
 
-        // returns true to skip the entry (or remove from load list)
+        // 返回true以跳过该数据（或从加载列表中删除）
         void runTransformers(SimpleEtl etl, EntryTransform entryTransform, ArrayList<Entry> loadEntries) throws StopException {
             for (int i = 0; i < anyTransformerSize; i++) {
                 transformEntry(etl, anyTransformers.get(i), entryTransform);
@@ -169,7 +172,7 @@ public class SimpleEtl {
                     transformEntry(etl, curTypeTrans.get(i), entryTransform);
                 }
             }
-            // handle new entries, run transforms then add to load list if not skipped
+            // 处理新数据，运行转换，然后添加到加载列表，如果没有跳过
             int newEntriesSize = entryTransform.newEntries != null ? entryTransform.newEntries.size() : 0;
             for (int i = 0; i < newEntriesSize; i++) {
                 Entry newEntry = entryTransform.newEntries.get(i);
@@ -182,7 +185,7 @@ public class SimpleEtl {
                 }
             }
         }
-        // internal method, returns true to skip entry (or remove from load list)
+        // 内部方法，返回true以跳过数据（或从加载列表中删除）
         void transformEntry(SimpleEtl etl, Transformer transformer, EntryTransform entryTransform) throws StopException {
             try {
                 transformer.transform(entryTransform);
@@ -223,17 +226,20 @@ public class SimpleEtl {
         public SimpleEntry(String type, Map<String, Object> values) { this.type = type; this.values = values; }
         @Override public String getEtlType() { return type; }
         @Override public Map<String, Object> getEtlValues() { return values; }
-        // TODO: add equals and hash overrides
+        // TODO: 添加equals和hash覆盖
     }
     public static class EntryTransform {
         final Entry entry;
         ArrayList<Entry> newEntries = null;
         Boolean loadCurrent = null;
         EntryTransform(Entry entry) { this.entry = entry; }
-        /** Get the current entry to get type and get/put values as needed */
+        /** 获取当前数据以获取类型并根据需要获取/放置值 */
         public Entry getEntry() { return entry; }
-        /** By default the current entry is loaded only if no new entries are added; set to false to not load even if no entries are
-         * added (filter); set to true to load even if no new entries are added */
+        /**
+         * 默认情况下，仅在未添加新数据时才添加当前数据;
+         * 设置为false即使需要添加数据也不添加（过滤）;
+         * 设置为true即使没有需要添加的新数据也会添加
+         */
         public EntryTransform loadCurrent(boolean load) { loadCurrent = load; return this; }
         /** Add a new entry to be transformed and if not filtered then loaded */
         public EntryTransform addEntry(Entry newEntry) {
@@ -244,20 +250,20 @@ public class SimpleEtl {
     }
 
     public interface Extractor {
-        /** Called once to start processing, should call etl.processEntry() for each entry and close itself once finished */
+        /** 调用一次开始处理，应该为每个数据调用etl.processEntry（）并在完成后关闭它自己 */
         void extract(SimpleEtl etl) throws Exception;
     }
-    /** Stateless ETL entry transformer and filter interface */
+    /** 无状态ETL入口变压器和滤波器接口 */
     public interface Transformer {
-        /** Call methods on EntryTransform to add new entries (generally with different types), modify the current entry's values, or filter the entry. */
+        /** 调用EntryTransform上的方法以添加新数据（通常使用不同类型），修改当前数据的值或过滤数据。 */
         void transform(EntryTransform entryTransform) throws Exception;
     }
     public interface Loader {
-        /** Called before SimpleEtl processing begins */
+        /** 在SimpleEtl处理开始之前调用 */
         void init(Integer timeout);
-        /** Load a single, optionally transformed, entry into the data destination */
+        /** 将单个可选的已转换数据加载到数据目标中 */
         void load(Entry entry) throws Exception;
-        /** Called after all entries processed to close files, commit/rollback transactions, etc;  */
+        /** 在处理完所有条目以关闭文件，提交/回滚事务等之后的调用;  */
         void complete(SimpleEtl etl);
     }
 }
