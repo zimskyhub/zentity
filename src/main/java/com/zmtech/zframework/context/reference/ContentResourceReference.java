@@ -1,29 +1,38 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package com.zmtech.zframework.context.reference
+package org.moqui.impl.context.reference
 
 import groovy.transform.CompileStatic
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.context.ResourceFacadeImpl
-import org.moqui.resource.ResourceReference
 import org.moqui.util.ObjectUtilities
+
+import javax.jcr.NodeIterator
+import javax.jcr.PathNotFoundException
+import javax.jcr.Session
+import javax.jcr.Property
+
+import org.moqui.resource.ResourceReference
+import org.moqui.impl.context.ResourceFacadeImpl
+
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.jcr.NodeIterator
-import javax.jcr.Property
-import javax.jcr.Session
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URI;
+import java.net.URL;
+import java.util.*;
 
 @CompileStatic
 class ContentResourceReference extends BaseResourceReference {
@@ -37,7 +46,7 @@ class ContentResourceReference extends BaseResourceReference {
     protected javax.jcr.Node theNode = null
 
     ContentResourceReference() { }
-    
+
     @Override ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf
 
@@ -67,7 +76,8 @@ class ContentResourceReference extends BaseResourceReference {
     }
     @Override String getLocation() { location }
 
-    @Override InputStream openStream() {
+    @Override
+    InputStream openStream() {
         javax.jcr.Node node = getNode()
         if (node == null) return null
         javax.jcr.Node contentNode = node.getNode("jcr:content")
@@ -77,7 +87,8 @@ class ContentResourceReference extends BaseResourceReference {
         return dataProperty.binary.stream
     }
 
-    @Override OutputStream getOutputStream() {
+    @Override
+    OutputStream getOutputStream() {
         throw new UnsupportedOperationException("The getOutputStream method is not supported for JCR, use putStream() instead")
     }
 
@@ -86,7 +97,8 @@ class ContentResourceReference extends BaseResourceReference {
     @Override boolean supportsAll() { true }
 
     @Override boolean supportsUrl() { false }
-    @Override URL getUrl() { return null }
+    @Override
+    URL getUrl() { return null }
 
     @Override boolean supportsDirectory() { true }
     @Override boolean isFile() {
@@ -99,7 +111,8 @@ class ContentResourceReference extends BaseResourceReference {
         if (node == null) return false
         return node.isNodeType("nt:folder")
     }
-    @Override List<ResourceReference> getDirectoryEntries() {
+    @Override
+    List<ResourceReference> getDirectoryEntries() {
         List<ResourceReference> dirEntries = new LinkedList()
         javax.jcr.Node node = getNode()
         if (node == null) return dirEntries
@@ -123,11 +136,21 @@ class ContentResourceReference extends BaseResourceReference {
 
     @Override boolean supportsLastModified() { true }
     @Override long getLastModified() {
-        return getNode()?.getProperty("jcr:lastModified")?.getDate()?.getTimeInMillis() ?: System.currentTimeMillis()
+        try {
+            return getNode()?.getProperty("jcr:lastModified")?.getDate()?.getTimeInMillis()
+        } catch (PathNotFoundException e) {
+            return System.currentTimeMillis()
+        }
     }
 
     @Override boolean supportsSize() { true }
-    @Override long getSize() { getNode()?.getProperty("jcr:content/jcr:data")?.getLength() ?: 0 }
+    @Override long getSize() {
+        try {
+            return getNode()?.getProperty("jcr:content/jcr:data")?.getLength()
+        } catch (PathNotFoundException e) {
+            return 0
+        }
+    }
 
     @Override boolean supportsWrite() { true }
 

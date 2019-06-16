@@ -1,12 +1,12 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -29,8 +29,13 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.sql.rowset.serial.SerialBlob
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URL;
 import java.nio.charset.StandardCharsets
 import java.sql.Timestamp
+import java.util.*;
 
 @CompileStatic
 class DbResourceReference extends BaseResourceReference {
@@ -41,7 +46,7 @@ class DbResourceReference extends BaseResourceReference {
     String resourceId = (String) null
 
     DbResourceReference() { }
-    
+
     @Override ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf
         this.location = location
@@ -68,13 +73,15 @@ class DbResourceReference extends BaseResourceReference {
         return location.substring(locationPrefix.length())
     }
 
-    @Override InputStream openStream() {
+    @Override
+    InputStream openStream() {
         EntityValue dbrf = getDbResourceFile()
         if (dbrf == null) return null
         return dbrf.getSerialBlob("fileData")?.getBinaryStream()
     }
 
-    @Override OutputStream getOutputStream() {
+    @Override
+    OutputStream getOutputStream() {
         throw new UnsupportedOperationException("The getOutputStream method is not supported for DB resources, use putStream() instead")
     }
 
@@ -83,7 +90,8 @@ class DbResourceReference extends BaseResourceReference {
     @Override boolean supportsAll() { true }
 
     @Override boolean supportsUrl() { false }
-    @Override URL getUrl() { return null }
+    @Override
+    URL getUrl() { return null }
 
     @Override boolean supportsDirectory() { true }
     @Override boolean isFile() { return "Y".equals(getDbResource(true)?.isFile) }
@@ -92,7 +100,8 @@ class DbResourceReference extends BaseResourceReference {
         EntityValue dbr = getDbResource(true)
         return dbr != null && !"Y".equals(dbr.isFile)
     }
-    @Override List<ResourceReference> getDirectoryEntries() {
+    @Override
+    List<ResourceReference> getDirectoryEntries() {
         List<ResourceReference> dirEntries = new LinkedList()
         EntityValue dbr = getDbResource(true)
         if (getPath() && dbr == null) return dirEntries
@@ -137,7 +146,7 @@ class DbResourceReference extends BaseResourceReference {
     }
     @Override void putStream(InputStream stream) {
         if (stream == null) return
-        ByteArrayOutputStream baos = new ByteArrayOutputStream()
+                ByteArrayOutputStream baos = new ByteArrayOutputStream()
         ObjectUtilities.copyStream(stream, baos)
         SerialBlob sblob = new SerialBlob(baos.toByteArray())
         this.putObject(sblob)
@@ -178,11 +187,11 @@ class DbResourceReference extends BaseResourceReference {
                 String versionName = "01"
                 ecf.service.sync().name("create", "moqui.resource.DbResourceFile")
                         .parameters([resourceId:resourceId, mimeType:getContentType(), versionName:versionName,
-                                     rootVersionName:versionName, fileData:fileObj]).call()
+                        rootVersionName:versionName, fileData:fileObj]).call()
                 ExecutionContextImpl eci = ecf.getEci()
                 ecf.service.sync().name("create", "moqui.resource.DbResourceFileHistory")
                         .parameters([resourceId:resourceId, versionDate:eci.userFacade.nowTimestamp, userId:eci.userFacade.userId,
-                                     isDiff:"N"]).call() // NOTE: no fileData, for non-diff only past versions
+                        isDiff:"N"]).call() // NOTE: no fileData, for non-diff only past versions
             }
         }
     }
@@ -197,8 +206,8 @@ class DbResourceReference extends BaseResourceReference {
         ExecutionContextImpl eci = ecf.getEci()
         Map createOut = ecf.service.sync().name("create", "moqui.resource.DbResourceFileHistory")
                 .parameters([resourceId:resourceId, previousVersionName:currentVersionName,
-                             versionDate:eci.userFacade.nowTimestamp, userId:eci.userFacade.userId,
-                             isDiff:"N"]).call()  // NOTE: no fileData, for non-diff only past versions
+                versionDate:eci.userFacade.nowTimestamp, userId:eci.userFacade.userId,
+                isDiff:"N"]).call()  // NOTE: no fileData, for non-diff only past versions
         String newVersionName = createOut.versionName
         if (!dbrf.rootVersionName) dbrf.rootVersionName = currentVersionName ?: newVersionName
         dbrf.versionName = newVersionName
