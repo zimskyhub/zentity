@@ -5,7 +5,10 @@ import com.zmtech.zframework.context.impl.ExecutionContextImpl;
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.EntityDatasourceFactory;
 import com.zmtech.zframework.entity.impl.*;
+import com.zmtech.zframework.exception.BaseException;
 import com.zmtech.zframework.exception.EntityException;
+import com.zmtech.zframework.exception.EntityNotFoundException;
+import com.zmtech.zframework.l10n.impl.L10nFacadeImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -206,7 +209,7 @@ public class EntityJavaUtil {
         public final Map<String, String> pkFieldDefaults, nonPkFieldDefaults;
 
 
-        EntityInfo(EntityDefinition ed, boolean memberNeverCache) {
+        public EntityInfo(EntityDefinition ed, boolean memberNeverCache) {
 
             this.ed = ed;
             this.efi = ed.getEfi();
@@ -376,11 +379,11 @@ public class EntityJavaUtil {
                     if (!isEmpty) {
                         if (isCharSequence) {
                             try {
-                                Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
+                                Object converted = fi.convertFromString(value.toString(), (L10nFacadeImpl) eci.getL10n());
                                 if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, converted);
                                 else dest.put(fieldName, converted);
                             } catch (EntityException be) {
-                                eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
+//                                eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
                             }
                         } else {
                             if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value);
@@ -431,10 +434,10 @@ public class EntityJavaUtil {
                     if (!isEmpty) {
                         if (isCharSequence) {
                             try {
-                                Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
+                                Object converted = fi.convertFromString(value.toString(), (L10nFacadeImpl) eci.getL10n());
                                 dest.putNoCheck(fieldName, converted);
                             } catch (BaseException be) {
-                                eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
+//                                eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
                             }
                         } else {
                             dest.putNoCheck(fieldName, value);
@@ -479,7 +482,7 @@ public class EntityJavaUtil {
         public final boolean mutable;
         public final boolean isAutoReverse;
 
-        RelationshipInfo(MNode relNode, EntityDefinition fromEd, EntityFacadeImpl efi) {
+        public RelationshipInfo(MNode relNode, EntityDefinition fromEd, EntityFacadeImpl efi) {
             this.relNode = relNode;
             this.fromEd = fromEd;
             type = relNode.attribute("type");
@@ -550,7 +553,7 @@ public class EntityJavaUtil {
             Map<String, Object> targetParameterMap = new HashMap<>();
             for (Map.Entry<String, String> keyEntry: keyMap.entrySet()) {
                 Object value = valueSource.get(keyEntry.getKey());
-                if (!ObjectUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.getValue(), value);
+                if (!ObjectUtil.isEmpty(value)) targetParameterMap.put(keyEntry.getValue(), value);
             }
             if (keyValueMap != null) {
                 for (Map.Entry<String, String> keyValueEntry: keyValueMap.entrySet())
@@ -624,13 +627,13 @@ public class EntityJavaUtil {
             totalTimeNanos += runTimeNanos;
             totalSquaredTime += runTimeNanos * runTimeNanos;
             // this gets much more expensive, consider commenting in the future
-            ArtifactExecutionInfo aei = efi.ecfi.getEci().artifactExecutionFacade.peek();
-            if (aei != null) aei = aei.getParent();
-            if (aei != null) {
-                String artifactName = aei.getName();
-                Integer artifactCount = artifactCounts.get(artifactName);
-                artifactCounts.put(artifactName, artifactCount != null ? artifactCount + 1 : 1);
-            }
+//            ArtifactExecutionInfo aei = efi.ecfi.getEci().artifactExecutionFacade.peek();
+//            if (aei != null) aei = aei.getParent();
+//            if (aei != null) {
+//                String artifactName = aei.getName();
+//                Integer artifactCount = artifactCounts.get(artifactName);
+//                artifactCounts.put(artifactName, artifactCount != null ? artifactCount + 1 : 1);
+//            }
         }
         public String getEntityName() { return entityName; }
         public String getSql() { return sql; }
