@@ -63,7 +63,7 @@ public class EntityFacadeImpl implements EntityFacade {
     protected final ThreadLocal<Calendar> databaseTzLcCalendar = new ThreadLocal<>();
     protected final String sequencedIdPrefix;
 
-    public boolean queryStats = false;
+    private boolean queryStats = false;
 
     protected EntityDbMeta dbMeta = null;
     protected final EntityCache entityCache;
@@ -2129,22 +2129,22 @@ public class EntityFacadeImpl implements EntityFacade {
 
     /** For pretty-print of field values based on field type */
     public String formatFieldString(String entityName, String fieldName, String value) {
-        if (value == null || value.isEmpty()) return ""
-        EntityDefinition ed = getEntityDefinition(entityName)
-        if (ed == null) return value
-        FieldInfo fi = ed.getFieldInfo(fieldName)
-        if (fi == null) return value
-        String outVal = value
+        if (value == null || value.isEmpty()) return "";
+        EntityDefinition ed = getEntityDefinition(entityName);
+        if (ed == null) return value;
+        FieldInfo fi = ed.getFieldInfo(fieldName);
+        if (fi == null) return value;
+        String outVal = value;
         if (fi.typeValue == 2) {
             if (value.matches("\\d*")) {
                 // date-time with only digits, ms since epoch value
-                outVal = ecfi.l10n.format(new Timestamp(Long.parseLong(value)), null)
+                outVal = ecfi.getL10n().format(new Timestamp(Long.parseLong(value)), null);
             }
         } else if (fi.type.startsWith("currency-")) {
-            outVal = ecfi.l10n.format(new BigDecimal(value), "#,##0.00#")
+            outVal = ecfi.getL10n().format(new BigDecimal(value), "#,##0.00#");
         }
         // logger.warn("formatFieldString ${entityName}:${fieldName} value ${value} outVal ${outVal}")
-        return outVal
+        return outVal;
     }
 
     protected static final Map<String, Integer> fieldTypeIntMap = [
@@ -2178,30 +2178,33 @@ public class EntityFacadeImpl implements EntityFacade {
             "java.util.Date":14,
             "java.util.ArrayList":15, "java.util.HashSet":15, "java.util.LinkedHashSet":15, "java.util.LinkedList":15]
     public static int getJavaTypeInt(String javaType) {
-        Integer typeInt = (Integer) javaIntTypeMap.get(javaType)
-        if (typeInt == null) throw new EntityException("Java type " + javaType + " not supported for entity fields")
-        return typeInt
+        Integer typeInt = (Integer) javaIntTypeMap.get(javaType);
+        if (typeInt == null) throw new EntityException("Java type " + javaType + " not supported for entity fields");
+        return typeInt;
     }
 
-    public final Map<String, EntityJavaUtil.QueryStatsInfo> queryStatsInfoMap = new HashMap<>()
+    public final Map<String, EntityJavaUtil.QueryStatsInfo> queryStatsInfoMap = new HashMap<>();
     public void saveQueryStats(EntityDefinition ed, String sql, long queryTime, boolean isError) {
-        EntityJavaUtil.QueryStatsInfo qsi = queryStatsInfoMap.get(sql)
+        EntityJavaUtil.QueryStatsInfo qsi = queryStatsInfoMap.get(sql);
         if (qsi == null) {
-            qsi = new EntityJavaUtil.QueryStatsInfo(ed.getFullEntityName(), sql)
-            queryStatsInfoMap.put(sql, qsi)
+            qsi = new EntityJavaUtil.QueryStatsInfo(ed.getFullEntityName(), sql);
+            queryStatsInfoMap.put(sql, qsi);
         }
-        qsi.countHit(this, queryTime, isError)
+        qsi.countHit(this, queryTime, isError);
+    }
+    public boolean isQueryStats() {
+        return queryStats;
     }
     public ArrayList<Map<String, Object>> getQueryStatsList(String orderByField, String entityFilter, String sqlFilter) {
-        ArrayList<Map<String, Object>> qsl = new ArrayList<>(queryStatsInfoMap.size())
-        boolean hasEntityFilter = entityFilter != null && entityFilter.length() > 0
-        boolean hasSqlFilter = sqlFilter != null && sqlFilter.length() > 0
-        for (EntityJavaUtil.QueryStatsInfo qsi in queryStatsInfoMap.values()) {
-            if (hasEntityFilter && !qsi.entityName.matches("(?i).*" + entityFilter + ".*")) continue
-            if (hasSqlFilter && !qsi.sql.matches("(?i).*" + sqlFilter + ".*")) continue
-            qsl.add(qsi.makeDisplayMap())
+        ArrayList<Map<String, Object>> qsl = new ArrayList<>(queryStatsInfoMap.size());
+        boolean hasEntityFilter = entityFilter != null && entityFilter.length() > 0;
+        boolean hasSqlFilter = sqlFilter != null && sqlFilter.length() > 0;
+        for (EntityJavaUtil.QueryStatsInfo qsi : queryStatsInfoMap.values()) {
+            if (hasEntityFilter && !qsi.getEntityName().matches("(?i).*" + entityFilter + ".*")) continue;
+            if (hasSqlFilter && !qsi.getSql().matches("(?i).*" + sqlFilter + ".*")) continue;
+            qsl.add(qsi.makeDisplayMap());
         }
-        if (orderByField) CollectionUtil.orderMapList(qsl, [orderByField]);
+        if (orderByField != null) CollectionUtil.orderMapList(qsl, [orderByField]);
         return qsl;
     }
     public void clearQueryStats() { queryStatsInfoMap.clear(); }

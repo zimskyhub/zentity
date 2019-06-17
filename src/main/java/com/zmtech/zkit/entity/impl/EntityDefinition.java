@@ -46,6 +46,7 @@ public class EntityDefinition {
     private final ArrayList<FieldInfo> allFieldInfoList = new ArrayList<>();
     private Map<String, Map<String, String>> mePkFieldToAliasNameMapMap = null;
     private Map<String, Map<String, ArrayList<MNode>>> memberEntityFieldAliases = null;
+
     private Map<String, MNode> memberEntityAliasMap = null;
     private boolean hasSubSelectMembers = false;
     // these are used for every list find, so keep them here
@@ -1213,6 +1214,10 @@ public class EntityDefinition {
         } else {
             return entityInfo.datasourceFactory.makeEntityValue(fullEntityName);
         }
+    }
+
+    public Map<String, MNode> getMemberEntityAliasMap() {
+        return memberEntityAliasMap;
     }
 
     @Override

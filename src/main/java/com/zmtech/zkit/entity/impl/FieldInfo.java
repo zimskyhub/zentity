@@ -1,4 +1,3 @@
-
 package com.zmtech.zkit.entity.impl;
 
 import com.zmtech.zkit.exception.EntityException;
@@ -111,7 +110,7 @@ public class FieldInfo {
             String entityAlias = fieldNode.attribute("entity-alias");
             if (entityAlias != null && entityAlias.length() > 0) {
                 entityAliasUsedSet.add(entityAlias);
-                tempMembEntNode = ed.memberEntityAliasMap.get(entityAlias);
+                tempMembEntNode = ed.getMemberEntityAliasMap().get(entityAlias);
             }
             directMemberEntityNode = tempMembEntNode;
             ArrayList<MNode> cafList = fieldNode.descendants("complex-alias-field");
@@ -123,7 +122,7 @@ public class FieldInfo {
             }
             if (tempMembEntNode == null && entityAliasUsedSet.size() == 1) {
                 String singleEntityAlias = entityAliasUsedSet.iterator().next();
-                tempMembEntNode = ed.memberEntityAliasMap.get(singleEntityAlias);
+                tempMembEntNode = ed.getMemberEntityAliasMap().get(singleEntityAlias);
             }
             memberEntityNode = tempMembEntNode;
             String isAggregateAttr = fieldNode.attribute("is-aggregate");
@@ -139,7 +138,7 @@ public class FieldInfo {
 
     public String getFullColumnName() {
         if (fullColumnNameInternal != null) return fullColumnNameInternal;
-        return ed.efi.ecfi.resourceFacade.expand(expandColumnName, "", null, false);
+        return ed.efi.ecfi.getResource().expand(expandColumnName, "", null, false);
     }
 
     static BigDecimal safeStripZeroes(BigDecimal input) {
@@ -236,7 +235,7 @@ public class FieldInfo {
                 case 8:
                 case 9:
                     if (value instanceof BigDecimal) value = safeStripZeroes((BigDecimal) value);
-                    L10nFacadeImpl l10n = ed.efi.ecfi.getEci().l10nFacade;
+                    L10nFacadeImpl l10n = (L10nFacadeImpl)ed.efi.ecfi.getEci().getL10n();
                     outValue = l10n.format(value, null);
                     break;
                 case 10: outValue = value.toString(); break;
