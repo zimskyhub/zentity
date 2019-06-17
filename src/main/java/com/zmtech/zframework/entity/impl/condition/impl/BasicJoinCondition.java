@@ -1,10 +1,11 @@
 
-package com.zmtech.zframework.entity.impl.condition;
+package com.zmtech.zframework.entity.impl.condition.impl;
 
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.impl.EntityConditionFactoryImpl;
 import com.zmtech.zframework.entity.impl.EntityDefinition;
 import com.zmtech.zframework.entity.impl.EntityQueryBuilder;
+import com.zmtech.zframework.entity.impl.condition.EntityConditionImplBase;
 import com.zmtech.zframework.exception.EntityException;
 
 
@@ -103,7 +104,7 @@ public class BasicJoinCondition implements EntityConditionImplBase {
 
     @Override
     public EntityCondition ignoreCase() {
-        throw new EntityException("Basic Join Condition 不能设置为 ignore (忽略)!");
+        throw new EntityException("JoinCondition 不支持 Ignore case!");
     }
 
     @Override

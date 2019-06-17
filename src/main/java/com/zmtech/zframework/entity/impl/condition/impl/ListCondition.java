@@ -1,7 +1,8 @@
-package com.zmtech.zframework.entity.impl.condition;
+package com.zmtech.zframework.entity.impl.condition.impl;
 
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.impl.EntityConditionFactoryImpl;
+import com.zmtech.zframework.entity.impl.condition.EntityConditionImplBase;
 import com.zmtech.zframework.exception.EntityException;
 import com.zmtech.zframework.entity.impl.EntityDefinition;
 import com.zmtech.zframework.entity.impl.EntityQueryBuilder;
@@ -24,7 +25,7 @@ public class ListCondition implements EntityConditionImplBase {
             conditionListSize = conditionList.size();
             if (conditionListSize > 0) {
                 if (conditionList instanceof RandomAccess) {
-                    // avoid creating an iterator if possible
+                    // 尽可能避免创建迭代器
                     int listSize = conditionList.size();
                     for (int i = 0; i < listSize; i++) {
                         EntityConditionImplBase cond = conditionList.get(i);
@@ -93,7 +94,7 @@ public class ListCondition implements EntityConditionImplBase {
             if (conditionMatches && this.operator == OR) return true;
             if (!conditionMatches && this.operator == AND) return false;
         }
-        // if we got here it means that it's an OR with no trues, or an AND with no falses
+        // 这里代表没有一个 OR 为true，或者没有一个 AND 为 false
         return (this.operator == AND);
     }
 
@@ -114,7 +115,7 @@ public class ListCondition implements EntityConditionImplBase {
             boolean notContained = condition.mapKeysNotContained(map);
             if (!notContained) return false;
         }
-        // if we got here it means that it's an OR with no trues, or an AND with no falses
+        // 这里代表有一个 OR 不为 true，或者有一个 AND 不为
         return true;
     }
 
@@ -147,7 +148,7 @@ public class ListCondition implements EntityConditionImplBase {
         int filteredSize = filteredList.size();
         if (filteredSize == conditionListSize) return this;
         if (filteredSize == 0) return null;
-        // keep OR conditions together: return all if entityAlias is null (top-level where) or null if not (sub-select where)
+        // 将OR条件保持在一起：如果entityAlias为null（顶级where）则返回all，否则返回null（sub-select where）
         if (operator == OR) {
             if (entityAlias == null) return this;
             return null;
@@ -159,7 +160,7 @@ public class ListCondition implements EntityConditionImplBase {
 
     @Override
     public EntityCondition ignoreCase() {
-        throw new EntityException("Ignore case not supported for this type of condition.");
+        throw new EntityException("ListCondition 不支持 Ignore Case!");
     }
 
     @Override

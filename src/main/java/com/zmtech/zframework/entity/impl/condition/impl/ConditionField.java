@@ -1,4 +1,4 @@
-package com.zmtech.zframework.entity.impl.condition;
+package com.zmtech.zframework.entity.impl.condition.impl;
 
 import com.zmtech.zframework.exception.EntityException;
 import com.zmtech.zframework.entity.impl.EntityDefinition;

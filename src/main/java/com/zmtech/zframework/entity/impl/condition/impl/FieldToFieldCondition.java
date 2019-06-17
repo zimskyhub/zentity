@@ -1,10 +1,11 @@
-package com.zmtech.zframework.entity.impl.condition;
+package com.zmtech.zframework.entity.impl.condition.impl;
 
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.impl.EntityConditionFactoryImpl;
 import com.zmtech.zframework.entity.impl.EntityDefinition;
 import com.zmtech.zframework.entity.impl.EntityQueryBuilder;
 import com.zmtech.zframework.entity.impl.FieldInfo;
+import com.zmtech.zframework.entity.impl.condition.EntityConditionImplBase;
 import com.zmtech.zframework.util.MNode;
 
 import java.io.IOException;
@@ -91,7 +92,7 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
 
     @Override
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
-        // this will only be called for view-entity, so we'll either have a entityAlias or an aliased fieldName
+        // 只可以在 view entity中使用，因此既可以使用 entity Alias 或 fieldName Alias
         if (field instanceof ConditionAlias) {
             entityAliasSet.add(((ConditionAlias) field).getEntityAlias());
         } else {
@@ -106,7 +107,7 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
 
     @Override
     public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
-        // only called for view-entity
+        // 只可以在 view entity中使用
         MNode fieldMe = field.getFieldInfo(mainEd).directMemberEntityNode;
         MNode toFieldMe = toField.getFieldInfo(mainEd).directMemberEntityNode;
         if (entityAlias == null) {

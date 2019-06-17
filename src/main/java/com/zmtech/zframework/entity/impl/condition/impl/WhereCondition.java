@@ -1,8 +1,9 @@
-package com.zmtech.zframework.entity.impl.condition;
+package com.zmtech.zframework.entity.impl.condition.impl;
 
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.impl.EntityDefinition;
 import com.zmtech.zframework.entity.impl.EntityQueryBuilder;
+import com.zmtech.zframework.entity.impl.condition.EntityConditionImplBase;
 import com.zmtech.zframework.exception.EntityException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +32,7 @@ public class WhereCondition implements EntityConditionImplBase {
     public boolean mapMatches(Map<String, Object> map) {
         // NOTE: always return false unless we eventually implement some sort of SQL parsing, for caching/etc
         // always consider not matching
-        logger.warn("The mapMatches for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]");
+        logger.warn("Where Condition 不支持 mapMatches, 相关sql: ["+this.sqlWhereClause+"]");
         return false;
     }
 
@@ -39,14 +40,14 @@ public class WhereCondition implements EntityConditionImplBase {
     public boolean mapMatchesAny(Map<String, Object> map) {
         // NOTE: always return true unless we eventually implement some sort of SQL parsing, for caching/etc
         // always consider matching so cache values are cleared
-        logger.warn("The mapMatchesAny for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]");
+        logger.warn("Where Condition 不支持 mapMatches, 相关sql: ["+this.sqlWhereClause+"]");
         return true;
     }
 
     @Override
     public boolean mapKeysNotContained(Map<String, Object> map) {
         // always consider matching so cache values are cleared
-        logger.warn("The mapMatchesAny for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]");
+        logger.warn("Where Condition 不支持 mapMatches, 相关sql: ["+this.sqlWhereClause+"]");
         return true;
     }
 
@@ -66,7 +67,7 @@ public class WhereCondition implements EntityConditionImplBase {
 
     @Override
     public EntityCondition ignoreCase() {
-        throw new EntityException("Ignore case not supported for this type of condition.");
+        throw new EntityException("ListCondition 不支持 Ignore Case!");
     }
 
     @Override

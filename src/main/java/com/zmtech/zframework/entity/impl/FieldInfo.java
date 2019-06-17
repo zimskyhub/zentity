@@ -2,7 +2,7 @@
 package com.zmtech.zframework.entity.impl;
 
 import com.zmtech.zframework.exception.EntityException;
-import com.zmtech.zframework.entity.impl.condition.ConditionField;
+import com.zmtech.zframework.entity.impl.condition.impl.ConditionField;
 import com.zmtech.zframework.l10n.impl.L10nFacadeImpl;
 import com.zmtech.zframework.util.EntityJavaUtil;
 import com.zmtech.zframework.util.MNode;

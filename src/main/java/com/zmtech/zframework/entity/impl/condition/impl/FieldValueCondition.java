@@ -1,10 +1,11 @@
-package com.zmtech.zframework.entity.impl.condition;
+package com.zmtech.zframework.entity.impl.condition.impl;
 
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.impl.EntityConditionFactoryImpl;
 import com.zmtech.zframework.entity.impl.EntityDefinition;
 import com.zmtech.zframework.entity.impl.EntityQueryBuilder;
 import com.zmtech.zframework.entity.impl.FieldInfo;
+import com.zmtech.zframework.entity.impl.condition.EntityConditionImplBase;
 import com.zmtech.zframework.exception.EntityException;
 import com.zmtech.zframework.util.EntityJavaUtil.*;
 import com.zmtech.zframework.util.MNode;
@@ -34,9 +35,9 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         this.field = field;
         this.value = value;
 
-        // default to EQUALS
+        // 默认为EQUALS
         ComparisonOperator tempOp = operator != null ? operator : EQUALS;
-        // if EQUALS and we have a Collection value the IN operator is implied, similar with NOT_EQUAL
+        // 如果 EQUALS 并且有一个Collection，则隐藏IN运算符，NOT_EQUAL 一样
         if (value instanceof Collection) {
             if (tempOp == EQUALS) tempOp = IN;
             else if (tempOp == NOT_EQUAL) tempOp = NOT_IN;
@@ -70,7 +71,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         EntityDefinition curEd = subMemberEd != null ? subMemberEd : eqb.getMainEd();
         FieldInfo fi = field.getFieldInfo(curEd);
         if (fi == null)
-            throw new EntityException("Could not find field " + field.fieldName + " in entity " + curEd.getFullEntityName());
+            throw new EntityException("无法找到字段 字段名: [" + field.fieldName + "] 实体名: [" + curEd.getFullEntityName()+"]!");
 
         if (value instanceof Collection && ((Collection) value).isEmpty()) {
             if (operator == IN) {
@@ -166,9 +167,9 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
 
     @Override
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
-        // this will only be called for view-entity, so we'll either have a entityAlias or an aliased fieldName
+        // 只能在 view entity 中使用,可以使用实体别名或字段别名
         if (field instanceof ConditionAlias) {
-            entityAliasSet.add(((ConditionAlias) field).entityAlias);
+            entityAliasSet.add(((ConditionAlias) field).getEntityAlias());
         } else {
             fieldAliasSet.add(field.fieldName);
         }
@@ -176,7 +177,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
 
     @Override
     public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
-        // only called for view-entity
+        // 只能在 view entity 中使用
         FieldInfo fi = field.getFieldInfo(mainEd);
         MNode fieldMe = fi.directMemberEntityNode;
         if (entityAlias == null) {
@@ -233,7 +234,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
         field.writeExternal(out);
-        // NOTE: found that the serializer in Hazelcast is REALLY slow with writeUTF(), uses String.chatAt() in a for loop, crazy
+        // 注意：发现 Hazelcast 中的序列化器使用writeUTF（）非常慢，需要在for循环中使用String.chatAt（），妈的
         out.writeObject(operator.name().toCharArray());
         out.writeObject(value);
         out.writeBoolean(ignoreCase);

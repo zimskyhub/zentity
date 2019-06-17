@@ -1,8 +1,9 @@
-package com.zmtech.zframework.entity.impl.condition;
+package com.zmtech.zframework.entity.impl.condition.impl;
 
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.impl.EntityDefinition;
 import com.zmtech.zframework.entity.impl.EntityQueryBuilder;
+import com.zmtech.zframework.entity.impl.condition.EntityConditionImplBase;
 
 import java.io.IOException;
 import java.io.ObjectInput;

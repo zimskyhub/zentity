@@ -3,6 +3,7 @@ package com.zmtech.zframework.entity.impl;
 
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.EntityConditionFactory;
+import com.zmtech.zframework.entity.impl.condition.impl.*;
 import com.zmtech.zframework.exception.EntityException;
 import com.zmtech.zframework.entity.impl.condition.*;
 import com.zmtech.zframework.entity.EntityCondition.*;

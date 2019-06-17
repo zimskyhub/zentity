@@ -1,8 +1,9 @@
-package com.zmtech.zframework.entity.impl.condition;
+package com.zmtech.zframework.entity.impl.condition.impl;
 
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.impl.EntityDefinition;
 import com.zmtech.zframework.entity.impl.EntityQueryBuilder;
+import com.zmtech.zframework.entity.impl.condition.EntityConditionImplBase;
 import com.zmtech.zframework.exception.EntityException;
 
 import java.io.Externalizable;
@@ -69,7 +70,7 @@ public class DateCondition implements EntityConditionImplBase, Externalizable {
 
     @Override
     public EntityCondition ignoreCase() {
-        throw new EntityException("DateCondition 不可以被忽略.");
+        throw new EntityException("DateCondition 不支持 Ignore case!");
     }
 
     @Override
