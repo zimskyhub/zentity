@@ -1,6 +1,8 @@
 package com.zmtech.zkit.util;
 
+import com.zmtech.zkit.exception.BaseException;
 import com.zmtech.zkit.exception.EntityException;
+import com.zmtech.zkit.resource.impl.ResourceReference;
 import groovy.util.Node;
 import groovy.util.NodeList;
 import org.slf4j.Logger;
@@ -32,6 +34,17 @@ public class MNode {
     }
 
     /* ========== XML 解析 ========== */
+    public static MNode parse(ResourceReference rr) throws BaseException {
+        if (rr == null || !rr.getExists()) return null;
+        String location = rr.getLocation();
+        MNode cached = parsedNodeCache.get(location);
+        if (cached != null && cached.lastModified >= rr.getLastModified()) return cached;
+
+        MNode node = parse(location, rr.openStream());
+        node.lastModified = rr.getLastModified();
+        if (node.lastModified > 0) parsedNodeCache.put(location, node);
+        return node;
+    }
 
     /**
      * 从输入流解析并关闭流

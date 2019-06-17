@@ -6,6 +6,7 @@ import com.zmtech.zkit.entity.*;
 import com.zmtech.zkit.etl.SimpleEtl;
 import com.zmtech.zkit.exception.EntityException;
 import com.zmtech.zkit.exception.EntityNotFoundException;
+import com.zmtech.zkit.resource.impl.ResourceReference;
 import com.zmtech.zkit.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zkit.util.CollectionUtil;
 import com.zmtech.zkit.util.EntityJavaUtil;
@@ -27,6 +28,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 public class EntityFacadeImpl implements EntityFacade {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFacadeImpl.class);
@@ -123,7 +125,7 @@ public class EntityFacadeImpl implements EntityFacade {
         long entityStartTime = System.currentTimeMillis();
         loadAllEntityLocations();
         int entityCount = loadAllEntityDefinitions();
-        // 不要总是加载/加热框架实体，在生产环境中并且不需要预热在开发环境不需要 dev：entityFacade.loadFrameworkEntities（）
+        // 不要总是加载/加热框架实体，在生产环境中并且不需要加载在开发环境不需要 dev：entityFacade.loadFrameworkEntities（）
         logger.info("实体操作信息: 加载了 ["+entityCount+"] 条实体定义 用时 "+ (System.currentTimeMillis() - entityStartTime) +" 毫秒!");
 
         // 现在一切都已启动，如果配置了检查所有实体表
@@ -221,26 +223,26 @@ public class EntityFacadeImpl implements EntityFacade {
         for (MNode datasourceNode : getEntityFacadeNode().children("datasource")) {
             datasourceNode.setSystemExpandAttributes(true);
             String groupName = datasourceNode.attribute("group-name");
-            String objectFactoryClass = datasourceNode.attribute("object-factory") != null? datasourceNode.attribute("object-factory"): "com.zmtech.zkit.entity.impl.entity.EntityDatasourceFactoryImpl";
+            String objectFactoryClass = datasourceNode.attribute("object-factory") != null? datasourceNode.attribute("object-factory"): "com.zmtech.zkit.entity.impl.EntityDatasourceFactoryImpl";
             EntityDatasourceFactory edf = (EntityDatasourceFactory) Thread.currentThread().getContextClassLoader().loadClass(objectFactoryClass).newInstance();
             datasourceFactoryByGroupMap.put(groupName, edf.init(this, datasourceNode));
         }
     }
 
     public static class DatasourceInfo {
-        EntityFacadeImpl efi;
-        MNode datasourceNode;
-        String uniqueName;
-        Map<String, String> dsDetails = new LinkedHashMap<>();
+        public EntityFacadeImpl efi;
+        public MNode datasourceNode;
+        public String uniqueName;
+        public Map<String, String> dsDetails = new LinkedHashMap<>();
 
-        String jndiName;
-        MNode serverJndi;
-        String jdbcDriver = null, jdbcUri = null, jdbcUsername = null, jdbcPassword = null;
-        String xaDsClass = null;
-        Properties xaProps = null;
+        public String jndiName;
+        public MNode serverJndi;
+        public String jdbcDriver = null, jdbcUri = null, jdbcUsername = null, jdbcPassword = null;
+        public String xaDsClass = null;
+        public Properties xaProps = null;
 
-        MNode inlineJdbc = null;
-        MNode database = null;
+        public MNode inlineJdbc = null;
+        public MNode database = null;
 
         public DatasourceInfo(EntityFacadeImpl efi, MNode datasourceNode) {
             this.efi = efi;
@@ -269,7 +271,7 @@ public class EntityFacadeImpl implements EntityFacade {
                 xaProperties.setSystemExpandAttributes(true);
                 for (String key : xaProperties.getAttributes().keySet()) {
                     if (xaProps.containsKey(key)) continue;
-                            // various H2, Derby, etc properties have a ${moqui.runtime} which is a System property, others may have it too
+                    // 各种H2，Derby等属性都有$ {zkit.runtime}，这是一个系统属性，其他数据库也可以拥有它
                     String propValue = xaProperties.attribute(key);
                     if (propValue != null) xaProps.setProperty(key, propValue);
                 }
@@ -289,54 +291,54 @@ public class EntityFacadeImpl implements EntityFacade {
                 dsDetails.put("uri", jdbcUri);
                 dsDetails.put("user", jdbcUsername);
             } else {
-                throw new EntityException("Data source for group "+groupName+" has no inline-jdbc or jndi-jdbc configuration");
+                throw new EntityException("实体操作错误: 组 ["+groupName+"] 的数据源没有 inline-jdbc 或 jndi-jdbc 设置!");
             }
         }
     }
 
     public void loadFrameworkEntities() {
-        // load framework entity definitions (moqui.*)
+        // 加载框架实体 (zkit.*)
         long startTime = System.currentTimeMillis();
         Set<String> entityNames = getAllEntityNames();
         int entityCount = 0;
         for (String entityName : entityNames) {
-            if (entityName.startsWith("moqui.")) {
+            if (entityName.startsWith("zkit.")) {
                 entityCount++;
                 try {
                     EntityDefinition ed = getEntityDefinition(entityName);
                     ed.getRelationshipInfoMap();
-                    // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
+                    // 必须使用EntityDatasourceFactory.checkTableExists，不可以使用 entityDbMeta.tableExists
                     ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName());
-                } catch (Throwable t) { logger.warn("Error loading framework entity "+entityName+" definitions: "+t.toString(), t) ;}
+                } catch (Throwable t) { logger.warn("实体操作错误: 无法加载框架实体 ["+entityName+"]: "+t.toString(), t) ;}
             }
         }
-        logger.info("Loaded ${entityCount} framework entity definitions in ${System.currentTimeMillis() - startTime}ms");
+        logger.info("实体操作信息: 加载了 ["+entityCount+"] 条框架实体, 用时 ["+(System.currentTimeMillis() - startTime)+"] 毫秒!");
     }
 
-    public final static Set<String> cachedCountEntities = new HashSet<>(Collections.singletonList("moqui.basic.EnumerationType"));
-    public final static Set<String> cachedListEntities = new HashSet<>(Arrays.asList("moqui.entity.document.DataDocument",
-            "moqui.entity.document.DataDocumentCondition", "moqui.entity.document.DataDocumentField",
-            "moqui.entity.feed.DataFeedAndDocument", "moqui.entity.view.DbViewEntity", "moqui.entity.view.DbViewEntityAlias",
-            "moqui.entity.view.DbViewEntityKeyMap", "moqui.entity.view.DbViewEntityMember",
+    public final static Set<String> cachedCountEntities = new HashSet<>(Collections.singletonList("zkit.basic.EnumerationType"));
+    public final static Set<String> cachedListEntities = new HashSet<>(Arrays.asList("zkit.entity.document.DataDocument",
+            "zkit.entity.document.DataDocumentCondition", "zkit.entity.document.DataDocumentField",
+            "zkit.entity.feed.DataFeedAndDocument", "zkit.entity.view.DbViewEntity", "zkit.entity.view.DbViewEntityAlias",
+            "zkit.entity.view.DbViewEntityKeyMap", "zkit.entity.view.DbViewEntityMember",
 
-            "moqui.screen.ScreenThemeResource", "moqui.screen.SubscreensItem", "moqui.screen.form.DbFormField",
-            "moqui.screen.form.DbFormFieldAttribute", "moqui.screen.form.DbFormFieldEntOpts", "moqui.screen.form.DbFormFieldEntOptsCond",
-            "moqui.screen.form.DbFormFieldEntOptsOrder", "moqui.screen.form.DbFormFieldOption", "moqui.screen.form.DbFormLookup",
+            "zkit.screen.ScreenThemeResource", "zkit.screen.SubscreensItem", "zkit.screen.form.DbFormField",
+            "zkit.screen.form.DbFormFieldAttribute", "zkit.screen.form.DbFormFieldEntOpts", "zkit.screen.form.DbFormFieldEntOptsCond",
+            "zkit.screen.form.DbFormFieldEntOptsOrder", "zkit.screen.form.DbFormFieldOption", "zkit.screen.form.DbFormLookup",
 
-            "moqui.security.ArtifactAuthzCheckView", "moqui.security.ArtifactTarpitCheckView", "moqui.security.ArtifactTarpitLock",
-            "moqui.security.UserGroupMember", "moqui.security.UserGroupPreference"));
-    public final static Set<String> cachedOneEntities = new HashSet<>(Arrays.asList("moqui.basic.Enumeration", "moqui.basic.LocalizedMessage",
-            "moqui.entity.document.DataDocument", "moqui.entity.view.DbViewEntity", "moqui.screen.form.DbForm",
-            "moqui.security.UserAccount", "moqui.security.UserPreference", "moqui.security.UserScreenTheme", "moqui.server.Visit"));
+            "zkit.security.ArtifactAuthzCheckView", "zkit.security.ArtifactTarpitCheckView", "zkit.security.ArtifactTarpitLock",
+            "zkit.security.UserGroupMember", "zkit.security.UserGroupPreference"));
+    public final static Set<String> cachedOneEntities = new HashSet<>(Arrays.asList("zkit.basic.Enumeration", "zkit.basic.LocalizedMessage",
+            "zkit.entity.document.DataDocument", "zkit.entity.view.DbViewEntity", "zkit.screen.form.DbForm",
+            "zkit.security.UserAccount", "zkit.security.UserPreference", "zkit.security.UserScreenTheme", "zkit.server.Visit"));
     public void warmCache()  {
-        logger.info("Warming cache for all entity definitions");
+        logger.info("实体操作信息: 开始加载实体定义缓存!");
         long startTime = System.currentTimeMillis();
         Set<String> entityNames = getAllEntityNames();
         for (String entityName : entityNames) {
             try {
                 EntityDefinition ed = getEntityDefinition(entityName);
                 ed.getRelationshipInfoMap();
-                // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
+                // 必须使用EntityDatasourceFactory.checkTableExists，不能使用 entityDbMeta.tableExists
                 ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName());
 
                 if (cachedCountEntities.contains(entityName)) ed.getCacheCount(entityCache);
@@ -350,10 +352,10 @@ public class EntityFacadeImpl implements EntityFacade {
                     ed.getCacheOneRa(entityCache);
                     ed.getCacheOneViewRa(entityCache);
                 }
-            } catch (Throwable t) { logger.warn("Error warming entity cache: ${t.toString()}"); }
+            } catch (Throwable t) { logger.warn("实体操作错误: 无法加载实体缓存 : "+t.toString()); }
         }
 
-        logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${System.currentTimeMillis() - startTime}ms");
+        logger.info("实体操作信息: 完成加载实体缓存, 加载了 ["+entityNames.size()+"] 条实体, 用时 ["+(System.currentTimeMillis() - startTime)+"] 毫秒!");
     }
 
     public Set<String> getDatasourceGroupNames() {
@@ -381,22 +383,22 @@ public class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-//    public List<ResourceReference> getAllEntityFileLocations() {
-//        List<ResourceReference> entityRrList = new LinkedList();
-//        entityRrList.addAll(getConfEntityFileLocations());
+    public List<ResourceReference> getAllEntityFileLocations() {
+        List<ResourceReference> entityRrList = new LinkedList<>();
+        entityRrList.addAll(getConfEntityFileLocations());
 //        entityRrList.addAll(getComponentEntityFileLocations(null));
-//        return entityRrList;
-//    }
-//    public List<ResourceReference> getConfEntityFileLocations() {
-//        List<ResourceReference> entityRrList = new LinkedList();
-//
-//        // loop through all of the entity-facade.load-entity nodes, check each for "<entities>" root element
-//        for (MNode loadEntity : getEntityFacadeNode().children("load-entity")) {
-//            entityRrList.add(this.ecfi.resourceFacade.getLocationReference((String) loadEntity.attribute("location")));
-//        }
-//
-//        return entityRrList;
-//    }
+        return entityRrList;
+    }
+    public List<ResourceReference> getConfEntityFileLocations() {
+        List<ResourceReference> entityRrList = new LinkedList<>();
+
+        // loop through all of the entity-facade.load-entity nodes, check each for "<entities>" root element
+        for (MNode loadEntity : getEntityFacadeNode().children("load-entity")) {
+            entityRrList.add(this.ecfi.getResource().getLocationReference((String) loadEntity.attribute("location")));
+        }
+
+        return entityRrList;
+    }
 //    public List<ResourceReference> getComponentEntityFileLocations(List<String> componentNameList) {
 //        List<ResourceReference> entityRrList = new LinkedList();
 //
@@ -453,10 +455,10 @@ public class EntityFacadeImpl implements EntityFacade {
 //            // put in the cache for other code to use; needed before DbViewEntity load so DB queries work
 //            entityLocationSingleCache.put(entityLocSingleEntryName, entityLocationCache)
 //
-//            // look for view-entity definitions in the database (moqui.entity.view.DbViewEntity)
-//            if (entityLocationCache.get("moqui.entity.view.DbViewEntity")) {
+//            // look for view-entity definitions in the database (zkit.entity.view.DbViewEntity)
+//            if (entityLocationCache.get("zkit.entity.view.DbViewEntity")) {
 //                int numDbViewEntities = 0
-//                for (EntityValue dbViewEntity in find("moqui.entity.view.DbViewEntity").list()) {
+//                for (EntityValue dbViewEntity in find("zkit.entity.view.DbViewEntity").list()) {
 //                    if (dbViewEntity.packageName) {
 //                        List<String> pkgList = (List<String>) entityLocationCache.get((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName)
 //                        if (pkgList == null) {
@@ -478,7 +480,7 @@ public class EntityFacadeImpl implements EntityFacade {
 //                }
 //                if (logger.infoEnabled) logger.info("Found ${numDbViewEntities} view-entity definitions in database (DbViewEntity records)")
 //            } else {
-//                logger.warn("Could not find view-entity definitions in database (moqui.entity.view.DbViewEntity), no location found for the moqui.entity.view.DbViewEntity entity.")
+//                logger.warn("Could not find view-entity definitions in database (zkit.entity.view.DbViewEntity), no location found for the zkit.entity.view.DbViewEntity entity.")
 //            }
 //
 //            /* a little code to show all entities and their locations
@@ -496,47 +498,47 @@ public class EntityFacadeImpl implements EntityFacade {
 //        }
 //    }
 //
-//    // NOTE: only called by loadAllEntityLocations() which is synchronized/locked, so doesn't need to be
-//    protected void loadEntityFileLocations(ResourceReference entityRr, Map<String, List<String>> entityLocationCache) {
-//        MNode entityRoot = getEntityFileRoot(entityRr)
-//        if (entityRoot.name == "entities") {
-//            // loop through all entity, view-entity, and extend-entity and add file location to List for any entity named
-//            int numEntities = 0
-//            for (MNode entity in entityRoot.children) {
-//                String entityName = entity.attribute("entity-name")
-//                String packageName = entity.attribute("package")
-//                if (packageName == null || packageName.isEmpty()) packageName = entity.attribute("package-name")
-//                String shortAlias = entity.attribute("short-alias")
-//
-//                if (entityName == null || entityName.length() == 0) {
-//                    logger.warn("Skipping entity XML file [${entityRr.getLocation()}] element with no @entity-name: ${entity}")
-//                    continue
-//                }
-//
-//                List<String> locList = (List<String>) entityLocationCache.get(entityName)
-//                if (locList == null) {
-//                    locList = new LinkedList<>()
-//                    locList.add(entityRr.location)
-//                    entityLocationCache.put(entityName, locList)
-//                } else if (!locList.contains(entityRr.location)) {
-//                    locList.add(entityRr.location)
-//                }
-//
-//                if (packageName != null && packageName.length() > 0) {
-//                    String fullEntityName = packageName.concat(".").concat(entityName)
-//                    if (!entityLocationCache.containsKey(fullEntityName)) entityLocationCache.put(fullEntityName, locList)
-//                }
-//                if (shortAlias != null && shortAlias.length() > 0) {
-//                    if (!entityLocationCache.containsKey(shortAlias)) entityLocationCache.put(shortAlias, locList)
-//                }
-//
-//                numEntities++
-//            }
-//            if (isTraceEnabled) logger.trace("Found [${numEntities}] entity definitions in [${entityRr.location}]")
-//        }
-//    }
-//
-//    protected static MNode getEntityFileRoot(ResourceReference entityRr) { return MNode.parse(entityRr) }
+    //注意：仅由loadAllEntityLocations（）调用，它是同步/锁定的，因此不需要用
+    protected void loadEntityFileLocations(ResourceReference entityRr, Map<String, List<String>> entityLocationCache) {
+        MNode entityRoot = getEntityFileRoot(entityRr);
+        if (entityRoot.getName() == "entities") {
+            // loop through all entity, view-entity, and extend-entity and add file location to List for any entity named
+            int numEntities = 0;
+            for (MNode entity : entityRoot.getChildren()) {
+                String entityName = entity.attribute("entity-name");
+                String packageName = entity.attribute("package");
+                if (packageName == null || packageName.isEmpty()) packageName = entity.attribute("package-name");
+                String shortAlias = entity.attribute("short-alias");
+
+                if (entityName == null || entityName.length() == 0) {
+                    logger.warn("实体操作警告: 跳过实体定义XML文件 ["+entityRr.getLocation()+"] , 因为没有@entity-name ["+entity+"]!");
+                    continue;
+                }
+
+                List<String> locList = entityLocationCache.get(entityName);
+                if (locList == null) {
+                    locList = new LinkedList<>();
+                    locList.add(entityRr.getLocation());
+                    entityLocationCache.put(entityName, locList);
+                } else if (!locList.contains(entityRr.getLocation())) {
+                    locList.add(entityRr.getLocation());
+                }
+
+                if (packageName != null && !packageName.isEmpty()) {
+                    String fullEntityName = packageName.concat(".").concat(entityName);
+                    if (!entityLocationCache.containsKey(fullEntityName)) entityLocationCache.put(fullEntityName, locList);
+                }
+                if (shortAlias != null && !shortAlias.isEmpty()) {
+                    if (!entityLocationCache.containsKey(shortAlias)) entityLocationCache.put(shortAlias, locList);
+                }
+
+                numEntities++;
+            }
+            if (isTraceEnabled) logger.trace("实体操作跟踪: 在文件 ["+entityRr.getLocation()+"] 中找到了 ["+numEntities+"] 条实体定义!");
+        }
+    }
+
+    protected static MNode getEntityFileRoot(ResourceReference entityRr) { return MNode.parse(entityRr) ;}
 
     public int loadAllEntityDefinitions() {
         int entityCount = 0;
@@ -544,7 +546,7 @@ public class EntityFacadeImpl implements EntityFacade {
             try {
                 getEntityDefinition(en);
             } catch (EntityException e) {
-                logger.warn("Problem finding entity definition", e);
+                logger.warn("实体操作警告: 实体定义查询错误!", e);
                 continue;
             }
             entityCount++;
@@ -555,12 +557,11 @@ public class EntityFacadeImpl implements EntityFacade {
 
     protected EntityDefinition loadEntityDefinition(String entityName) {
         if (entityName.contains("#")) {
-            // this is a relationship name, definitely not an entity name so just return null; this happens because we
-            //    check if a name is an entity name or not in various places including where relationships are checked
+            // 这是一个关系名称，绝对不是实体名称所以只返回null; 发生这种情况是因为我们在各个地方检查名称是否是实体名称，包括检查关系的位置
             return null;
         }
 
-        EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityName);
+        EntityDefinition ed = entityDefinitionCache.get(entityName);
         if (ed != null) return ed;
 
         Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName);
@@ -571,22 +572,22 @@ public class EntityFacadeImpl implements EntityFacade {
             if (logger.isWarnEnabled()) logger.warn("No location cache found for entity-name [${entityName}], reloading ALL entity file and DB locations");
             if (isTraceEnabled) logger.trace("Unknown entity name ${entityName} location", new EntityException("Unknown entity name location"));
 
-            // remove the single cache entry
+            // 删除单个缓存数据
             entityLocationSingleCache.remove(entityLocSingleEntryName);
-            // reload all locations
+            // 重新加载所有位置
             entityLocationCache = this.loadAllEntityLocations();
-            entityLocationList = (List<String>) entityLocationCache.get(entityName);
-            // no locations found for this entity, entity probably doesn't exist
+            entityLocationList = entityLocationCache.get(entityName);
+            // 找不到此实体的位置，实体可能不存在
             if (entityLocationList == null || entityLocationList.size() == 0) {
-                // TODO: while this is helpful, if another unknown non-existing entity is looked for this will be lost
+                // TODO: 虽然这很有用，但如果找到另一个未知的不存在的实体，这将丢失
                 entityLocationCache.put(entityName, new LinkedList<>());
-                if (logger.isWarnEnabled()) logger.warn("No definition found for entity-name [${entityName}]");
-                throw new EntityNotFoundException("No definition found for entity-name [${entityName}]");
+                if (logger.isWarnEnabled()) logger.warn("实体操作警告: 没有找到实体 ["+entityName+"] 的实体定义!");
+                throw new EntityNotFoundException("实体操作错误:没有找到实体 ["+entityName+"] 的实体定义!");
             }
         }
 
         if (entityLocationList.size() == 0) {
-            if (isTraceEnabled) logger.trace("Entity name [${entityName}] is a known non-entity, returning null for EntityDefinition.");
+            if (isTraceEnabled) logger.trace("实体操作跟踪: 实体 ["+entityName+"] 未定义 ,返回空的实体定义!");
             return null;
         }
 
@@ -598,11 +599,11 @@ public class EntityFacadeImpl implements EntityFacade {
 
         // if (!packageName) logger.warn("TOREMOVE finding entity def for [${entityName}] with no packageName, entityLocationList=${entityLocationList}")
 
-        // If this is a moqui.entity.view.DbViewEntity, handle that in a special way (generate the Nodes from the DB records)
+        // 如果这是一个zkit.entity.view.DbViewEntity，请以特殊方式处理（从DB记录生成节点）
         if (entityLocationList.contains("_DB_VIEW_ENTITY_")) {
-            EntityValue dbViewEntity = find("moqui.entity.view.DbViewEntity").condition("dbViewEntityName", entityName).one();
+            EntityValue dbViewEntity = find("zkit.entity.view.DbViewEntity").condition("dbViewEntityName", entityName).one();
             if (dbViewEntity == null) {
-                logger.warn("Could not find DbViewEntity with name ${entityName}");
+                logger.warn("实体操作警告: 实体 ["+entityName+"] 的 DbViewEntity 不存在!");
                 return null;
             }
             String finalEntityName = entityName;
@@ -610,10 +611,10 @@ public class EntityFacadeImpl implements EntityFacade {
                 put("entity-name", finalEntityName);
                 put("package",dbViewEntity.getEntityName());
             }} );
-            if (dbViewEntity.get("cache")!= null && "Y".equals(dbViewEntity.get("cache"))) dbViewNode.getAttributes().put("cache", "true");
-            else if (dbViewEntity.get("cache")!= null && "N".equals(dbViewEntity.get("cache"))) dbViewNode.getAttributes().put("cache", "false");
+            if ("Y".equals(dbViewEntity.get("cache"))) dbViewNode.getAttributes().put("cache", "true");
+            else if ("N".equals(dbViewEntity.get("cache"))) dbViewNode.getAttributes().put("cache", "false");
 
-            EntityList memberList = find("moqui.entity.view.DbViewEntityMember").condition("dbViewEntityName", entityName).list();
+            EntityList memberList = find("zkit.entity.view.DbViewEntityMember").condition("dbViewEntityName", entityName).list();
             for (EntityValue dbViewEntityMember : memberList) {
                 MNode memberEntity = dbViewNode.append("member-entity",new ConcurrentHashMap<String,String>(){{
                     put("entity-alias",dbViewEntityMember.getString("entityAlias"));
@@ -625,7 +626,7 @@ public class EntityFacadeImpl implements EntityFacade {
                 }
 
                 String finalEntityName1 = entityName;
-                EntityList dbViewEntityKeyMapList = find("moqui.entity.view.DbViewEntityKeyMap")
+                EntityList dbViewEntityKeyMapList = find("zkit.entity.view.DbViewEntityKeyMap")
                         .condition(new ConcurrentHashMap<String,Object>(){{
                             put("dbViewEntityName", finalEntityName1);
                             put("joinFromAlias", dbViewEntityMember.get("joinFromAlias"));
@@ -640,7 +641,7 @@ public class EntityFacadeImpl implements EntityFacade {
                         keyMapNode.getAttributes().put("related", (String) dbViewEntityKeyMap.get("relatedFieldName"));
                 }
             }
-            for (EntityValue dbViewEntityAlias : find("moqui.entity.view.DbViewEntityAlias").condition("dbViewEntityName", entityName).list()) {
+            for (EntityValue dbViewEntityAlias : find("zkit.entity.view.DbViewEntityAlias").condition("dbViewEntityName", entityName).list()) {
                 MNode aliasNode = dbViewNode.append("alias",new ConcurrentHashMap<String,String>(){{
                     put("name",(String) dbViewEntityAlias.get("fieldAlias"));
                     put("entity-alias",(String) dbViewEntityAlias.get("entityAlias"));
@@ -649,12 +650,12 @@ public class EntityFacadeImpl implements EntityFacade {
                 if (dbViewEntityAlias.get("functionName") != null) aliasNode.getAttributes().put("function", (String) dbViewEntityAlias.get("functionName"));
             }
 
-            // create the new EntityDefinition
+            // 创建新的实体定义
             ed = new EntityDefinition(this, dbViewNode);
 
-            // cache it under entityName, fullEntityName, and short-alias
+            // 将它缓存在entityName，fullEntityName和short-alias下
             String fullEntityName = ed.fullEntityName;
-            if (fullEntityName.startsWith("moqui.")) {
+            if (fullEntityName.startsWith("zkit.")) {
                 frameworkEntityDefinitions.put(ed.entityInfo.internalEntityName, ed);
                 frameworkEntityDefinitions.put(fullEntityName, ed);
                 if (ed.entityInfo.shortAlias != null ) frameworkEntityDefinitions.put(ed.entityInfo.shortAlias, ed);
@@ -663,21 +664,22 @@ public class EntityFacadeImpl implements EntityFacade {
                 entityDefinitionCache.put(fullEntityName, ed);
                 if (ed.entityInfo.shortAlias != null ) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed);
             }
-            // send it on its way
+            // 送它上路
             return ed;
         }
 
-        // get entity, view-entity and extend-entity Nodes for entity from each location
+        // 获取实体，视图实体和扩展实体节点
         MNode entityNode = null;
         List<MNode> extendEntityNodes = new ArrayList<>();
         for (String location : entityLocationList) {
-            MNode entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location));
-            // filter by package if specified, otherwise grab whatever
-            List<MNode> packageChildren = entityRoot.getChildren()
-                    .findAll({ (it.attribute("entity-name") == entityName || it.attribute("short-alias") == entityName) &&
-                            (packageName ? (it.attribute("package") == packageName || it.attribute("package-name") == packageName) : true) });
+            MNode entityRoot = getEntityFileRoot(this.ecfi.getResource().getLocationReference(location));
+            // 如果指定过滤包，其他情况随便取
+            String finalEntityName = entityName;
+            String finalPackageName = packageName;
+            List<MNode> packageChildren = entityRoot.getChildren().stream().filter((MNode it)-> (it.attribute("entity-name").equals(finalEntityName) || it.attribute("short-alias").equals(finalEntityName)) &&
+                    (finalPackageName == null || (it.attribute("package").equals(finalPackageName) || it.attribute("package-name").equals(finalPackageName1)))).collect(Collectors.toList());
             for (MNode childNode : packageChildren) {
-                if (childNode.name == "extend-entity") {
+                if (childNode.getName().equals("extend-entity")) {
                     extendEntityNodes.add(childNode);
                 } else {
                     if (entityNode != null) logger.warn("Entity ["+entityName+"] was found again at ["+location+"], so overriding definition from previous location");
@@ -685,19 +687,20 @@ public class EntityFacadeImpl implements EntityFacade {
                 }
             }
         }
-        if (entityNode == null) throw new EntityNotFoundException("No definition found for entity ["+entityName+"]" + (!packageName.isEmpty()? " in package ["+packageName+"]" : ""));
+        if (entityNode == null) throw new EntityNotFoundException("实体操作错误: "+(packageName != null && !packageName.isEmpty()? "包 ["+packageName+"] 中" : "") +" 没有找到实体 ["+entityName+"] ");
 
-        // if entityName is a short-alias extend-entity elements won't match it, so find them again now that we have the main entityNode
+        // 如果entityName是一个短别名，那么扩展实体元素将不匹配它，所以现在我们有了主实体节点再次找到它们
         if (entityName.equals(entityNode.attribute("short-alias"))) {
             entityName = entityNode.attribute("entity-name");
             packageName = entityNode.attribute("package") != null ? entityNode.attribute("package"): entityNode.attribute("package-name");
             for (String location : entityLocationList) {
-                MNode entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location));
-                List<MNode> packageChildren = entityRoot.children
-                        .findAll({ it.attribute("entity-name") == entityName &&
-                                (packageName ? (it.attribute("package") == packageName || it.attribute("package-name") == packageName) : true) })
+                MNode entityRoot = getEntityFileRoot(this.ecfi.getResource().getLocationReference(location));
+                String finalEntityName = entityName;
+                String finalPackageName = packageName;
+                List<MNode> packageChildren = entityRoot.getChildren().stream().filter((MNode it)-> it.attribute("entity-name").equals(finalEntityName) &&
+                        (finalPackageName == null || finalPackageName.isEmpty() || (it.attribute("package").equals(finalPackageName) || it.attribute("package-name").equals(finalPackageName))) ).collect(Collectors.toList());
                 for (MNode childNode : packageChildren) {
-                    if (childNode.getName() == "extend-entity") {
+                    if (childNode.getName().equals("extend-entity")) {
                         extendEntityNodes.add(childNode);
                     }
                 }
@@ -705,57 +708,65 @@ public class EntityFacadeImpl implements EntityFacade {
         }
         // if (entityName.endsWith("xample")) logger.warn("======== Creating Example ED entityNode=${entityNode}\nextendEntityNodes: ${extendEntityNodes}")
 
-        // merge the extend-entity nodes
+        // 合并扩展实体节点
         for (MNode extendEntity : extendEntityNodes) {
-            // if package attributes don't match, skip
+            // 如果包属性不匹配，请跳过
             String entityPackage = entityNode.attribute("package") != null ? entityNode.attribute("package"): entityNode.attribute("package-name");
             String extendPackage = extendEntity.attribute("package") != null ? extendEntity.attribute("package") : extendEntity.attribute("package-name");
-            if (entityPackage != extendPackage) continue;
-                    // merge attributes
+            if (!entityPackage.equals(extendPackage) ) continue;
+            // 合并属性
             entityNode.getAttributes().putAll(extendEntity.getAttributes());
-            // merge field nodes
+            // 合并字段节点
             for (MNode childOverrideNode : extendEntity.children("field")) {
                 String keyValue = childOverrideNode.attribute("name");
-                MNode childBaseNode = entityNode.first({ MNode it -> it.name == "field" && it.attribute("name") == keyValue })
+                MNode childBaseNode = entityNode.first((MNode it)-> it.getName().equals("field") && it.attribute("name").equals(keyValue));
                 if (childBaseNode != null) childBaseNode.getAttributes().putAll(childOverrideNode.getAttributes());
                 else entityNode.append(childOverrideNode);
             }
-            // add relationship, key-map (copy over, will get child nodes too
+            // 添加关系，键映射（复制，也将获得子节点）
             ArrayList<MNode> relNodeList = extendEntity.children("relationship");
             for (int i = 0; i < relNodeList.size(); i++) {
                 MNode copyNode = relNodeList.get(i);
-                int curNodeIndex = entityNode.getChildren()
-                        .findIndexOf({ MNode it ->
-                                String itRelated = it.attribute('related') ?: it.attribute('related-entity-name');
-                String copyRelated = copyNode.attribute('related') ?: copyNode.attribute('related-entity-name');
-                return it.name == "relationship" && itRelated == copyRelated &&
-                        it.attribute('title') == copyNode.attribute('title'); })
+                Optional<MNode> optionalFilterNode = entityNode.getChildren().stream().filter((MNode it) ->{
+                    String itRelated = it.attribute("related") != null?it.attribute("related"):it.attribute("related-entity-name");
+                    String copyRelated = copyNode.attribute("related") != null ? copyNode.attribute("related"): copyNode.attribute("related-entity-name");
+
+                    return it.getName().equals("relationship") && itRelated.equals(copyRelated) &&
+                            it.attribute("title").equals(copyNode.attribute("title"));
+                }).findFirst();
+                int curNodeIndex = 0;
+                if(optionalFilterNode.isPresent()){
+                    curNodeIndex = entityNode.getChildren().indexOf(optionalFilterNode.get());
+                }
                 if (curNodeIndex >= 0) {
                     entityNode.getChildren().set(curNodeIndex, copyNode);
                 } else {
                     entityNode.append(copyNode);
                 }
             }
-            // add index, index-field
+            // 添加索引，索引字段
             for (MNode copyNode : extendEntity.children("index")) {
-                int curNodeIndex = entityNode.getChildren()
-                        .findIndexOf({ MNode it -> it.name == "index" && it.attribute('name') == copyNode.attribute('name') });
+                Optional<MNode> optionalFilterNode = entityNode.getChildren().stream().filter((MNode it)-> it.getName().equals("index") && it.attribute("name").equals(copyNode.attribute("name"))).findFirst();
+                int curNodeIndex = 0;
+                if(optionalFilterNode.isPresent()){
+                    curNodeIndex = entityNode.getChildren().indexOf(optionalFilterNode.get());
+                }
                 if (curNodeIndex >= 0) {
-                    entityNode.children.set(curNodeIndex, copyNode);
+                    entityNode.getChildren().set(curNodeIndex, copyNode);
                 } else {
                     entityNode.append(copyNode);
                 }
             }
-            // copy master nodes (will be merged on parse)
-            // TODO: check master/detail existence before append it into entityNode
+            // 复制主节点（将在解析时合并）
+            // TODO: 在将其附加到entityNode之前检查主/明细存在
             for (MNode copyNode : extendEntity.children("master")) entityNode.append(copyNode);
         }
 
-        // create the new EntityDefinition
-        ed = new EntityDefinition(this, entityNode)
-        // cache it under entityName, fullEntityName, and short-alias
-        String fullEntityName = ed.fullEntityName
-        if (fullEntityName.startsWith("moqui.")) {
+        // 创建新的实体定义
+        ed = new EntityDefinition(this, entityNode);
+        // 将它缓存在 entityName，fullEntityName和short-alias下
+        String fullEntityName = ed.fullEntityName;
+        if (fullEntityName.startsWith("zkit.")) {
             frameworkEntityDefinitions.put(ed.entityInfo.internalEntityName, ed);
             frameworkEntityDefinitions.put(fullEntityName, ed);
             if (ed.entityInfo.shortAlias != null && !ed.entityInfo.shortAlias.isEmpty()) frameworkEntityDefinitions.put(ed.entityInfo.shortAlias, ed);
@@ -764,7 +775,7 @@ public class EntityFacadeImpl implements EntityFacade {
             entityDefinitionCache.put(fullEntityName, ed);
             if (ed.entityInfo.shortAlias != null && !ed.entityInfo.shortAlias.isEmpty()) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed);
         }
-        // send it on its way
+        // 送它上路
         return ed;
     }
 
@@ -773,9 +784,9 @@ public class EntityFacadeImpl implements EntityFacade {
         Set<String> entityNameSet = getAllEntityNames();
         for (String entityName : entityNameSet) {
             EntityDefinition ed;
-            // for auto reverse relationships just ignore EntityException on getEntityDefinition
-            try { ed = getEntityDefinition(entityName); } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
-            // may happen if all entity names includes a DB view entity or other that doesn't really exist
+            // 对于自动反向关系，只需忽略 getEntityDefinition 方法上的 EntityException 异常
+            try { ed = getEntityDefinition(entityName); } catch (EntityException e) { if (isTraceEnabled) logger.trace("实体操作跟踪:实体不存在!", e); continue; }
+            // 如果所有实体名称都包含DB视图实体或其他实际不存在的实体，则可能会发生
             if (ed == null) continue;
             String edEntityName = ed.entityInfo.internalEntityName;
             String edFullEntityName = ed.fullEntityName;
@@ -783,24 +794,23 @@ public class EntityFacadeImpl implements EntityFacade {
             ArrayList<MNode> relationshipList = ed.getEntityNode().children("relationship");
             int relationshipListSize = relationshipList.size();
             for (int rlIndex = 0; rlIndex < relationshipListSize; rlIndex++) {
-                MNode relNode = (MNode) relationshipList.get(rlIndex);
-                // don't create reverse for auto reference relationships
+                MNode relNode = relationshipList.get(rlIndex);
+                // 不要为自动引用关系创建反向
                 if ("true".equals(relNode.attribute("is-auto-reverse"))) continue;
                 String relatedEntityName = relNode.attribute("related");
                 if (relatedEntityName == null || relatedEntityName.length() == 0) relatedEntityName = relNode.attribute("related-entity-name");
-                // don't create reverse relationships coming back to the same entity, since it will have the same title
-                //     it would create multiple relationships with the same name
+                // 不要创建回到同一实体的反向关系，因为它将具有相同的标题，它将创建具有相同名称的多个关系
                 if (entityName.equals(relatedEntityName)) continue;
 
                 EntityDefinition reverseEd;
                 try {
                     reverseEd = getEntityDefinition(relatedEntityName);
                 } catch (EntityException e) {
-                    logger.warn("Error getting definition for entity ["+relatedEntityName+"] referred to in a relationship of entity ["+entityName+"]: "+e.toString());
+                    logger.error("实体操作错误: 无法获取实体 ["+entityName+"] 的引用实体 ["+relatedEntityName+"] 的实体定义! : "+e.toString());
                     continue;
                 }
                 if (reverseEd == null) {
-                    logger.warn("Could not find definition for entity [${relatedEntityName}] referred to in a relationship of entity [${entityName}]");
+                    logger.warn("实体操作警告: 无法获取实体 ["+entityName+"] 的引用实体 ["+relatedEntityName+"] 的实体定义!");
                     continue;
                 }
 
@@ -809,16 +819,15 @@ public class EntityFacadeImpl implements EntityFacade {
                 String title = relNode.attribute("title");
                 boolean hasTitle = title != null && title.length() > 0;
 
-                // does a relationship coming back already exist?
+                // 回归的关系是否已经存在？
                 boolean foundReverse = false;
                 ArrayList<MNode> reverseRelList = reverseEd.getEntityNode().children("relationship");
-                int reverseRelListSize = reverseRelList.size();
-                for (int i = 0; i < reverseRelListSize; i++) {
-                    MNode reverseRelNode = (MNode) reverseRelList.get(i);
+                for (MNode reverseRelNode : reverseRelList) {
                     String related = reverseRelNode.attribute("related");
-                    if (related == null || related.length() == 0) related = reverseRelNode.attribute("related-entity-name");
+                    if (related == null || related.length() == 0)
+                        related = reverseRelNode.attribute("related-entity-name");
                     if (!edEntityName.equals(related) && !edFullEntityName.equals(related)) continue;
-                            // TODO: instead of checking title check reverse expanded key-map
+                    // TODO: 替换检查标题检查反向扩展键映射
                     String reverseTitle = reverseRelNode.attribute("title");
                     if (hasTitle) {
                         if (!title.equals(reverseTitle)) continue;
@@ -835,10 +844,10 @@ public class EntityFacadeImpl implements EntityFacade {
                     continue;
                 }
 
-                // track the fact that the related entity has others pointing back to it, unless original relationship is type many (doesn't qualify)
+                // 跟踪相关实体有其他人指向它的实例，除非原始关系类型很多（不符合条件）
                 if (!ed.isViewEntity && !"many".equals(relNode.attribute("type"))) reverseEd.getEntityNode().getAttributes().put("has-dependents", "true");
 
-                // create a new reverse-many relationship
+                // 创造新的反向关系
                 Map<String, String> keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, reverseEd);
 
                 MNode newRelNode = reverseEd.getEntityNode().append("relationship",new ConcurrentHashMap<String,String>(){{
@@ -848,7 +857,7 @@ public class EntityFacadeImpl implements EntityFacade {
                 }});
                 if (hasTitle) newRelNode.getAttributes().put("title", title);
                 for (Map.Entry<String, String> keyEntry : keyMap.entrySet()) {
-                    // add a key-map with the reverse fields
+                    // 使用反向字段添加键映射
                     newRelNode.append("key-map", new ConcurrentHashMap<String,String>(){{
                         put("field-name",keyEntry.getValue());
                         put("related",keyEntry.getKey());
@@ -857,19 +866,18 @@ public class EntityFacadeImpl implements EntityFacade {
                 relationshipsCreated++;
             }
         }
-        // all EntityDefinition objects now have reverse relationships in place, remember that so this will only be
-        //     called for new ones, not from cache
+        // 所有EntityDefinition对象现在都有相反的关系，请记住，这样只会调用新的，而不是缓存
         for (String entityName : entityNameSet) {
             EntityDefinition ed;
-            try { ed = getEntityDefinition(entityName); } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
+            try { ed = getEntityDefinition(entityName); } catch (EntityException e) { if (isTraceEnabled) logger.trace("实体操作跟踪: 实体不存在!", e); continue; }
             if (ed == null) continue;
             ed.setHasReverseRelationships();
         }
 
-        if (logger.isInfoEnabled() && relationshipsCreated > 0) logger.info("Created "+relationshipsCreated+" automatic reverse relationships");
+        if (logger.isInfoEnabled() && relationshipsCreated > 0) logger.info("实体操作信息: 完成创建 ["+relationshipsCreated+"] 的自动反向关联!");
     }
 
-    // used in tools screen
+    // 用于屏幕工具
     public int getEecaRuleCount() {
         int count = 0;
         for (List ruleList : eecaRulesByEntityName.values()) count += ruleList.size();
@@ -879,73 +887,70 @@ public class EntityFacadeImpl implements EntityFacade {
     public void loadEecaRulesAll() {
         int numLoaded = 0;
         int numFiles = 0;
-        HashMap<String, EntityEcaRule> ruleByIdMap = new ConcurrentHashMap<>();
+        HashMap<String, EntityEcaRule> ruleByIdMap = new HashMap<>();
         LinkedList<EntityEcaRule> ruleNoIdList = new LinkedList<>();
-        // search for the service def XML file in the components
-        for (String location : this.ecfi.getComponentBaseLocations().values()) {
-            ResourceReference entityDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/entity");
-            if (entityDirRr.supportsAll()) {
-                // if for some weird reason this isn't a directory, skip it
-                if (!entityDirRr.isDirectory()) continue;
-                for (ResourceReference rr : entityDirRr.directoryEntries) {
-                    if (!rr.fileName.endsWith(".eecas.xml")) continue;
-                    numLoaded += loadEecaRulesFile(rr, ruleByIdMap, ruleNoIdList);
-                    numFiles++;
-
-                }
-            } else {
-                logger.warn("Can't load EECA rules from component at ["+entityDirRr.location+"] because it doesn't support exists/directory/etc");
-            }
-        }
-        if (logger.isInfoEnabled()) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files, ${ruleNoIdList.size()} rules have no id, ${ruleNoIdList.size() + ruleByIdMap.size()} EECA rules active")
+        // 删除组件化
+//        for (String location : this.ecfi.getComponentBaseLocations().values()) {
+//            ResourceReference entityDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/entity");
+//            if (entityDirRr.supportsAll()) {
+//                // if for some weird reason this isn't a directory, skip it
+//                if (!entityDirRr.isDirectory()) continue;
+//                for (ResourceReference rr : entityDirRr.directoryEntries) {
+//                    if (!rr.fileName.endsWith(".eecas.xml")) continue;
+//                    numLoaded += loadEecaRulesFile(rr, ruleByIdMap, ruleNoIdList);
+//                    numFiles++;
+//
+//                }
+//            } else {
+//                logger.warn("Can't load EECA rules from component at ["+entityDirRr.location+"] because it doesn't support exists/directory/etc");
+//            }
+//        }
+        if (logger.isInfoEnabled()) logger.info("实体操作信息: 完成 从 ["+numFiles+"] 个eecas.xml文件中加载 ["+numLoaded+"] 条实体 ECA 规则, ["+ruleNoIdList.size()+"] 个规则没有ID, ["+(ruleNoIdList.size() + ruleByIdMap.size())+"] 个规则启用!");
 
         HashMap<String, ArrayList<EntityEcaRule>> ruleMap = new HashMap<>();
         ruleNoIdList.addAll(ruleByIdMap.values());
         for (EntityEcaRule ecaRule : ruleNoIdList) {
-            EntityDefinition ed = getEntityDefinition(ecaRule.entityName);
+            EntityDefinition ed = getEntityDefinition(ecaRule.getEntityName());
             String entityName = ed.getFullEntityName();
 
-            ArrayList<EntityEcaRule> lst = ruleMap.get(entityName);
-            if (lst == null) {
-                lst = new ArrayList<EntityEcaRule>();
-                ruleMap.put(entityName, lst);
-            }
+            ArrayList<EntityEcaRule> lst = ruleMap.computeIfAbsent(entityName, k -> new ArrayList<>());
             lst.add(ecaRule);
         }
 
-        // replace entire EECA rules Map in one operation
+        // 在一次操作中替换整个EECA规则Map
         eecaRulesByEntityName = ruleMap;
     }
     public int loadEecaRulesFile(ResourceReference rr, HashMap<String, EntityEcaRule> ruleByIdMap, LinkedList<EntityEcaRule> ruleNoIdList) {
         MNode eecasRoot = MNode.parse(rr);
         int numLoaded = 0;
+        if(eecasRoot !== null)return numLoaded;
         for (MNode eecaNode : eecasRoot.children("eeca")) {
             String entityName = eecaNode.attribute("entity");
             if (!isEntityDefined(entityName)) {
-                logger.warn("Invalid entity name ${entityName} found in EECA file ${rr.location}, skipping");
+                logger.warn("实体操作警告: EECA文件 ["+rr.getLocation()+"] 中的实体 ["+entityName+"] 的实体名称错误,跳过操作!");
                 continue;
             }
-            EntityEcaRule ecaRule = new EntityEcaRule(ecfi, eecaNode, rr.location);
+            EntityEcaRule ecaRule = new EntityEcaRule(ecfi, eecaNode, rr.getLocation());
             String ruleId = eecaNode.attribute("id");
             if (ruleId != null && !ruleId.isEmpty()) ruleByIdMap.put(ruleId, ecaRule);
             else ruleNoIdList.add(ecaRule);
             numLoaded++;
         }
-        if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]");
+        if (logger.isTraceEnabled()) logger.trace("实体操作跟最: 完成从文件 ["+rr.getLocation()+"] 加载 ["+numLoaded+"] 条 ECA 规则!");
         return numLoaded;
     }
 
     public boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) != null; }
     public void runEecaRules(String entityName, Map fieldValues, String operation, boolean before) {
-        ArrayList<EntityEcaRule> lst = (ArrayList<EntityEcaRule>) eecaRulesByEntityName.get(entityName);
+        ArrayList<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName);
         if (lst != null && lst.size() > 0) {
             // if Entity ECA rules disabled in ArtifactExecutionFacade, just return immediately
             // do this only if there are EECA rules to run, small cost in getEci, etc
-            if (ecfi.getEci().artifactExecutionFacade.entityEcaDisabled()) return
+//            if (ecfi.getEci().artifactExecutionFacade.entityEcaDisabled()) return
 
-            for (int i = 0; i < lst.size(); i++) {
-                EntityEcaRule eer = (EntityEcaRule) lst.get(i)
-                eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getEci())
+            for (EntityEcaRule entityEcaRule : lst) {
+                EntityEcaRule eer = entityEcaRule;
+                eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getEci());
             }
         }
     }
@@ -958,7 +963,7 @@ public class EntityFacadeImpl implements EntityFacade {
             edf.destroy();
         }
     }
-
+    // TODO: 做到这里
     // used in tools screen
     public void checkAllEntityTables(String groupName) {
         // TODO: load framework entities first, then component/mantle/etc entities for better FKs on first pass
@@ -1085,7 +1090,7 @@ public class EntityFacadeImpl implements EntityFacade {
 
             if (masterEntitiesOnly) {
                 if (!(ed.getEntityNode().attribute("has-dependents").equals("true")) || en.endsWith("Type") ||
-                        "moqui.basic.Enumeration".equals(en) || "moqui.basic.StatusItem".equals(en)) continue;
+                        "zkit.basic.Enumeration".equals(en) || "zkit.basic.StatusItem".equals(en)) continue;
                 if (ed.getPkFieldNames().size() > 1) continue;
             }
 
@@ -1102,7 +1107,7 @@ public class EntityFacadeImpl implements EntityFacade {
         // make sure reverse-one many relationships exist
         createAllAutoReverseManyRelationships()
 
-        EntityValue dbViewEntity = dbViewEntityName ? find("moqui.entity.view.DbViewEntity").condition("dbViewEntityName", dbViewEntityName).one() : null
+        EntityValue dbViewEntity = dbViewEntityName ? find("zkit.entity.view.DbViewEntity").condition("dbViewEntityName", dbViewEntityName).one() : null
 
         ArrayList<Map<String, Object>> efl = new ArrayList<>()
         EntityDefinition ed = null
@@ -1115,7 +1120,7 @@ public class EntityFacadeImpl implements EntityFacade {
 
             boolean inDbView = false
             String functionName = null
-            EntityValue aliasVal = find("moqui.entity.view.DbViewEntityAlias")
+            EntityValue aliasVal = find("zkit.entity.view.DbViewEntityAlias")
                     .condition([dbViewEntityName:dbViewEntityName, entityAlias:"MASTER", fieldName:fn] as Map<String, Object>).one()
             if (aliasVal) {
                 inDbView = true
@@ -1135,7 +1140,7 @@ public class EntityFacadeImpl implements EntityFacade {
             if (red == null) continue
 
             EntityValue dbViewEntityMember = null
-            if (dbViewEntity) dbViewEntityMember = find("moqui.entity.view.DbViewEntityMember")
+            if (dbViewEntity) dbViewEntityMember = find("zkit.entity.view.DbViewEntityMember")
                     .condition([dbViewEntityName:dbViewEntityName, entityName:red.getFullEntityName()] as Map<String, Object>).one()
 
             for (String fn in red.getAllFieldNames()) {
@@ -1143,7 +1148,7 @@ public class EntityFacadeImpl implements EntityFacade {
                 boolean inDbView = false
                 String functionName = null
                 if (dbViewEntityMember) {
-                    EntityValue aliasVal = find("moqui.entity.view.DbViewEntityAlias")
+                    EntityValue aliasVal = find("zkit.entity.view.DbViewEntityAlias")
                             .condition([dbViewEntityName:dbViewEntityName, entityAlias:dbViewEntityMember.entityAlias, fieldName:fn]).one()
                     if (aliasVal) {
                         inDbView = true
@@ -1871,10 +1876,10 @@ public class EntityFacadeImpl implements EntityFacade {
                         ArtifactExecutionFacadeImpl aefi = ecfi.getEci().artifactExecutionFacade
                 boolean enableAuthz = !aefi.disableAuthz()
                 try {
-                    EntityValue svi = find("moqui.entity.SequenceValueItem").condition("seqName", seqName)
+                    EntityValue svi = find("zkit.entity.SequenceValueItem").condition("seqName", seqName)
                             .useCache(false).forUpdate(true).one()
                     if (svi == null) {
-                        svi = makeValue("moqui.entity.SequenceValueItem")
+                        svi = makeValue("zkit.entity.SequenceValueItem")
                         svi.set("seqName", seqName)
                         // a new tradition: start sequenced values at one hundred thousand instead of ten thousand
                         bank[0] = 100000L
