@@ -24,6 +24,7 @@ import com.zmtech.zframework.util.ContextStack;
 import groovy.lang.Closure;
 
 import javax.annotation.Nonnull;
+import java.sql.Timestamp;
 import java.util.Map;
 
 /**
@@ -99,4 +100,8 @@ public interface ExecutionContext {
      * any active transactions, database connections, etc are closed.
      */
     void destroy();
+
+    Timestamp getNowTimestamp();
+
+    void setEffectiveTime(Timestamp effectiveTime);
 }

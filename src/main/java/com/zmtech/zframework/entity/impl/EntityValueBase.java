@@ -1,8 +1,19 @@
 package com.zmtech.zframework.entity.impl;
 
+import com.zmtech.zframework.entity.impl.EntityDefinition.*;
+import com.zmtech.zframework.context.ExecutionContext;
+import com.zmtech.zframework.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zframework.context.impl.ExecutionContextImpl;
+import com.zmtech.zframework.entity.EntityFind;
+import com.zmtech.zframework.entity.EntityList;
 import com.zmtech.zframework.entity.EntityValue;
+import com.zmtech.zframework.exception.EntityException;
+import com.zmtech.zframework.exception.EntitySqlException;
 import com.zmtech.zframework.transaction.impl.TransactionCache;
+import com.zmtech.zframework.util.CollectionUtil;
 import com.zmtech.zframework.util.EntityJavaUtil;
+import com.zmtech.zframework.util.ObjectUtil;
+import com.zmtech.zframework.util.StringUtil;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,10 +37,10 @@ public abstract class EntityValueBase implements EntityValue {
 
     // these error strings are here for convenience for LocalizedMessage records
     // NOTE: don't change these unless there is a really good reason, will break localization
-    private static final String CREATE_ERROR = "Error creating ${entityName} ${primaryKeys}";
-    private static final String UPDATE_ERROR = "Error updating ${entityName} ${primaryKeys}";
-    private static final String DELETE_ERROR = "Error deleting ${entityName} ${primaryKeys}";
-    private static final String REFRESH_ERROR = "Error finding ${entityName} ${primaryKeys}";
+    private static final String CREATE_ERROR = "无法创建: ${entityName} ${primaryKeys}";
+    private static final String UPDATE_ERROR = "无法修改: ${entityName} ${primaryKeys}";
+    private static final String DELETE_ERROR = "无法删除: ${entityName} ${primaryKeys}";
+    private static final String REFRESH_ERROR = "无法查询: ${entityName} ${primaryKeys}";
     private static final String PLACEHOLDER = "PLHLDR";
 
     private String entityName;
@@ -42,15 +53,15 @@ public abstract class EntityValueBase implements EntityValue {
     private transient HashMap<String, Object> dbValueMap = null;
     private transient HashMap<String, Object> oldDbValueMap = null;
     private transient Map<String, Object> internalPkMap = null;
-    private transient Map<String, Map<String, String>> localizedByLocaleByField = null;
+//    private transient Map<String, Map<String, String>> localizedByLocaleByField = null;
 
     private transient boolean modified = false;
     private transient boolean mutable = true;
     private transient boolean isFromDb = false;
     private static final String indentString = "    ";
 
-    /** Default constructor for deserialization ONLY. */
-    public EntityValueBase() { }
+    public EntityValueBase() {
+    }
 
     public EntityValueBase(EntityDefinition ed, EntityFacadeImpl efip) {
         efiTransient = efip;
@@ -58,15 +69,17 @@ public abstract class EntityValueBase implements EntityValue {
         entityDefinitionTransient = ed;
     }
 
-    @Override public void writeExternal(ObjectOutput out) throws IOException {
-        // NOTE: found that the serializer in Hazelcast is REALLY slow with writeUTF(), uses String.chatAt() in a for loop, crazy
-        // NOTE2: in Groovy this results in castToType() overhead anyway, so for now use writeUTF/readUTF as other serialization might be more efficient
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException {
+        // 注意：发现Hazelcast中的序列化器使用writeUTF（）非常慢，在for循环中使用String.chatAt（），妈的
+        // 注意2：在Groovy中，这会导致castToType（）开销，所以现在使用writeUTF / readUTF，因为其他序列化可能更有效
         out.writeUTF(entityName);
         out.writeObject(valueMapInternal);
     }
 
     @SuppressWarnings("unchecked")
-    @Override public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+    @Override
+    public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
         entityName = objectInput.readUTF();
         valueMapInternal.putAll((Map<String, Object>) objectInput.readObject());
     }
@@ -74,28 +87,36 @@ public abstract class EntityValueBase implements EntityValue {
     protected EntityFacadeImpl getEntityFacadeImpl() {
         // handle null after deserialize; this requires a static reference in Moqui.java or we'll get an error
         if (efiTransient == null) {
-            ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory();
-            if (ecfi == null) throw new EntityException("No ExecutionContextFactory found, cannot get EntityFacade for new EVB for entity " + entityName);
-            efiTransient = ecfi.entityFacade;
+            ExecutionContextFactoryImpl ecfi = null;
+//            ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory();
+            if (ecfi == null) throw new EntityException("没有找到 ExecutionContext, 无法获取 EntityFacade 实体名称:" + entityName);
+            efiTransient = (EntityFacadeImpl) ecfi.getEntity();
         }
         return efiTransient;
     }
+
     private TransactionCache getTxCache(ExecutionContextFactoryImpl ecfi) {
-        if (txCacheInternal == null) txCacheInternal = ecfi.transactionFacade.getTransactionCache();
+        if (txCacheInternal == null) txCacheInternal = ecfi.getTransaction().getTransactionCache();
         return txCacheInternal;
     }
+
     public EntityDefinition getEntityDefinition() {
         if (entityDefinitionTransient == null)
             entityDefinitionTransient = getEntityFacadeImpl().getEntityDefinition(entityName);
         return entityDefinitionTransient;
     }
 
-    public HashMap<String, Object> getValueMap() { return valueMapInternal; }
-    protected HashMap<String, Object> getDbValueMap() { return dbValueMap; }
+    public HashMap<String, Object> getValueMap() {
+        return valueMapInternal;
+    }
+
+    protected HashMap<String, Object> getDbValueMap() {
+        return dbValueMap;
+    }
 
     protected void setDbValueMap(Map<String, Object> map) {
         dbValueMap = new HashMap<>();
-        // copy all fields, including pk to fix false positives in the old approach of only non-pk fields
+        // 拷贝所有字段,包括pk来修复只有非pk字段的旧方法中的误报
         FieldInfo[] allFields = getEntityDefinition().entityInfo.allFieldInfoArray;
         for (int i = 0; i < allFields.length; i++) {
             FieldInfo fi = allFields[i];
@@ -106,18 +127,35 @@ public abstract class EntityValueBase implements EntityValue {
         }
         isFromDb = true;
     }
+
     public void setSyncedWithDb() {
         oldDbValueMap = dbValueMap;
         dbValueMap = null;
         modified = false;
         isFromDb = true;
     }
-    public boolean getIsFromDb() { return isFromDb; }
 
-    @Override public String getEntityName() { return entityName; }
-    @Override public String getEntityNamePretty() { return StringUtilities.camelCaseToPretty(getEntityDefinition().getEntityName()); }
-    @Override public boolean isModified() { return modified; }
-    @Override public boolean isFieldModified(String name) {
+    public boolean getIsFromDb() {
+        return isFromDb;
+    }
+
+    @Override
+    public String getEntityName() {
+        return entityName;
+    }
+
+    @Override
+    public String getEntityNamePretty() {
+        return StringUtil.camelCaseToPretty(getEntityDefinition().getEntityName());
+    }
+
+    @Override
+    public boolean isModified() {
+        return modified;
+    }
+
+    @Override
+    public boolean isFieldModified(String name) {
         Object valueMapValue = valueMapInternal.getOrDefault(name, PLACEHOLDER);
         // identity compare as alternative to containsKey() call, if is PLACEHOLDER then Map didn't contain the key
         if (valueMapValue == PLACEHOLDER) return false;
@@ -133,10 +171,25 @@ public abstract class EntityValueBase implements EntityValue {
         return (valueMapValue == null && dbValue != null) || (valueMapValue != null && !valueMapValue.equals(dbValue));
         */
     }
-    @Override public boolean isFieldSet(String name) { return valueMapInternal.containsKey(name); }
-    @Override public boolean isField(String name) { return getEntityDefinition().isField(name); }
-    @Override public boolean isMutable() { return mutable; }
-    public void setFromCache() { mutable = false; }
+
+    @Override
+    public boolean isFieldSet(String name) {
+        return valueMapInternal.containsKey(name);
+    }
+
+    @Override
+    public boolean isField(String name) {
+        return getEntityDefinition().isField(name);
+    }
+
+    @Override
+    public boolean isMutable() {
+        return mutable;
+    }
+
+    public void setFromCache() {
+        mutable = false;
+    }
 
     @Override
     public Map<String, Object> getMap() {
@@ -164,9 +217,9 @@ public abstract class EntityValueBase implements EntityValue {
         if (fieldInfo != null) {
             return getKnownField(fieldInfo);
         } else {
-            // if this is not a valid field name but is a valid relationship name, do a getRelated or getRelatedOne to return an EntityList or an EntityValue
+            // 如果这不是有效的字段名称但是是有效的关系名称，请执行getRelated或getRelatedOne以返回EntityList或EntityValue
             EntityJavaUtil.RelationshipInfo relInfo = ed.getRelationshipInfo(name);
-            // logger.warn("====== get related relInfo: ${relInfo}")
+            logger.warn("====== 获取关系引用信息: " + relInfo);
             if (relInfo != null) {
                 if (relInfo.isTypeOne) {
                     return this.findRelatedOne(name, null, null);
@@ -175,7 +228,7 @@ public abstract class EntityValueBase implements EntityValue {
                 }
             } else {
                 // logger.warn("========== relInfo Map keys: ${ed.getRelationshipInfoMap().keySet()}, relInfoList: ${ed.getRelationshipsInfo(false)}")
-                throw new EntityException("The name [" + name + "] is not a valid field name or relationship name for entity [" + entityName + "]");
+                throw new EntityException("名称: [" + name + "] 不是实体 [" + entityName + "] 中的字段名称或关系名称!");
             }
         }
     }
@@ -183,154 +236,164 @@ public abstract class EntityValueBase implements EntityValue {
     private Object getKnownField(FieldInfo fieldInfo) {
         EntityDefinition ed = fieldInfo.ed;
         String name = fieldInfo.name;
-        // if this is a simple field (is field, no l10n, not user field) just get the value right away (vast majority of use)
+        // 如果这是一个简单的字段（是字段，没有l10n，而不是用户字段），只需立即获取值（绝大多数使用）
         if (fieldInfo.isSimple) return valueMapInternal.get(name);
 
-        // if enabled use moqui.basic.LocalizedEntityField for any localized fields
-        if (fieldInfo.enableLocalization) {
-            Locale locale = getEntityFacadeImpl().ecfi.getEci().userFacade.getLocale();
-            String localeStr = locale != null ? locale.toString() : null;
-            if (localeStr != null) {
-                Object internalValue = valueMapInternal.get(name);
-
-                boolean knownNoLocalized = false;
-                if (localizedByLocaleByField == null) {
-                    localizedByLocaleByField = new HashMap<>();
-                } else {
-                    Map<String, String> localizedByLocale = localizedByLocaleByField.get(name);
-                    if (localizedByLocale != null) {
-                        String cachedLocalized = localizedByLocale.get(localeStr);
-                        if (cachedLocalized != null && cachedLocalized.length() > 0) {
-                            // logger.warn("======== field ${name}:${internalValue} found cached localized ${cachedLocalized}")
-                            return cachedLocalized;
-                        } else {
-                            // logger.warn("======== field ${name}:${internalValue} known no localized")
-                            knownNoLocalized = localizedByLocale.containsKey(localeStr);
-                        }
-                    }
-                }
-
-                if (!knownNoLocalized) {
-                    List<String> pks;
-                    MNode aliasNode = null;
-                    String memberEntityName = null;
-                    if (ed.isViewEntity && !ed.entityInfo.isDynamicView) {
-                        // NOTE: there are issues with dynamic view entities here, may be possible to fix them but for now not running for EntityDynamicView
-                        aliasNode = ed.getFieldNode(name);
-                        memberEntityName = ed.getMemberEntityName(aliasNode.attribute("entity-alias"));
-                        EntityDefinition memberEd = getEntityFacadeImpl().getEntityDefinition(memberEntityName);
-                        pks = memberEd.getPkFieldNames();
-                    } else {
-                        pks = ed.getPkFieldNames();
-                    }
-
-                    if (pks.size() == 1) {
-                        String pk = pks.get(0);
-                        if (aliasNode != null) {
-                            pk = null;
-                            Map<String, String> pkToAliasMap = ed.getMePkFieldToAliasNameMap(aliasNode.attribute("entity-alias"));
-                            Set<String> pkSet = pkToAliasMap.keySet();
-                            if (pkSet.size() == 1) pk = pkToAliasMap.get(pkSet.iterator().next());
-                        }
-
-                        String pkValue = pk != null ? (String) valueMapInternal.get(pk) : null;
-                        if (pkValue != null) {
-                            // logger.warn("======== field ${name}:${internalValue} finding LocalizedEntityField, localizedByLocaleByField=${localizedByLocaleByField}")
-                            String entityName = ed.getFullEntityName();
-                            String fieldName = name;
-                            if (aliasNode != null) {
-                                entityName = memberEntityName;
-                                final String fieldAttr = aliasNode.attribute("field");
-                                fieldName = fieldAttr != null && !fieldAttr.isEmpty() ? fieldAttr : aliasNode.attribute("name");
-                                // logger.warn("localizing field for ViewEntity ${ed.fullEntityName} field ${name}, using entityName: ${entityName}, fieldName: ${fieldName}, pkValue: ${pkValue}, locale: ${localeStr}")
-                            }
-
-                            EntityFind lefFind = getEntityFacadeImpl().find("moqui.basic.LocalizedEntityField")
-                                    .condition("entityName", entityName).condition("fieldName", fieldName)
-                                    .condition("pkValue", pkValue).condition("locale", localeStr);
-                            EntityValue lefValue = lefFind.useCache(true).one();
-                            if (lefValue != null) {
-                                String localized = (String) lefValue.get("localized");
-                                CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
-                                return localized;
-                            }
-
-                            // no result found, try with shortened locale
-                            if (localeStr.contains("_")) {
-                                lefFind.condition("locale", localeStr.substring(0, localeStr.indexOf("_")));
-                                lefValue = lefFind.useCache(true).one();
-                                if (lefValue != null) {
-                                    String localized = (String) lefValue.get("localized");
-                                    CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
-                                    return localized;
-                                }
-                            }
-
-                            // no result found, try "default" locale
-                            lefFind.condition("locale", "default");
-                            lefValue = lefFind.useCache(true).one();
-                            if (lefValue != null) {
-                                String localized = (String) lefValue.get("localized");
-                                CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
-                                return localized;
-                            }
-                        }
-                    }
-
-                    // no luck? try getting a localized value from moqui.basic.LocalizedMessage
-                    // logger.warn("======== field ${name}:${internalValue} finding LocalizedMessage")
-                    EntityFind lmFind = getEntityFacadeImpl().find("moqui.basic.LocalizedMessage")
-                            .condition("original", internalValue).condition("locale", localeStr);
-                    EntityValue lmValue = lmFind.useCache(true).one();
-                    if (lmValue != null) {
-                        String localized = (String) lmValue.get("localized");
-                        CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
-                        return localized;
-                    }
-
-                    if (localeStr.contains("_")) {
-                        lmFind.condition("locale", localeStr.substring(0, localeStr.indexOf("_")));
-                        lmValue = lmFind.useCache(true).one();
-                        if (lmValue != null) {
-                            String localized = (String) lmValue.get("localized");
-                            CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
-                            return localized;
-                        }
-                    }
-
-                    lmFind.condition("locale", "default");
-                    lmValue = lmFind.useCache(true).one();
-                    if (lmValue != null) {
-                        String localized = (String) lmValue.get("localized");
-                        CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
-                        return localized;
-                    }
-
-                    // we didn't find a localized value, remember that so we don't do the queries again (common case)
-                    CollectionUtilities.addToMapInMap(name, localeStr, null, localizedByLocaleByField);
-                    // logger.warn("======== field ${name}:${internalValue} remembering no localized, localizedByLocaleByField=${localizedByLocaleByField}")
-                }
-
-                return internalValue;
-            }
-        }
+        // 如果启用本地化，则使用 LocalizedEntityField if enabled use moqui.basic.LocalizedEntityField for any localized fields
+//        if (fieldInfo.enableLocalization) {
+//            Locale locale = getEntityFacadeImpl().ecfi.getEci().userFacade.getLocale();
+//            String localeStr = locale != null ? locale.toString() : null;
+//            if (localeStr != null) {
+//                Object internalValue = valueMapInternal.get(name);
+//
+//                boolean knownNoLocalized = false;
+//                if (localizedByLocaleByField == null) {
+//                    localizedByLocaleByField = new HashMap<>();
+//                } else {
+//                    Map<String, String> localizedByLocale = localizedByLocaleByField.get(name);
+//                    if (localizedByLocale != null) {
+//                        String cachedLocalized = localizedByLocale.get(localeStr);
+//                        if (cachedLocalized != null && cachedLocalized.length() > 0) {
+//                            // logger.warn("======== field ${name}:${internalValue} found cached localized ${cachedLocalized}")
+//                            return cachedLocalized;
+//                        } else {
+//                            // logger.warn("======== field ${name}:${internalValue} known no localized")
+//                            knownNoLocalized = localizedByLocale.containsKey(localeStr);
+//                        }
+//                    }
+//                }
+//
+//                if (!knownNoLocalized) {
+//                    List<String> pks;
+//                    MNode aliasNode = null;
+//                    String memberEntityName = null;
+//                    if (ed.isViewEntity && !ed.entityInfo.isDynamicView) {
+//                        // NOTE: there are issues with dynamic view entities here, may be possible to fix them but for now not running for EntityDynamicView
+//                        aliasNode = ed.getFieldNode(name);
+//                        memberEntityName = ed.getMemberEntityName(aliasNode.attribute("entity-alias"));
+//                        EntityDefinition memberEd = getEntityFacadeImpl().getEntityDefinition(memberEntityName);
+//                        pks = memberEd.getPkFieldNames();
+//                    } else {
+//                        pks = ed.getPkFieldNames();
+//                    }
+//
+//                    if (pks.size() == 1) {
+//                        String pk = pks.get(0);
+//                        if (aliasNode != null) {
+//                            pk = null;
+//                            Map<String, String> pkToAliasMap = ed.getMePkFieldToAliasNameMap(aliasNode.attribute("entity-alias"));
+//                            Set<String> pkSet = pkToAliasMap.keySet();
+//                            if (pkSet.size() == 1) pk = pkToAliasMap.get(pkSet.iterator().next());
+//                        }
+//
+//                        String pkValue = pk != null ? (String) valueMapInternal.get(pk) : null;
+//                        if (pkValue != null) {
+//                            // logger.warn("======== field ${name}:${internalValue} finding LocalizedEntityField, localizedByLocaleByField=${localizedByLocaleByField}")
+//                            String entityName = ed.getFullEntityName();
+//                            String fieldName = name;
+//                            if (aliasNode != null) {
+//                                entityName = memberEntityName;
+//                                final String fieldAttr = aliasNode.attribute("field");
+//                                fieldName = fieldAttr != null && !fieldAttr.isEmpty() ? fieldAttr : aliasNode.attribute("name");
+//                                // logger.warn("localizing field for ViewEntity ${ed.fullEntityName} field ${name}, using entityName: ${entityName}, fieldName: ${fieldName}, pkValue: ${pkValue}, locale: ${localeStr}")
+//                            }
+//
+//                            EntityFind lefFind = getEntityFacadeImpl().find("moqui.basic.LocalizedEntityField")
+//                                    .condition("entityName", entityName).condition("fieldName", fieldName)
+//                                    .condition("pkValue", pkValue).condition("locale", localeStr);
+//                            EntityValue lefValue = lefFind.useCache(true).one();
+//                            if (lefValue != null) {
+//                                String localized = (String) lefValue.get("localized");
+//                                CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+//                                return localized;
+//                            }
+//
+//                            // no result found, try with shortened locale
+//                            if (localeStr.contains("_")) {
+//                                lefFind.condition("locale", localeStr.substring(0, localeStr.indexOf("_")));
+//                                lefValue = lefFind.useCache(true).one();
+//                                if (lefValue != null) {
+//                                    String localized = (String) lefValue.get("localized");
+//                                    CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+//                                    return localized;
+//                                }
+//                            }
+//
+//                            // no result found, try "default" locale
+//                            lefFind.condition("locale", "default");
+//                            lefValue = lefFind.useCache(true).one();
+//                            if (lefValue != null) {
+//                                String localized = (String) lefValue.get("localized");
+//                                CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+//                                return localized;
+//                            }
+//                        }
+//                    }
+//
+//                    // no luck? try getting a localized value from moqui.basic.LocalizedMessage
+//                    // logger.warn("======== field ${name}:${internalValue} finding LocalizedMessage")
+//                    EntityFind lmFind = getEntityFacadeImpl().find("moqui.basic.LocalizedMessage")
+//                            .condition("original", internalValue).condition("locale", localeStr);
+//                    EntityValue lmValue = lmFind.useCache(true).one();
+//                    if (lmValue != null) {
+//                        String localized = (String) lmValue.get("localized");
+//                        CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+//                        return localized;
+//                    }
+//
+//                    if (localeStr.contains("_")) {
+//                        lmFind.condition("locale", localeStr.substring(0, localeStr.indexOf("_")));
+//                        lmValue = lmFind.useCache(true).one();
+//                        if (lmValue != null) {
+//                            String localized = (String) lmValue.get("localized");
+//                            CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+//                            return localized;
+//                        }
+//                    }
+//
+//                    lmFind.condition("locale", "default");
+//                    lmValue = lmFind.useCache(true).one();
+//                    if (lmValue != null) {
+//                        String localized = (String) lmValue.get("localized");
+//                        CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+//                        return localized;
+//                    }
+//
+//                    // we didn't find a localized value, remember that so we don't do the queries again (common case)
+//                    CollectionUtilities.addToMapInMap(name, localeStr, null, localizedByLocaleByField);
+//                    // logger.warn("======== field ${name}:${internalValue} remembering no localized, localizedByLocaleByField=${localizedByLocaleByField}")
+//                }
+//
+//                return internalValue;
+//            }
+//        }
 
 
         return valueMapInternal.get(name);
     }
 
-    @Override public Object getNoCheckSimple(String name) { return valueMapInternal.get(name); }
+    @Override
+    public Object getNoCheckSimple(String name) {
+        return valueMapInternal.get(name);
+    }
 
-    @Override public Object getOriginalDbValue(String name) {
+    @Override
+    public Object getOriginalDbValue(String name) {
         return (dbValueMap != null && dbValueMap.containsKey(name)) ? dbValueMap.get(name) : valueMapInternal.get(name);
     }
+
     protected Object getOldDbValue(String name) {
         if (oldDbValueMap != null && oldDbValueMap.containsKey(name)) return oldDbValueMap.get(name);
         return getOriginalDbValue(name);
     }
 
-    @Override public boolean containsPrimaryKey() { return this.getEntityDefinition().containsPrimaryKey(valueMapInternal); }
-    @Override public Map<String, Object> getPrimaryKeys() {
+    @Override
+    public boolean containsPrimaryKey() {
+        return this.getEntityDefinition().containsPrimaryKey(valueMapInternal);
+    }
+
+    @Override
+    public Map<String, Object> getPrimaryKeys() {
         if (internalPkMap != null) return new HashMap<>(internalPkMap);
         internalPkMap = getEntityDefinition().getPrimaryKeys(this.valueMapInternal);
         return new HashMap<>(internalPkMap);
@@ -347,21 +410,35 @@ public abstract class EntityValueBase implements EntityValue {
             Object thisValue = valueMapInternal.get(pkField);
             Object thatValue = evbValue.get(pkField);
             if (thisValue == null) {
-                if (thatValue != null) { allMatch = false; break; }
+                if (thatValue != null) {
+                    allMatch = false;
+                    break;
+                }
             } else {
-                if (!thisValue.equals(thatValue)) { allMatch = false; break; }
+                if (!thisValue.equals(thatValue)) {
+                    allMatch = false;
+                    break;
+                }
             }
         }
         return allMatch;
     }
 
-    @Override public EntityValue set(String name, Object value) { put(name, value); return this; }
-    @Override public EntityValue setAll(Map<String, Object> fields) {
-        if (!mutable) throw new EntityException("Cannot set fields, this entity value is not mutable (it is read-only)");
+    @Override
+    public EntityValue set(String name, Object value) {
+        put(name, value);
+        return this;
+    }
+
+    @Override
+    public EntityValue setAll(Map<String, Object> fields) {
+        if (!mutable) throw new EntityException("无法设置字段的值, 该实体是只读的!");
         getEntityDefinition().entityInfo.setFieldsEv(fields, this, null);
         return this;
     }
-    @Override public EntityValue setString(String name, String value) {
+
+    @Override
+    public EntityValue setString(String name, String value) {
         // this will do a field name check
         ExecutionContextImpl eci = getEntityFacadeImpl().ecfi.getEci();
         Object converted = getEntityDefinition().convertFieldString(name, value, eci);
@@ -369,22 +446,52 @@ public abstract class EntityValueBase implements EntityValue {
         return this;
     }
 
-    @Override public Boolean getBoolean(String name) { return DefaultGroovyMethods.asType(get(name), Boolean.class); }
-    @Override public String getString(String name) {
+    @Override
+    public Boolean getBoolean(String name) {
+        return DefaultGroovyMethods.asType(get(name), Boolean.class);
+    }
+
+    @Override
+    public String getString(String name) {
         EntityDefinition ed = getEntityDefinition();
         FieldInfo fieldInfo = ed.getFieldInfo(name);
 
         Object valueObj = getKnownField(fieldInfo);
         return fieldInfo.convertToString(valueObj);
     }
-    @Override public Timestamp getTimestamp(String name) { return DefaultGroovyMethods.asType(get(name), Timestamp.class); }
-    @Override public Time getTime(String name) { return DefaultGroovyMethods.asType(this.get(name), Time.class); }
-    @Override public Date getDate(String name) { return DefaultGroovyMethods.asType(this.get(name), Date.class); }
-    @Override public Long getLong(String name) { return DefaultGroovyMethods.asType(this.get(name), Long.class); }
-    @Override public Double getDouble(String name) { return DefaultGroovyMethods.asType(this.get(name), Double.class); }
-    @Override public BigDecimal getBigDecimal(String name) { return DefaultGroovyMethods.asType(this.get(name), BigDecimal.class); }
 
-    @Override public byte[] getBytes(String name) {
+    @Override
+    public Timestamp getTimestamp(String name) {
+        return DefaultGroovyMethods.asType(get(name), Timestamp.class);
+    }
+
+    @Override
+    public Time getTime(String name) {
+        return DefaultGroovyMethods.asType(this.get(name), Time.class);
+    }
+
+    @Override
+    public Date getDate(String name) {
+        return DefaultGroovyMethods.asType(this.get(name), Date.class);
+    }
+
+    @Override
+    public Long getLong(String name) {
+        return DefaultGroovyMethods.asType(this.get(name), Long.class);
+    }
+
+    @Override
+    public Double getDouble(String name) {
+        return DefaultGroovyMethods.asType(this.get(name), Double.class);
+    }
+
+    @Override
+    public BigDecimal getBigDecimal(String name) {
+        return DefaultGroovyMethods.asType(this.get(name), BigDecimal.class);
+    }
+
+    @Override
+    public byte[] getBytes(String name) {
         Object o = this.get(name);
         if (o == null) return null;
         if (o instanceof SerialBlob) {
@@ -392,7 +499,7 @@ public abstract class EntityValueBase implements EntityValue {
                 if (((SerialBlob) o).length() == 0) return new byte[0];
                 return ((SerialBlob) o).getBytes(1, (int) ((SerialBlob) o).length());
             } catch (Exception e) {
-                throw new EntityException("Error getting bytes for field " + name + " in entity " + entityName, e);
+                throw new EntityException("无法从字段 [" + name + "] 获取 bytes 值,实体名称:" + entityName, e);
             }
         }
 
@@ -400,28 +507,33 @@ public abstract class EntityValueBase implements EntityValue {
         // try groovy...
         return DefaultGroovyMethods.asType(o, byte[].class);
     }
-    @Override public EntityValue setBytes(String name, byte[] theBytes) {
+
+    @Override
+    public EntityValue setBytes(String name, byte[] theBytes) {
         try {
             if (theBytes != null) set(name, new SerialBlob(theBytes));
         } catch (Exception e) {
-            throw new EntityException("Error setting bytes for field " + name + " in entity " + entityName, e);
+            throw new EntityException("无法设置字段 [" + name + "] 的 bytes 值,实体名称:" + entityName, e);
         }
         return this;
     }
-    @Override public SerialBlob getSerialBlob(String name) {
+
+    @Override
+    public SerialBlob getSerialBlob(String name) {
         Object o = this.get(name);
         if (o == null) return null;
         if (o instanceof SerialBlob) return (SerialBlob) o;
         try {
             if (o instanceof byte[]) return new SerialBlob((byte[]) o);
         } catch (Exception e) {
-            throw new EntityException("Error getting SerialBlob for field " + name + " in entity " + entityName, e);
+            throw new EntityException("无法获取字段: [" + name + "] 的 SerialBlob 值, 字段名称: " + entityName, e);
         }
         // try groovy...
         return DefaultGroovyMethods.asType(o, SerialBlob.class);
     }
 
-    @Override public EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks) {
+    @Override
+    public EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks) {
         if (!setIfEmpty && (namePrefix == null || namePrefix.length() == 0)) {
             getEntityDefinition().entityInfo.setFields(fields, this, false, namePrefix, pks);
         } else {
@@ -441,7 +553,7 @@ public abstract class EntityValueBase implements EntityValue {
         String entityPrefix = null;
         String rawPrefix = ed.entityInfo.sequencePrimaryPrefix;
         if (rawPrefix != null && rawPrefix.length() > 0)
-            entityPrefix = localEfi.ecfi.resourceFacade.expand(rawPrefix, null, valueMapInternal);
+            entityPrefix = localEfi.ecfi.getResource().expand(rawPrefix, null, valueMapInternal);
         String sequenceValue = localEfi.sequencedIdPrimaryEd(ed);
 
         putNoCheck(pkFields.get(0), entityPrefix != null ? entityPrefix + sequenceValue : sequenceValue);
@@ -452,8 +564,9 @@ public abstract class EntityValueBase implements EntityValue {
     public EntityValue setSequencedIdSecondary() {
         EntityDefinition ed = getEntityDefinition();
         List<String> pkFields = ed.getPkFieldNames();
-        if (pkFields.size() < 2) throw new EntityException("Cannot call setSequencedIdSecondary() on entity " + entityName + ", must have at least 2 primary key fields.");
-        // sequenced field will be the last pk
+        if (pkFields.size() < 2)
+            throw new EntityException("无法调用实体: [" + entityName + "] 的 setSequencedIdSecondary() 方法, 必须至少有2个主键字段。");
+        // 有序字段将是最后一个pk
         final String seqFieldName = pkFields.get(pkFields.size() - 1);
         String paddedLengthStr = ed.getEntityNode().attribute("sequence-secondary-padded-length");
         int paddedLength = 2;
@@ -463,8 +576,7 @@ public abstract class EntityValueBase implements EntityValue {
         Map<String, Object> otherPkMap = new LinkedHashMap<>();
         getEntityDefinition().entityInfo.setFields(this, otherPkMap, false, null, true);
 
-        // temporarily disable authz for this, just doing lookup to get next value and to allow for a
-        //     authorize-skip="create" with authorize-skip of view too this is necessary
+        //暂时禁用authz，只需执行查找以获取下一个值
         EntityFind ef = getEntityFacadeImpl().find(getEntityName()).selectField(seqFieldName).condition(otherPkMap);
         // logger.warn("TOREMOVE in setSequencedIdSecondary ef WHERE=${ef.getWhereEntityCondition()}")
         EntityList allValues = ef.disableAuthz().list();
@@ -477,13 +589,13 @@ public abstract class EntityValueBase implements EntityValue {
                     int seqVal = Integer.parseInt(currentSeqId);
                     if (highestSeqVal == null || seqVal > highestSeqVal) highestSeqVal = seqVal;
                 } catch (Exception e) {
-                    logger.warn("Error in secondary sequenced ID converting SeqId [" + currentSeqId + "] in field [" + seqFieldName + "] from entity [" + getEntityName() + "] to a number: " + e.toString());
+                    logger.warn("二次序列ID转换数字错误,SeqId[" + currentSeqId + "] 字段名: [" + seqFieldName + "] 实体名 [" + getEntityName() + "]" + e.toString());
                 }
             }
         }
 
         int seqValToUse = highestSeqVal != null ? highestSeqVal + 1 : 1;
-        this.set(seqFieldName, StringUtilities.paddedNumber(seqValToUse, paddedLength));
+        this.set(seqFieldName, StringUtil.paddedNumber(seqValToUse, paddedLength));
         return this;
     }
 
@@ -505,9 +617,10 @@ public abstract class EntityValueBase implements EntityValue {
             if (result != 0) return result;
         }
 
-        // all the same, result should be 0
+        // 相同返回 0
         return result;
     }
+
     @SuppressWarnings("unchecked")
     private int compareFields(EntityValue that, String name) {
         Comparable thisVal = (Comparable) this.valueMapInternal.get(name);
@@ -550,80 +663,82 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     @Override
-    public EntityValue store() { return createOrUpdate(); }
-
-    private void handleAuditLog(boolean isUpdate, Map oldValues, EntityDefinition ed, ExecutionContextImpl ec) {
-        if ((isUpdate && oldValues == null) || !ed.entityInfo.needsAuditLog || ec.artifactExecutionFacade.entityAuditLogDisabled()) return;
-
-        Timestamp nowTimestamp = ec.userFacade.getNowTimestamp();
-
-        Map<String, Object> pksValueMap = new HashMap<>();
-        addThreeFieldPkValues(pksValueMap, ed);
-
-        FieldInfo[] fieldInfoList = ed.entityInfo.allFieldInfoArray;
-        for (int i = 0; i < fieldInfoList.length; i++) {
-            FieldInfo fieldInfo = fieldInfoList[i];
-            boolean isLogUpdate = "update".equals(fieldInfo.enableAuditLog);
-            if ((!isLogUpdate && "true".equals(fieldInfo.enableAuditLog)) || (isUpdate && isLogUpdate)) {
-                String fieldName = fieldInfo.name;
-
-                // is there a new value? if not continue
-                if (!this.valueMapInternal.containsKey(fieldName)) continue;
-
-                Object value = get(fieldName);
-                Object oldValue = oldValues != null ? oldValues.get(fieldName) : null;
-                // if set to log updates and old value is null don't consider it an update (is initial set of value)
-                if (isLogUpdate && oldValue == null) continue;
-                if (isUpdate) {
-                    // if isUpdate but old value == new value, then it hasn't been updated, so skip it
-                    if (value == null) {
-                        if (oldValue == null) continue;
-                    } else {
-                        if (value instanceof BigDecimal && oldValue instanceof BigDecimal) {
-                            // better handling for BigDecimal, perhaps others
-                            if (((BigDecimal) value).compareTo((BigDecimal) oldValue) == 0) continue;
-                        } else {
-                            if (value.equals(oldValue)) continue;
-                        }
-                    }
-                } else {
-                    // if it's a create and there is no value don't log a change
-                    if (value == null) continue;
-                }
-                // logger.warn("EntityAuditLog field " + fieldName + " old " + oldValue + " (" + (oldValue != null ? oldValue.getClass().getName() : "null") + ") new " + value + " (" + (value != null ? value.getClass().getName() : "null") + ")");
-
-                // don't skip for this, if a field was reset then we want to record that: if (!value) continue
-
-                // check for a changeReason
-                String changeReason = null;
-                Object changeReasonObj = ec.contextStack.getByString(fieldName.concat("_changeReason"));
-                if (changeReasonObj != null) {
-                    changeReason = changeReasonObj.toString();
-                    if (changeReason.isEmpty()) changeReason = null;
-                }
-
-                String stackNameString = ec.artifactExecutionFacade.getStackNameString();
-                if (stackNameString.length() > 4000) stackNameString = stackNameString.substring(0, 4000);
-                LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
-                parms.put("changedEntityName", getEntityName());
-                parms.put("changedFieldName", fieldName);
-                parms.put("newValueText", ObjectUtilities.toPlainString(value));
-                if (changeReason != null) parms.put("changeReason", changeReason);
-                parms.put("changedDate", nowTimestamp);
-                parms.put("changedByUserId", ec.getUser().getUserId());
-                parms.put("changedInVisitId", ec.getUser().getVisitId());
-                parms.put("artifactStack", stackNameString);
-                if (oldValue != null) parms.put("oldValueText", ObjectUtilities.toPlainString(oldValue));
-                parms.putAll(pksValueMap);
-
-                // logger.warn("TOREMOVE: in handleAuditLog for [${ed.entityName}.${fieldName}] value=[${value}], oldValue=[${oldValue}], oldValues=[${oldValues}]", new Exception("AuditLog location"))
-
-                // NOTE: if this is changed to async the time zone on nowTimestamp gets messed up (user's time zone lost)
-                getEntityFacadeImpl().ecfi.serviceFacade.sync().name("create#moqui.entity.EntityAuditLog")
-                        .parameters(parms).disableAuthz().call();
-            }
-        }
+    public EntityValue store() {
+        return createOrUpdate();
     }
+
+//    private void handleAuditLog(boolean isUpdate, Map oldValues, EntityDefinition ed, ExecutionContextImpl ec) {
+//        if ((isUpdate && oldValues == null) || !ed.entityInfo.needsAuditLog || ec.artifactExecutionFacade.entityAuditLogDisabled()) return;
+//
+//        Timestamp nowTimestamp = ec.userFacade.getNowTimestamp();
+//
+//        Map<String, Object> pksValueMap = new HashMap<>();
+//        addThreeFieldPkValues(pksValueMap, ed);
+//
+//        FieldInfo[] fieldInfoList = ed.entityInfo.allFieldInfoArray;
+//        for (int i = 0; i < fieldInfoList.length; i++) {
+//            FieldInfo fieldInfo = fieldInfoList[i];
+//            boolean isLogUpdate = "update".equals(fieldInfo.enableAuditLog);
+//            if ((!isLogUpdate && "true".equals(fieldInfo.enableAuditLog)) || (isUpdate && isLogUpdate)) {
+//                String fieldName = fieldInfo.name;
+//
+//                // is there a new value? if not continue
+//                if (!this.valueMapInternal.containsKey(fieldName)) continue;
+//
+//                Object value = get(fieldName);
+//                Object oldValue = oldValues != null ? oldValues.get(fieldName) : null;
+//                // if set to log updates and old value is null don't consider it an update (is initial set of value)
+//                if (isLogUpdate && oldValue == null) continue;
+//                if (isUpdate) {
+//                    // if isUpdate but old value == new value, then it hasn't been updated, so skip it
+//                    if (value == null) {
+//                        if (oldValue == null) continue;
+//                    } else {
+//                        if (value instanceof BigDecimal && oldValue instanceof BigDecimal) {
+//                            // better handling for BigDecimal, perhaps others
+//                            if (((BigDecimal) value).compareTo((BigDecimal) oldValue) == 0) continue;
+//                        } else {
+//                            if (value.equals(oldValue)) continue;
+//                        }
+//                    }
+//                } else {
+//                    // if it's a create and there is no value don't log a change
+//                    if (value == null) continue;
+//                }
+//                // logger.warn("EntityAuditLog field " + fieldName + " old " + oldValue + " (" + (oldValue != null ? oldValue.getClass().getName() : "null") + ") new " + value + " (" + (value != null ? value.getClass().getName() : "null") + ")");
+//
+//                // don't skip for this, if a field was reset then we want to record that: if (!value) continue
+//
+//                // check for a changeReason
+//                String changeReason = null;
+//                Object changeReasonObj = ec.contextStack.getByString(fieldName.concat("_changeReason"));
+//                if (changeReasonObj != null) {
+//                    changeReason = changeReasonObj.toString();
+//                    if (changeReason.isEmpty()) changeReason = null;
+//                }
+//
+//                String stackNameString = ec.artifactExecutionFacade.getStackNameString();
+//                if (stackNameString.length() > 4000) stackNameString = stackNameString.substring(0, 4000);
+//                LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
+//                parms.put("changedEntityName", getEntityName());
+//                parms.put("changedFieldName", fieldName);
+//                parms.put("newValueText", ObjectUtil.toPlainString(value));
+//                if (changeReason != null) parms.put("changeReason", changeReason);
+//                parms.put("changedDate", nowTimestamp);
+//                parms.put("changedByUserId", ec.getUser().getUserId());
+//                parms.put("changedInVisitId", ec.getUser().getVisitId());
+//                parms.put("artifactStack", stackNameString);
+//                if (oldValue != null) parms.put("oldValueText", ObjectUtil.toPlainString(oldValue));
+//                parms.putAll(pksValueMap);
+//
+//                // logger.warn("TOREMOVE: in handleAuditLog for [${ed.entityName}.${fieldName}] value=[${value}], oldValue=[${oldValue}], oldValues=[${oldValues}]", new Exception("AuditLog location"))
+//
+//                // NOTE: if this is changed to async the time zone on nowTimestamp gets messed up (user's time zone lost)
+//                getEntityFacadeImpl().ecfi.serviceFacade.sync().name("create#moqui.entity.EntityAuditLog")
+//                        .parameters(parms).disableAuthz().call();
+//            }
+//        }
+//    }
 
     private void addThreeFieldPkValues(Map<String, Object> parms, EntityDefinition ed) {
         // get pkPrimaryValue, pkSecondaryValue, pkRestCombinedValue (just like the AuditLog stuff)
@@ -649,7 +764,7 @@ public abstract class EntityValueBase implements EntityValue {
     public EntityList findRelated(final String relationshipName, Map<String, Object> byAndFields, List<String> orderBy,
                                   Boolean useCache, Boolean forUpdate) {
         EntityJavaUtil.RelationshipInfo relInfo = getEntityDefinition().getRelationshipInfo(relationshipName);
-        if (relInfo == null) throw new EntityException("Relationship " + relationshipName + " not found in entity " + entityName);
+        if (relInfo == null) throw new EntityException("无法在实体 :[" + entityName + "] 找到关系: [" + relationshipName + "]");
         return findRelated(relInfo, byAndFields, orderBy, useCache, forUpdate);
     }
 
@@ -657,14 +772,15 @@ public abstract class EntityValueBase implements EntityValue {
                                    List<String> orderBy, Boolean useCache, Boolean forUpdate) {
         String relatedEntityName = relInfo.relatedEntityName;
         Map<String, String> keyMap = relInfo.keyMap;
-        if (keyMap == null || keyMap.size() == 0) throw new EntityException("Relationship " + relInfo.relationshipName + " in entity " + entityName + " has no key-map sub-elements and no default values");
+        if (keyMap == null || keyMap.size() == 0)
+            throw new EntityException("实体: [" + entityName + "] 中的关系: [" + relInfo.relationshipName + "] 没有键映射子元素，也没有默认值");
 
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
         for (Map.Entry<String, String> entry : keyMap.entrySet())
             condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
         if (relInfo.keyValueMap != null) {
-            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+            for (Map.Entry<String, String> keyValueEntry : relInfo.keyValueMap.entrySet())
                 condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
         }
         if (byAndFields != null && byAndFields.size() > 0) condMap.putAll(byAndFields);
@@ -676,20 +792,22 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public EntityValue findRelatedOne(final String relationshipName, Boolean useCache, Boolean forUpdate) {
         EntityJavaUtil.RelationshipInfo relInfo = getEntityDefinition().getRelationshipInfo(relationshipName);
-        if (relInfo == null) throw new EntityException("Relationship " + relationshipName + " not found in entity " + entityName);
+        if (relInfo == null) throw new EntityException("无法在实体 :[" + entityName + "] 找到关系: [" + relationshipName + "]");
         return findRelatedOne(relInfo, useCache, forUpdate);
     }
 
     private EntityValue findRelatedOne(final EntityJavaUtil.RelationshipInfo relInfo, Boolean useCache, Boolean forUpdate) {
         String relatedEntityName = relInfo.relatedEntityName;
         Map<String, String> keyMap = relInfo.keyMap;
-        if (keyMap == null || keyMap.size() == 0) throw new EntityException("Relationship " + relInfo.relationshipName + " in entity " + entityName + " has no key-map sub-elements and no default values");
+        if (keyMap == null || keyMap.size() == 0)
+            throw new EntityException("实体: [" + entityName + "] 中的关系: [" + relInfo.relationshipName + "] 没有键映射子元素，也没有默认值");
 
-        // make a Map where the key is the related entity's field name, and the value is the value from this entity
+        // 制作一个Map，其中键是相关的实体字段名称，值是此实体的值
         Map<String, Object> condMap = new HashMap<>();
-        for (Map.Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        for (Map.Entry<String, String> entry : keyMap.entrySet())
+            condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
         if (relInfo.keyValueMap != null) {
-            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+            for (Map.Entry<String, String> keyValueEntry : relInfo.keyValueMap.entrySet())
                 condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
         }
 
@@ -702,17 +820,19 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public long findRelatedCount(final String relationshipName, Boolean useCache) {
         EntityJavaUtil.RelationshipInfo relInfo = getEntityDefinition().getRelationshipInfo(relationshipName);
-        if (relInfo == null) throw new EntityException("Relationship " + relationshipName + " not found in entity " + entityName);
+        if (relInfo == null) throw new EntityException("无法在实体 :[" + entityName + "] 找到关系: [" + relationshipName + "]");
 
         String relatedEntityName = relInfo.relatedEntityName;
         Map<String, String> keyMap = relInfo.keyMap;
-        if (keyMap == null || keyMap.size() == 0) throw new EntityException("Relationship " + relInfo.relationshipName + " in entity " + entityName + " has no key-map sub-elements and no default values");
+        if (keyMap == null || keyMap.size() == 0)
+            throw new EntityException("实体: [" + entityName + "] 中的关系: [" + relInfo.relationshipName + "] 没有键映射子元素，也没有默认值");
 
-        // make a Map where the key is the related entity's field name, and the value is the value from this entity
+        // 制作一个Map，其中键是相关的实体字段名称，值是此实体的值
         Map<String, Object> condMap = new HashMap<>();
-        for (Map.Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        for (Map.Entry<String, String> entry : keyMap.entrySet())
+            condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
         if (relInfo.keyValueMap != null) {
-            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+            for (Map.Entry<String, String> keyValueEntry : relInfo.keyValueMap.entrySet())
                 condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
         }
 
@@ -729,7 +849,8 @@ public abstract class EntityValueBase implements EntityValue {
             EntityJavaUtil.RelationshipInfo relInfo = relInfoList.get(i);
             EntityJavaUtil.RelationshipInfo reverseInfo = relInfo.findReverse();
             if (reverseInfo == null || !reverseInfo.isTypeOne || (skipEntities != null && (skipEntities.contains(reverseInfo.fromEd.fullEntityName) ||
-                    skipEntities.contains(reverseInfo.fromEd.getShortAlias()) || skipEntities.contains(reverseInfo.fromEd.getEntityName())))) continue;
+                    skipEntities.contains(reverseInfo.fromEd.getShortAlias()) || skipEntities.contains(reverseInfo.fromEd.getEntityName()))))
+                continue;
             EntityList curList = findRelated(relInfo, null, null, null, null);
             relatedList.addAll(curList);
         }
@@ -754,10 +875,12 @@ public abstract class EntityValueBase implements EntityValue {
         for (int i = 0; i < relInfoListSize; i++) {
             EntityJavaUtil.RelationshipInfo relInfo = relInfoList.get(i);
             if (relInfo.isTypeOne) continue;
-            if (relationshipsToDelete.contains(relInfo.shortAlias) || relationshipsToDelete.contains(relInfo.relationshipName)) continue;
+            if (relationshipsToDelete.contains(relInfo.shortAlias) || relationshipsToDelete.contains(relInfo.relationshipName))
+                continue;
 
             if (findRelatedCount(relInfo.relationshipName, false) > 0) {
-                if (logger.isInfoEnabled()) logger.info("Not deleting entity " + entityName + " value with PK " + getPrimaryKeys() + ", found record in relationship " + relInfo.relationshipName);
+                if (logger.isInfoEnabled())
+                    logger.info("无法删除主键为: [" + getPrimaryKeys() + "] 的实体: [" + entityName + "]  , 实体存在关系:" + relInfo.relationshipName);
                 foundNonDeleteRelated = true;
                 break;
             }
@@ -792,20 +915,21 @@ public abstract class EntityValueBase implements EntityValue {
                 EntityValue relVal = relList.get(j);
                 if (clearRef) {
                     for (String fieldName : reverseInfo.keyMap.keySet()) {
-                        if (relEd.isPkField(fieldName)) throw new EntityException("In deleteWithCascade on entity " + getEntityName() + " related entity " + relEd.fullEntityName + " is in the clear ref set but field " + fieldName + " is a primary key field and cannot be cleared");
+                        if (relEd.isPkField(fieldName))
+                            throw new EntityException("级联删除实体: [" + getEntityName() + "]  关联实体: [" + relEd.fullEntityName + "] 需要清除字段, 但是字段: [" + fieldName + "] 是主键无法被清除!");
                         relVal.set(fieldName, null);
                     }
                     relVal.update();
                 } else {
-                    // if we should validate entities we are attempting to delete do that now
+                    // 如果我们应该验证我们试图删除的实体，请立即执行此操作
                     if (validateAllowDeleteEntities != null && !validateAllowDeleteEntities.contains(relEd.fullEntityName))
-                        throw new EntityException("Cannot delete " + getEntityNamePretty() + " " + getPrimaryKeys() + ", found " + relVal.getEntityNamePretty() + " " + relVal.getPrimaryKeys() + " that depends on it");
-                    // delete with cascade
+                        throw new EntityException("无法删除 " + getEntityNamePretty() + " " + getPrimaryKeys() + ", 存在 " + relVal.getEntityNamePretty() + " " + relVal.getPrimaryKeys() + " 的关联!");
+                    // 级联删除
                     relVal.deleteWithCascade(clearRefEntities, validateAllowDeleteEntities);
                 }
             }
         }
-        // delete this record
+        // 删除实体
         delete();
     }
 
@@ -825,7 +949,8 @@ public abstract class EntityValueBase implements EntityValue {
                     if (relInfo.relatedEd.entityInfo.hasFieldDefaults && newValue instanceof EntityValueBase)
                         ((EntityValueBase) newValue).checkSetFieldDefaults(relInfo.relatedEd, ec, null);
                     Map<String, String> keyMap = relInfo.keyMap;
-                    if (keyMap == null || keyMap.isEmpty()) throw new EntityException("Relationship " + relInfo.relationshipName + " in entity " + entityName + " has no key-map sub-elements and no default values");
+                    if (keyMap == null || keyMap.isEmpty())
+                        throw new EntityException("实体: [" + entityName + "] 中的关系: [" + relInfo.relationshipName + "] 没有键映射子元素，也没有默认值!");
 
                     // make a Map where the key is the related entity's field name, and the value is the value from this entity
                     for (Map.Entry<String, String> entry : keyMap.entrySet())
@@ -834,7 +959,7 @@ public abstract class EntityValueBase implements EntityValue {
                     if (newValue.containsPrimaryKey()) {
                         newValue.checkFks(true);
                         newValue.create();
-                        logger.warn("Created dummy " + newValue.getEntityName() + " PK " + newValue.getPrimaryKeys());
+                        logger.warn("创建了实体: [" + newValue.getEntityName() + "] 的虚拟主键: [" + newValue.getPrimaryKeys() + "]");
                     }
                 } else {
                     return false;
@@ -851,7 +976,7 @@ public abstract class EntityValueBase implements EntityValue {
         try {
             EntityValue dbValue = this.cloneValue();
             if (!dbValue.refresh()) {
-                messages.add("Entity " + getEntityName() + " record not found for primary key " + getPrimaryKeys());
+                messages.add("实体: [" + getEntityName() + "] 主键为: [" + getPrimaryKeys() + "] 的记录不存在!");
                 return 0;
             }
 
@@ -871,14 +996,15 @@ public abstract class EntityValueBase implements EntityValue {
                     } else {
                         if (!checkFieldValue.equals(dbFieldValue)) areSame = false;
                     }
-                    if (!areSame) messages.add("Field " + getEntityName() + "." + nonpkFieldName + " did not match; check (file) value [" + checkFieldValue + "], db value [" + dbFieldValue + "] for primary key " + getPrimaryKeys());
+                    if (!areSame)
+                        messages.add("字段 " + getEntityName() + "." + nonpkFieldName + " 不匹配; 请检查主键为: [" + getPrimaryKeys() + "] 的（文件）值: [" + checkFieldValue + "], 数据库值: [" + dbFieldValue + "] 的记录!");
                 }
                 fieldsChecked++;
             }
         } catch (EntityException e) {
             throw e;
         } catch (Throwable t) {
-            String errMsg = "Error checking entity " + getEntityName() + " with pk " + getPrimaryKeys() + ": " + t.toString();
+            String errMsg = "实体检查错误: 实体名:" + getEntityName() + " 主键值:" + getPrimaryKeys() + ": " + t.toString();
             messages.add(errMsg);
             logger.error(errMsg, t);
         }
@@ -915,7 +1041,7 @@ public abstract class EntityValueBase implements EntityValue {
         try {
             return plainMapXmlWriter(pw, prefix, ed.getShortOrFullEntityName(), plainMap, 1);
         } catch (Exception e) {
-            throw new EntityException("Error writing XML test for entity " + entityName + " dependent levels " + dependentLevels);
+            throw new EntityException("测试写入XML文件到实体中错误: 实体: [" + entityName + "] 依赖等级为: " + dependentLevels);
         }
     }
 
@@ -926,7 +1052,7 @@ public abstract class EntityValueBase implements EntityValue {
         try {
             return plainMapXmlWriter(pw, prefix, ed.getShortOrFullEntityName(), plainMap, 1);
         } catch (Exception e) {
-            throw new EntityException("Error writing XML test for entity " + entityName + " master " + masterName);
+            throw new EntityException("测试写入XML文件到实体中错误: 实体 [" + entityName + "] 的主实体为: " + masterName);
         }
     }
 
@@ -963,7 +1089,7 @@ public abstract class EntityValueBase implements EntityValue {
                 continue;
             }
 
-            String valueStr = ObjectUtilities.toPlainString(fieldValue);
+            String valueStr = ObjectUtil.toPlainString(fieldValue);
             if (valueStr == null || valueStr.isEmpty()) continue;
             if (valueStr.contains("\n") || valueStr.contains("\r") || valueStr.length() > 255) {
                 cdataMap.put(fieldName, valueStr);
@@ -971,7 +1097,7 @@ public abstract class EntityValueBase implements EntityValue {
             }
 
             pw.append(" ").append(fieldName).append("=\"");
-            pw.append(StringUtilities.encodeForXmlAttribute(valueStr)).append("\"");
+            pw.append(StringUtil.encodeForXmlAttribute(valueStr)).append("\"");
         }
 
 
@@ -998,7 +1124,7 @@ public abstract class EntityValueBase implements EntityValue {
                         if (listEntry instanceof Map) {
                             valueCount += plainMapXmlWriter(pw, prefix, entryKey, (Map) listEntry, level + 1);
                         } else {
-                            logger.warn("In entity auto create for entity " + curEntity + " found list for sub-object " + entryKey + " with a non-Map entry: " + String.valueOf(listEntry));
+                            logger.warn("自动创建实体 :[" + curEntity + "] 发现子元素: " + entryKey + " 的列表, 和 non-map 记录: " + String.valueOf(listEntry));
                         }
                     }
                 } else if (entryVal instanceof Map) {
@@ -1021,7 +1147,7 @@ public abstract class EntityValueBase implements EntityValue {
 
     private Map<String, Object> internalPlainValueMap(int dependentLevels, Set<String> parentPkFields) {
         Map<String, Object> vMap = new HashMap<>(valueMapInternal);
-        CollectionUtilities.removeNullsFromMap(vMap);
+        CollectionUtil.removeNullsFromMap(vMap);
         if (parentPkFields != null) for (String pkField : parentPkFields) vMap.remove(pkField);
         EntityDefinition ed = getEntityDefinition();
         vMap.put("_entity", ed.getShortOrFullEntityName());
@@ -1058,15 +1184,15 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public Map<String, Object> getMasterValueMap(final String name) {
-        EntityDefinition.MasterDefinition masterDefinition = getEntityDefinition().getMasterDefinition(name);
+        MasterDefinition masterDefinition = getEntityDefinition().getMasterDefinition(name);
         if (masterDefinition == null)
-            throw new EntityException("No master definition found for name [" + name + "] in entity [" + entityName + "]");
+            throw new EntityException("无法找到主实体错误: 实体名称 [" + name + "] 不存在与实体 [" + entityName + "]");
         return internalMasterValueMap(masterDefinition.getDetailList(), null, null);
     }
 
     private Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields, EntityJavaUtil.RelationshipInfo parentRelInfo) {
         Map<String, Object> vMap = new HashMap<>(valueMapInternal);
-        CollectionUtilities.removeNullsFromMap(vMap);
+        CollectionUtil.removeNullsFromMap(vMap);
         if (parentPkFields != null) {
             if (parentRelInfo != null) {
                 // handle cases like the Product toAssocs relationship where ProductAssoc.productId != Product.productId, needs to look at relationship field map
@@ -1096,7 +1222,8 @@ public abstract class EntityValueBase implements EntityValue {
                 String entryName = relAlias != null && !relAlias.isEmpty() ? relAlias : relationshipName;
                 if (relInfo.isTypeOne) {
                     EntityValue relEv = findRelatedOne(relationshipName, null, false);
-                    if (relEv != null) vMap.put(entryName, ((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields, relInfo));
+                    if (relEv != null)
+                        vMap.put(entryName, ((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields, relInfo));
                 } else {
                     EntityList relList = findRelated(relationshipName, null, null, null, false);
                     if (relList != null && !relList.isEmpty()) {
@@ -1115,11 +1242,28 @@ public abstract class EntityValueBase implements EntityValue {
         return vMap;
     }
 
-    @Override public int size() { return valueMapInternal.size(); }
-    @Override public boolean isEmpty() { return valueMapInternal.isEmpty(); }
-    @Override public boolean containsKey(Object o) { return o instanceof CharSequence && valueMapInternal.containsKey(o.toString()); }
-    @Override public boolean containsValue(Object o) { return values().contains(o); }
-    @Override public Object get(Object o) {
+    @Override
+    public int size() {
+        return valueMapInternal.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return valueMapInternal.isEmpty();
+    }
+
+    @Override
+    public boolean containsKey(Object o) {
+        return o instanceof CharSequence && valueMapInternal.containsKey(o.toString());
+    }
+
+    @Override
+    public boolean containsValue(Object o) {
+        return values().contains(o);
+    }
+
+    @Override
+    public Object get(Object o) {
         if (o instanceof CharSequence) {
             // This may throw an exception, and let it; the Map interface doesn't provide for EntityException
             //   but it is far more useful than a log message that is likely to be ignored.
@@ -1128,12 +1272,17 @@ public abstract class EntityValueBase implements EntityValue {
             return null;
         }
     }
-    @Override public Object put(final String name, Object value) {
-        if (!getEntityDefinition().isField(name)) throw new EntityException("The field name " + name + " is not valid for entity " + entityName);
+
+    @Override
+    public Object put(final String name, Object value) {
+        if (!getEntityDefinition().isField(name))
+            throw new EntityException("The field name " + name + " is not valid for entity " + entityName);
         return putNoCheck(name, value);
     }
+
     public Object putNoCheck(final String name, Object value) {
-        if (!mutable) throw new EntityException("Cannot set field " + name + ", this entity value is not mutable (it is read-only)");
+        if (!mutable)
+            throw new EntityException("Cannot set field " + name + ", this entity value is not mutable (it is read-only)");
         Object curValue = null;
         if (isFromDb) {
             curValue = valueMapInternal.get(name);
@@ -1154,7 +1303,8 @@ public abstract class EntityValueBase implements EntityValue {
         return curValue;
     }
 
-    @Override public Object remove(Object o) {
+    @Override
+    public Object remove(Object o) {
         if (o instanceof CharSequence) {
             String name = o.toString();
             if (valueMapInternal.containsKey(name)) modified = true;
@@ -1164,14 +1314,25 @@ public abstract class EntityValueBase implements EntityValue {
         }
     }
 
-    @Override public void putAll(Map<? extends String, ?> map) {
+    @Override
+    public void putAll(Map<? extends String, ?> map) {
         for (Map.Entry entry : map.entrySet()) put((String) entry.getKey(), entry.getValue());
     }
 
-    @Override public void clear() { modified = true; valueMapInternal.clear(); }
-    @Override public @Nonnull
-    Set<String> keySet() { return new HashSet<>(getEntityDefinition().getAllFieldNames()); }
-    @Override public @Nonnull
+    @Override
+    public void clear() {
+        modified = true;
+        valueMapInternal.clear();
+    }
+
+    @Override
+    public @Nonnull
+    Set<String> keySet() {
+        return new HashSet<>(getEntityDefinition().getAllFieldNames());
+    }
+
+    @Override
+    public @Nonnull
     Collection<Object> values() {
         // everything needs to go through the get method, so iterate through the fields and get the values
         List<String> allFieldNames = getEntityDefinition().getAllFieldNames();
@@ -1180,7 +1341,8 @@ public abstract class EntityValueBase implements EntityValue {
         return values;
     }
 
-    @Override public @Nonnull
+    @Override
+    public @Nonnull
     Set<Map.Entry<String, Object>> entrySet() {
         // everything needs to go through the get method, so iterate through the fields and get the values
         FieldInfo[] allFieldInfos = getEntityDefinition().entityInfo.allFieldInfoArray;
@@ -1193,30 +1355,47 @@ public abstract class EntityValueBase implements EntityValue {
         return entries;
     }
 
-    @Override public boolean equals(Object obj) {
+    @Override
+    public boolean equals(Object obj) {
         if (obj == null || !obj.getClass().equals(this.getClass())) return false;
         // reuse the compare method
         return this.compareTo((EntityValue) obj) == 0;
     }
 
     // NOTE: consider caching the hash code in the future for performance
-    @Override public int hashCode() { return entityName.hashCode() + valueMapInternal.hashCode(); }
-    @Override public String toString() { return "[" + entityName + ": " + valueMapInternal.toString() + "]"; }
-    @Override public Object clone() { return cloneValue(); }
-    @Override public abstract EntityValue cloneValue();
+    @Override
+    public int hashCode() {
+        return entityName.hashCode() + valueMapInternal.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return "[" + entityName + ": " + valueMapInternal.toString() + "]";
+    }
+
+    @Override
+    public Object clone() {
+        return cloneValue();
+    }
+
+    @Override
+    public abstract EntityValue cloneValue();
+
     public abstract EntityValue cloneDbValue(boolean getOld);
 
     private boolean doDataFeed(ExecutionContextImpl ec) {
-        if (ec.artifactExecutionFacade.entityDataFeedDisabled()) return false;
-        // skip ArtifactHitBin, causes funny recursion
-        return !"moqui.server.ArtifactHitBin".equals(entityName);
+//        if (ec.artifactExecutionFacade.entityDataFeedDisabled()) return false;
+//        // skip ArtifactHitBin, causes funny recursion
+//        return !"moqui.server.ArtifactHitBin".equals(entityName);
+        return false;
     }
 
     private void checkSetFieldDefaults(EntityDefinition ed, ExecutionContext ec, Boolean pks) {
         // allow updating a record without specifying default PK fields, so don't check this: if (isCreate) {
         Map<String, String> pkDefaults = ed.entityInfo.pkFieldDefaults;
-        if ((pks == null || pks) && pkDefaults != null && pkDefaults.size() > 0) for (Map.Entry<String, String> entry : pkDefaults.entrySet())
-            checkSetDefault(entry.getKey(), entry.getValue(), ec);
+        if ((pks == null || pks) && pkDefaults != null && pkDefaults.size() > 0)
+            for (Map.Entry<String, String> entry : pkDefaults.entrySet())
+                checkSetDefault(entry.getKey(), entry.getValue(), ec);
         Map<String, String> nonPkDefaults = ed.entityInfo.nonPkFieldDefaults;
         if ((pks == null || !pks) && nonPkDefaults != null && nonPkDefaults.size() > 0)
             for (Map.Entry<String, String> entry : nonPkDefaults.entrySet())
@@ -1231,7 +1410,7 @@ public abstract class EntityValueBase implements EntityValue {
             curVal = dbValueMap.get(fieldName);
         }
 
-        if (ObjectUtilities.isEmpty(curVal)) {
+        if (ObjectUtil.isEmpty(curVal)) {
             if (dbValueMap != null) ec.getContext().push(dbValueMap);
             ec.getContext().push(valueMapInternal);
             try {
@@ -1246,12 +1425,16 @@ public abstract class EntityValueBase implements EntityValue {
 
     private String makeErrorMsg(String baseMsg, String expandMsg, EntityDefinition ed, ExecutionContextImpl ec) {
         Map<String, Object> errorContext = new HashMap<>();
-        errorContext.put("entityName", ed.getEntityName()); errorContext.put("primaryKeys", getPrimaryKeys());
+        errorContext.put("entityName", ed.getEntityName());
+        errorContext.put("primaryKeys", getPrimaryKeys());
         String errorMessage = null;
         // TODO: need a different approach for localization, getting from DB may not be reliable after an error and may cause other errors (especially with Postgres and the auto rollback only)
         if (false && !"LocalizedMessage".equals(ed.getEntityName())) {
-            try { errorMessage = ec.resourceFacade.expand(expandMsg, null, errorContext); }
-            catch (Throwable t) { logger.trace("Error expanding error message", t); }
+            try {
+                errorMessage = ec.resourceFacade.expand(expandMsg, null, errorContext);
+            } catch (Throwable t) {
+                logger.trace("Error expanding error message", t);
+            }
         }
         if (errorMessage == null) errorMessage = baseMsg + " " + ed.getEntityName() + " " + getPrimaryKeys();
         return errorMessage;
@@ -1264,20 +1447,20 @@ public abstract class EntityValueBase implements EntityValue {
         final EntityFacadeImpl efi = getEntityFacadeImpl();
         final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
-        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
+//        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
         // check/set defaults
         if (entityInfo.hasFieldDefaults) checkSetFieldDefaults(ed, ec, null);
 
         // set lastUpdatedStamp
-        final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
+        final Long time = ecfi.getTransaction().getCurrentTransactionStartTime();
         Long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
         if (ed.isField("lastUpdatedStamp") && valueMapInternal.get("lastUpdatedStamp") == null)
             valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong));
 
         // do the artifact push/authz
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE, "create").setParameters(valueMapInternal);
-        aefi.pushInternal(aei, !entityInfo.authorizeSkipCreate, false);
+//        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE, "create").setParameters(valueMapInternal);
+//        aefi.pushInternal(aei, !entityInfo.authorizeSkipCreate, false);
 
         try {
             // run EECA before rules
@@ -1294,16 +1477,16 @@ public abstract class EntityValueBase implements EntityValue {
             // might have a null value for a previous query attempt
             efi.getEntityCache().clearCacheForValue(this, true);
             // save audit log(s) if applicable
-            handleAuditLog(false, null, ed, ec);
+//            handleAuditLog(false, null, ed, ec);
             // run EECA after rules
             efi.runEecaRules(entityName, this, "create", false);
         } catch (SQLException e) {
-            throw new EntitySqlException(makeErrorMsg("Error creating", CREATE_ERROR, ed, ec), e);
+            throw new EntitySqlException(makeErrorMsg("实体创建错误", CREATE_ERROR, ed, ec), e);
         } catch (Exception e) {
-            throw new EntityException(makeErrorMsg("Error creating", CREATE_ERROR, ed, ec), e);
+            throw new EntityException(makeErrorMsg("实体创建错误", CREATE_ERROR, ed, ec), e);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
-            aefi.pop(aei);
+//            aefi.pop(aei);
         }
 
         return this;
@@ -1338,7 +1521,7 @@ public abstract class EntityValueBase implements EntityValue {
         final EntityFacadeImpl efi = getEntityFacadeImpl();
         final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
-        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
+//        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
         final TransactionCache curTxCache = getTxCache(ecfi);
         final boolean optimisticLock = entityInfo.optimisticLock;
         final boolean hasFieldDefaults = entityInfo.hasFieldDefaults;
@@ -1369,8 +1552,8 @@ public abstract class EntityValueBase implements EntityValue {
         Map<String, Object> originalValues = dbValueMap != null && !dbValueMap.isEmpty() ? new HashMap<>(dbValueMap) : null;
 
         // do the artifact push/authz
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE, "update").setParameters(valueMapInternal);
-        aefi.pushInternal(aei, !entityInfo.authorizeSkipTrue, false);
+//        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE, "update").setParameters(valueMapInternal);
+//        aefi.pushInternal(aei, !entityInfo.authorizeSkipTrue, false);
 
         try {
             // run EECA before rules
@@ -1403,26 +1586,26 @@ public abstract class EntityValueBase implements EntityValue {
 
             // if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}")
             if (nonPkFieldArrayIndex == 0 || (nonPkFieldArrayIndex == 1 && modifiedLastUpdatedStamp)) {
-                if (logger.isTraceEnabled()) logger.trace("Not doing update on entity with no changed non-PK fields; value=" + this.toString());
+                if (logger.isTraceEnabled()) logger.trace("没有设置主键的实体不会被修改; value=" + this.toString());
                 return this;
             }
 
             // do this after the empty nonPkFieldList check so that if nothing has changed then ignore the attempt to update
             if (changedCreateOnlyFields != null && changedCreateOnlyFields.size() > 0)
-                throw new EntityException("Cannot update create-only (immutable) fields " + changedCreateOnlyFields + " on entity " + getEntityName());
+                throw new EntityException("无法更新不可变字段错误: 字段 [" + changedCreateOnlyFields + "] 实体: [" + getEntityName() + "]");
 
             // check optimistic lock with lastUpdatedStamp; if optimisticLock() dbValueMap will have latest from DB
             if (optimisticLock) {
                 Object valueLus = valueMapInternal.get("lastUpdatedStamp");
                 Object dbLus = dbValueMap.get("lastUpdatedStamp");
                 if (valueLus != null && dbLus != null && !dbLus.equals(valueLus))
-                    throw new EntityException("This record was updated by someone else at " + dbLus + " which was after the version you loaded at " + valueLus + ". Not updating to avoid overwriting data.");
+                    throw new EntityException("记录已被修改错误: 数据库记录 [" + dbLus + "] 版本高于已加载版本: " + valueLus + ". 避免更新会覆盖数据.");
             }
 
             // set lastUpdatedStamp
             FieldInfo lastUpdatedStampInfo = ed.entityInfo.lastUpdatedStampInfo;
             if (!modifiedLastUpdatedStamp && lastUpdatedStampInfo != null) {
-                final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
+                final Long time = ecfi.getTransaction().getCurrentTransactionStartTime();
                 long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
                 valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong));
                 nonPkFieldArray[nonPkFieldArrayIndex] = lastUpdatedStampInfo;
@@ -1430,7 +1613,8 @@ public abstract class EntityValueBase implements EntityValue {
             }
 
             // do this before the db change so modified flag isn't cleared
-            if (curDataFeed) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMapInternal, originalValues);
+            if (curDataFeed)
+                efi.getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMapInternal, originalValues);
 
             // if there is not a txCache or the txCache doesn't handle the update, call the abstract method to update the main record
             if (curTxCache == null || !curTxCache.update(this)) {
@@ -1442,16 +1626,16 @@ public abstract class EntityValueBase implements EntityValue {
             // clear the entity cache
             efi.getEntityCache().clearCacheForValue(this, false);
             // save audit log(s) if applicable
-            if (needsAuditLog) handleAuditLog(true, originalValues, ed, ec);
+//            if (needsAuditLog) handleAuditLog(true, originalValues, ed, ec);
             // run EECA after rules
             efi.runEecaRules(entityName, this, "update", false);
         } catch (SQLException e) {
-            throw new EntitySqlException(makeErrorMsg("Error updating", UPDATE_ERROR, ed, ec), e);
+            throw new EntitySqlException(makeErrorMsg("实体更新错误", UPDATE_ERROR, ed, ec), e);
         } catch (Exception e) {
-            throw new EntityException(makeErrorMsg("Error updating", UPDATE_ERROR, ed, ec), e);
+            throw new EntityException(makeErrorMsg("实体更新错误", UPDATE_ERROR, ed, ec), e);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
-            aefi.pop(aei);
+//            aefi.pop(aei);
         }
 
         return this;
@@ -1496,14 +1680,15 @@ public abstract class EntityValueBase implements EntityValue {
         final EntityFacadeImpl efi = getEntityFacadeImpl();
         final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
-        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
+//        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
         // NOTE: this is create-only on the entity, ignores setting on fields (only considered in update)
-        if (entityInfo.createOnly) throw new EntityException("Entity [" + getEntityName() + "] is create-only (immutable), cannot be deleted.");
+        if (entityInfo.createOnly)
+            throw new EntityException("无法删除实体错误: 实体 [" + getEntityName() + "] 是create-only（不可变），不能删除。");
 
         // do the artifact push/authz
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_DELETE, "delete").setParameters(valueMapInternal);
-        aefi.pushInternal(aei, !entityInfo.authorizeSkipTrue, false);
+//        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_DELETE, "delete").setParameters(valueMapInternal);
+//        aefi.pushInternal(aei, !entityInfo.authorizeSkipTrue, false);
 
         try {
             // run EECA before rules
@@ -1522,12 +1707,12 @@ public abstract class EntityValueBase implements EntityValue {
             // run EECA after rules
             efi.runEecaRules(entityName, this, "delete", false);
         } catch (SQLException e) {
-            throw new EntitySqlException(makeErrorMsg("Error deleting", DELETE_ERROR, ed, ec), e);
+            throw new EntitySqlException(makeErrorMsg("实体删除错误", DELETE_ERROR, ed, ec), e);
         } catch (Exception e) {
-            throw new EntityException(makeErrorMsg("Error deleting", DELETE_ERROR, ed, ec), e);
+            throw new EntityException(makeErrorMsg("实体删除错误", DELETE_ERROR, ed, ec), e);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
-            aefi.pop(aei);
+//            aefi.pop(aei);
         }
 
         return this;
@@ -1542,12 +1727,12 @@ public abstract class EntityValueBase implements EntityValue {
         final EntityFacadeImpl efi = getEntityFacadeImpl();
         final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
-        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
+//        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
         List<String> pkFieldList = ed.getPkFieldNames();
         if (pkFieldList.size() == 0) {
             // throw new EntityException("Entity ${getEntityName()} has no primary key fields, cannot do refresh.")
-            if (logger.isTraceEnabled()) logger.trace("Entity " + getEntityName() + " has no primary key fields, cannot do refresh.");
+            if (logger.isTraceEnabled()) logger.trace("实体 [" + getEntityName() + "] 主键值为空,无法刷新!");
             return false;
         }
 
@@ -1555,8 +1740,8 @@ public abstract class EntityValueBase implements EntityValue {
         if (entityInfo.hasFieldDefaults) checkSetFieldDefaults(ed, ec, null);
 
         // do the artifact push/authz
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "refresh").setParameters(valueMapInternal);
-        aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false);
+//        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "refresh").setParameters(valueMapInternal);
+//        aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false);
 
         boolean retVal = false;
         try {
@@ -1573,36 +1758,61 @@ public abstract class EntityValueBase implements EntityValue {
 
             // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(fullEntityName, this, "find-one", false);
         } catch (SQLException e) {
-            throw new EntitySqlException(makeErrorMsg("Error finding", REFRESH_ERROR, ed, ec), e);
+            throw new EntitySqlException(makeErrorMsg("实体查询错误", REFRESH_ERROR, ed, ec), e);
         } catch (Exception e) {
-            throw new EntityException(makeErrorMsg("Error finding", REFRESH_ERROR, ed, ec), e);
+            throw new EntityException(makeErrorMsg("实体查询错误", REFRESH_ERROR, ed, ec), e);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
-            aefi.pop(aei);
+//            aefi.pop(aei);
         }
 
         return retVal;
     }
+
     public abstract boolean refreshExtended() throws SQLException;
 
-    @Override public String getEtlType() { return entityName; }
-    @Override public Map<String, Object> getEtlValues() { return valueMapInternal; }
+    @Override
+    public String getEtlType() {
+        return entityName;
+    }
+
+    @Override
+    public Map<String, Object> getEtlValues() {
+        return valueMapInternal;
+    }
 
     private static class EntityFieldEntry implements Map.Entry<String, Object> {
         protected FieldInfo fi;
         EntityValueBase evb;
+
         private EntityFieldEntry(FieldInfo fi, EntityValueBase evb) {
             this.fi = fi;
             this.evb = evb;
         }
-        @Override public String getKey() { return fi.name; }
-        @Override public Object getValue() { return evb.getKnownField(fi); }
-        @Override public Object setValue(Object v) { return evb.set(fi.name, v); }
-        @Override public int hashCode() {
+
+        @Override
+        public String getKey() {
+            return fi.name;
+        }
+
+        @Override
+        public Object getValue() {
+            return evb.getKnownField(fi);
+        }
+
+        @Override
+        public Object setValue(Object v) {
+            return evb.set(fi.name, v);
+        }
+
+        @Override
+        public int hashCode() {
             Object val = getValue();
             return fi.name.hashCode() + (val != null ? val.hashCode() : 0);
         }
-        @Override public boolean equals(Object obj) {
+
+        @Override
+        public boolean equals(Object obj) {
             if (!(obj instanceof EntityFieldEntry)) return false;
             EntityFieldEntry other = (EntityFieldEntry) obj;
             if (!fi.name.equals(other.fi.name)) return false;
@@ -1613,14 +1823,38 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     public static class DeletedEntityValue extends EntityValueBase {
-        public DeletedEntityValue(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip); }
-        @Override public EntityValue cloneValue() { return this; }
-        @Override public EntityValue cloneDbValue(boolean getOld) { return this; }
-        @Override public void createExtended(FieldInfo[] fieldInfoArray, Connection con) {
-            throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
-        @Override public void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) {
-            throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
-        @Override public void deleteExtended(Connection con) { throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
-        @Override public boolean refreshExtended() { throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
+        public DeletedEntityValue(EntityDefinition ed, EntityFacadeImpl efip) {
+            super(ed, efip);
+        }
+
+        @Override
+        public EntityValue cloneValue() {
+            return this;
+        }
+
+        @Override
+        public EntityValue cloneDbValue(boolean getOld) {
+            return this;
+        }
+
+        @Override
+        public void createExtended(FieldInfo[] fieldInfoArray, Connection con) {
+            throw new UnsupportedOperationException("删除实体的值还未实现");
+        }
+
+        @Override
+        public void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) {
+            throw new UnsupportedOperationException("删除实体的值还未实现!");
+        }
+
+        @Override
+        public void deleteExtended(Connection con) {
+            throw new UnsupportedOperationException("删除实体的值还未实现!");
+        }
+
+        @Override
+        public boolean refreshExtended() {
+            throw new UnsupportedOperationException("删除实体的值还未实现!");
+        }
     }
 }

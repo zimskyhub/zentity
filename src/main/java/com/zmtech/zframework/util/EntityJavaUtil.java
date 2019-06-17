@@ -185,25 +185,25 @@ public class EntityJavaUtil {
         public final EntityDatasourceFactory datasourceFactory;
         public final boolean isEntityDatasourceFactoryImpl;
         public final boolean isView, isDynamicView, isInvalidViewEntity;
-        final boolean hasFunctionAlias;
+        public final boolean hasFunctionAlias;
         public final boolean createOnly, createOnlyFields;
-        final boolean optimisticLock, needsAuditLog, needsEncrypt;
+        public final boolean optimisticLock, needsAuditLog, needsEncrypt;
         public final String useCache;
         public final boolean neverCache;
-        final String sequencePrimaryPrefix;
+        public final String sequencePrimaryPrefix;
         public final long sequencePrimaryStagger, sequenceBankSize;
         public final boolean sequencePrimaryUseUuid;
 
-        final boolean hasFieldDefaults;
-        final String authorizeSkipStr;
-        final boolean authorizeSkipTrue;
-        final boolean authorizeSkipCreate;
+        public final boolean hasFieldDefaults;
+        public final String authorizeSkipStr;
+        public final boolean authorizeSkipTrue;
+        public final boolean authorizeSkipCreate;
         public final boolean authorizeSkipView;
 
         public final FieldInfo[] pkFieldInfoArray, nonPkFieldInfoArray, allFieldInfoArray;
-        final FieldInfo lastUpdatedStampInfo;
+        public final FieldInfo lastUpdatedStampInfo;
         public final String allFieldsSqlSelect;
-        final Map<String, String> pkFieldDefaults, nonPkFieldDefaults;
+        public final Map<String, String> pkFieldDefaults, nonPkFieldDefaults;
 
 
         EntityInfo(EntityDefinition ed, boolean memberNeverCache) {
@@ -400,7 +400,7 @@ public class EntityJavaUtil {
             }
         }
 
-        void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
+        public void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
             // like above with setIfEmpty=true, namePrefix=null, pks=null
             if (src == null || dest == null) return;
 
@@ -466,7 +466,7 @@ public class EntityJavaUtil {
         public final boolean isTypeOne;
         public final String title;
         public final String relatedEntityName;
-        final EntityDefinition fromEd;
+        public final EntityDefinition fromEd;
         public final EntityDefinition relatedEd;
         public final MNode relNode;
 

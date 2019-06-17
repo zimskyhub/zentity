@@ -23,6 +23,7 @@ import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.cache.Cache;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -33,14 +34,14 @@ public class ExecutionContextImpl implements ExecutionContext {
     public final ExecutionContextFactoryImpl ecfi;
     public final ContextStack contextStack = new ContextStack();
     public final ContextBinding contextBindingInternal = new ContextBinding(contextStack);
+    private final Timestamp effectiveTime = null;
 
-    private EntityFacadeImpl activeEntityFacade;
-
-    public final TransactionFacadeImpl transactionFacade;
-    public final CacheFacadeImpl cacheFacade;
-    public final ResourceFacadeImpl resourceFacade;
-    public final L10nFacadeImpl l10nFacade;
-    public final LoggerFacadeImpl loggerFacade;
+    private final EntityFacadeImpl activeEntityFacade;
+    private final TransactionFacadeImpl transactionFacade;
+    private final CacheFacadeImpl cacheFacade;
+    private final ResourceFacadeImpl resourceFacade;
+    private final L10nFacadeImpl l10nFacade;
+    private final LoggerFacadeImpl loggerFacade;
 
     private Boolean skipStats = null;
     private Cache<String, String> l10nMessageCache;
@@ -256,5 +257,14 @@ public class ExecutionContextImpl implements ExecutionContext {
         public Closure getClosure() { return closure; }
         public void setClosure(Closure closure) { this.closure = closure; }
     }
+
+    @Override
+    public Timestamp getNowTimestamp() {
+        // NOTE: review Timestamp and nowTimestamp use, have things use this by default (except audit/etc where actual date/time is needed
+        return (this.effectiveTime != null) ? this.effectiveTime : new Timestamp(System.currentTimeMillis());
+    }
+
+    @Override
+    public void setEffectiveTime(Timestamp effectiveTime) { this.effectiveTime = effectiveTime; }
 
 }

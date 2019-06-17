@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.*;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -38,14 +39,13 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
-
     private AtomicBoolean destroyed = new AtomicBoolean(false);
-    protected ZClassLoader zClassLoader;
-    protected GroovyClassLoader groovyClassLoader;
-    protected CompilerConfiguration groovyCompilerConf;
+    private ZClassLoader zClassLoader;
+    private GroovyClassLoader groovyClassLoader;
+    private CompilerConfiguration groovyCompilerConf;
     public final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>();
-    protected final Map<Long, ExecutionContextImpl> activeContextMap = new HashMap<>();
-    protected final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>();
+    private final Map<Long, ExecutionContextImpl> activeContextMap = new HashMap<>();
+    private final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>();
     // NOTE: this is experimental, don't set to true! still issues with unique class names, etc
     // also issue with how to support recompile of actions on change, could just use for expressions but that only helps so much
     // maybe some way to load from disk only if timestamp newer for XmlActions and GroovyScriptRunner
@@ -891,7 +891,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     public ExecutionContextImpl getEci() {
         // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
-        ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get();
+        ExecutionContextImpl ec = activeContext.get();
         if (ec != null) return ec;
 
         Thread currentThread = Thread.currentThread();

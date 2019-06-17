@@ -1,6 +1,7 @@
 package com.zmtech.zframework.transaction;
 
 import com.zmtech.zframework.exception.TransactionException;
+import com.zmtech.zframework.transaction.impl.TransactionCache;
 import groovy.lang.Closure;
 
 import javax.transaction.Synchronization;
@@ -111,4 +112,6 @@ public interface TransactionFacade {
     boolean isTransactionCacheActive();
     void flushAndDisableTransactionCache();
     void destroyAllInThread();
+    TransactionCache getTransactionCache();
+    Long getCurrentTransactionStartTime();
 }

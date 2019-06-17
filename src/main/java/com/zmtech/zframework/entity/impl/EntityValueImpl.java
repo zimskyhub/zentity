@@ -16,12 +16,14 @@ package com.zmtech.zframework.entity.impl;
 import com.zmtech.zframework.entity.EntityValue;
 import com.zmtech.zframework.exception.EntityException;
 import com.zmtech.zframework.util.EntityJavaUtil;
+import com.zmtech.zframework.util.EntityJavaUtil.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class EntityValueImpl extends EntityValueBase {
@@ -101,7 +103,7 @@ public class EntityValueImpl extends EntityValueBase {
                 setSyncedWithDb();
             } catch (SQLException e) {
                 String txName = "[could not get]";
-                try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+                try { txName = efi.ecfi.getTransaction().getTransactionManager().getTransaction().toString(); }
                 catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
                 logger.warn("Error creating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
                 throw e;
@@ -151,7 +153,7 @@ public class EntityValueImpl extends EntityValueBase {
                 setSyncedWithDb();
             } catch (SQLException e) {
                 String txName = "[could not get]";
-                try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+                try { txName = efi.ecfi.getTransaction().getTransactionManager().getTransaction().toString(); }
                 catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
                 logger.warn("Error updating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
                 throw e;
@@ -188,7 +190,7 @@ public class EntityValueImpl extends EntityValueBase {
                 if (eqb.executeUpdate() == 0) logger.info("Tried to delete a value that does not exist " + this.toString());
             } catch (SQLException e) {
                 String txName = "[could not get]";
-                try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+                try { txName = efi.ecfi.getTransaction().getTransactionManager().getTransaction().toString(); }
                 catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
                 logger.warn("Error deleting " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
                 throw e;
@@ -259,7 +261,7 @@ public class EntityValueImpl extends EntityValueBase {
             }
         } catch (SQLException e) {
             String txName = "[could not get]";
-            try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+            try { txName = efi.ecfi.getTransaction().getTransactionManager().getTransaction().toString(); }
             catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
             logger.warn("Error finding " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
             throw e;

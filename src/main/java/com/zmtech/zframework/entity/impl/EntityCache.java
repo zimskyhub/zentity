@@ -1,5 +1,6 @@
 package com.zmtech.zframework.entity.impl;
 
+import com.zmtech.zframework.cache.impl.CacheFacadeImpl;
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.EntityList;
 import com.zmtech.zframework.entity.EntityValue;
@@ -19,7 +20,7 @@ public class EntityCache {
     protected final static Logger logger = LoggerFactory.getLogger(EntityCache.class);
 
     protected final EntityFacadeImpl efi;
-//    final CacheFacadeImpl cfi;
+    protected final CacheFacadeImpl cfi;
 
     static final String oneKeyBase = "entity.record.one.";
     static final String oneRaKeyBase = "entity.record.one_ra.";
@@ -38,20 +39,20 @@ public class EntityCache {
 
     public EntityCache(EntityFacadeImpl efi) {
         this.efi = efi;
-//        this.cfi = efi.ecfi.cacheFacade;
+        this.cfi = (CacheFacadeImpl)efi.ecfi.getCache();
 
         oneBfCache = cfi.getCache("entity.record.one_bf");
 
         MNode entityFacadeNode = efi.getEntityFacadeNode();
-        distributedCacheInvalidate = entityFacadeNode.attribute("distributed-cache-invalidate") == "true" && entityFacadeNode.attribute("dci-topic-factory")
-        logger.info("Entity Cache initialized, distributed cache invalidate enabled: ${distributedCacheInvalidate}");
+        distributedCacheInvalidate = entityFacadeNode.attribute("distributed-cache-invalidate").equals("true") && entityFacadeNode.attribute("dci-topic-factory") != null;
+        logger.info("实体缓存已经初始化完成, 分布式缓存未启用: "+distributedCacheInvalidate);
 
         if (distributedCacheInvalidate) {
             try {
                 String dciTopicFactory = entityFacadeNode.attribute("dci-topic-factory");
                 entityCacheInvalidateTopic = (SimpleTopic<EntityCacheInvalidate>) efi.ecfi.getTool(dciTopicFactory, SimpleTopic.class);
             } catch (Exception e) {
-                logger.error("Entity distributed cache invalidate is enabled but could not initialize", e);
+                logger.error("实体分布式缓存已启用但初始化失败!", e);
             }
         }
     }
@@ -60,7 +61,8 @@ public class EntityCache {
         boolean isCreate;
         EntityValueBase evb;
 
-        EntityCacheInvalidate() { }
+        public EntityCacheInvalidate() { }
+
         public EntityCacheInvalidate(EntityValueBase evb, boolean isCreate) {
             this.isCreate = isCreate;
             this.evb = evb;
@@ -69,7 +71,7 @@ public class EntityCache {
         @Override
         public void writeExternal(ObjectOutput out) throws IOException {
             out.writeBoolean(isCreate);
-            // NOTE: this would be faster but can't because don't know which impl of the abstract class was used: evb.writeExternal(out)
+            // 本来可以更快,但不知道使用了哪个抽象类的impl：evb.writeExternal（out）,所以不行
             out.writeObject(evb);
         }
 
@@ -91,7 +93,7 @@ public class EntityCache {
 
         if (newEntityValue != null) newEntityValue.setFromCache();
         entityOneCache.put(whereCondition, newEntityValue != null ? newEntityValue : new EmptyRecord(ed, efi));
-        // need to register an RA just in case the condition was not actually a primary key
+        // 需要注册RA，以防条件不是主键
         registerCacheOneRa(ed.getFullEntityName(), whereCondition, newEntityValue);
     }
 
@@ -411,7 +413,7 @@ public class EntityCache {
     }
 
     void registerCacheListRa(String entityName, EntityCondition ec, EntityList eli) {
-        EntityDefinition ed = efi.getEntityDefinition(entityName)
+        EntityDefinition ed = efi.getEntityDefinition(entityName);
         if (ed.isViewEntity) {
             // go through each member-entity
             ArrayList<MNode> memberEntityList = ed.getEntityNode().children("member-entity");

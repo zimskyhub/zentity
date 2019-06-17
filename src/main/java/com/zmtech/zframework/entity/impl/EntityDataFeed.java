@@ -13,6 +13,7 @@
  */
 package com.zmtech.zframework.entity.impl
 
+import com.zmtech.zframework.entity.EntityValue;
 import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException

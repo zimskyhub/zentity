@@ -13,6 +13,7 @@
  */
 package com.zmtech.zframework.entity.impl;
 
+import com.zmtech.zframework.context.impl.ExecutionContextImpl;
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.EntityCondition.*;
 import com.zmtech.zframework.entity.EntityFind;
@@ -728,6 +729,7 @@ public class EntityDefinition {
                 }
             }
         }
+        public ArrayList<MasterDetail> getDetailList(){return this.detailList;}
     }
     public static class MasterDetail {
         String relationshipName;
@@ -748,7 +750,7 @@ public class EntityDefinition {
             relatedMasterName = (String) detailNode.attribute("use-master");
         }
 
-        ArrayList<MasterDetail> getDetailList() {
+        public ArrayList<MasterDetail> getDetailList() {
             if (relatedMasterName != null) {
                 ArrayList<MasterDetail> combinedList = new ArrayList<MasterDetail>(internalDetailList);
                 MasterDefinition relatedMaster = relInfo.relatedEd.getMasterDefinition(relatedMasterName);
@@ -762,6 +764,8 @@ public class EntityDefinition {
                 return internalDetailList;
             }
         }
+
+        public RelationshipInfo getRelInfo(){return this.relInfo;}
     }
 
     // NOTE: used in the DataEdit screen

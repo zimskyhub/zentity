@@ -660,6 +660,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
         TxStackInfo txStackInfo = getTxStackInfo();
         return txStackInfo.txCache != null && !txStackInfo.txCache.isReadOnly();
     }
+    @Override
     public TransactionCache getTransactionCache() { return getTxStackInfo().txCache; }
     @Override
     public void flushAndDisableTransactionCache() {

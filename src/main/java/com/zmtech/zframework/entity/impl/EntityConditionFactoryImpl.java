@@ -4,16 +4,21 @@ package com.zmtech.zframework.entity.impl;
 import com.zmtech.zframework.entity.EntityCondition;
 import com.zmtech.zframework.entity.EntityConditionFactory;
 import com.zmtech.zframework.entity.impl.condition.impl.*;
+import com.zmtech.zframework.exception.BaseException;
 import com.zmtech.zframework.exception.EntityException;
 import com.zmtech.zframework.entity.impl.condition.*;
 import com.zmtech.zframework.entity.EntityCondition.*;
 import com.zmtech.zframework.util.CollectionUtil.*;
 import com.zmtech.zframework.util.MNode;
+import com.zmtech.zframework.util.ObjectUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Timestamp;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static com.zmtech.zframework.entity.EntityCondition.ComparisonOperator.*;
 
 
 public class EntityConditionFactoryImpl implements EntityConditionFactory {
@@ -23,7 +28,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
     protected final EntityFacadeImpl efi;
     protected final TrueCondition trueCondition;
 
-    EntityConditionFactoryImpl(EntityFacadeImpl efi) {
+    public EntityConditionFactoryImpl(EntityFacadeImpl efi) {
         this.efi = efi;
         trueCondition = new TrueCondition();
     }
@@ -163,10 +168,10 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
     }
 
     @Override
-    EntityCondition makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator, JoinOperator joinOperator) {
+    public EntityCondition makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator, JoinOperator joinOperator) {
         return makeCondition(fieldMap, comparisonOperator, joinOperator, null, null, false);
     }
-    EntityConditionImplBase makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator,
+    public EntityConditionImplBase makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator,
                                           JoinOperator joinOperator, EntityDefinition findEd, Map<String, ArrayList<MNode>> memberFieldAliases, boolean excludeNulls) {
         if (fieldMap == null || fieldMap.isEmpty()) return  null;
 
@@ -184,7 +189,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
                     continue;
                 } else if (key == "_join") {
                     joinOp = getJoinOperator((String) value);
-                    continue
+                    continue;
                 } else if (key == "_list") {
                     // if there is an _list treat each as a condition Map, ie call back into this method
                     if (value instanceof List) {
@@ -278,13 +283,13 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
     @Override
     public EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
         return new DateCondition(fromFieldName, thruFieldName,
-                (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp());
+                (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().getNowTimestamp());
     }
     public EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp, boolean ignoreIfEmpty, String ignore) {
         if (ignoreIfEmpty && (Object) compareStamp == null) return null;
-        if (efi.ecfi.resourceFacade.condition(ignore, null)) return null;
+        if (efi.ecfi.getResource().condition(ignore, null)) return null;
         return new DateCondition(fromFieldName, thruFieldName,
-                (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp());
+                (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().getNowTimestamp());
     }
 
     @Override
@@ -344,231 +349,243 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
 
     public EntityCondition makeActionCondition(String fieldName, String operator, String fromExpr, String value, String toFieldName,
                                         boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
-        Object from = fromExpr ? this.efi.ecfi.resourceFacade.expression(fromExpr, "") : null
-        return makeActionConditionDirect(fieldName, operator, from, value, toFieldName, ignoreCase, ignoreIfEmpty, orNull, ignore)
+        Object from = fromExpr != null && !fromExpr.isEmpty() ? this.efi.ecfi.getResource().expression(fromExpr, "") : null;
+        return makeActionConditionDirect(fieldName, operator, from, value, toFieldName, ignoreCase, ignoreIfEmpty, orNull, ignore);
     }
     public EntityCondition makeActionConditionDirect(String fieldName, String operator, Object fromObj, String value, String toFieldName,
                                               boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
         // logger.info("TOREMOVE makeActionCondition(fieldName ${fieldName}, operator ${operator}, fromExpr ${fromExpr}, value ${value}, toFieldName ${toFieldName}, ignoreCase ${ignoreCase}, ignoreIfEmpty ${ignoreIfEmpty}, orNull ${orNull}, ignore ${ignore})")
 
-        if (efi.ecfi.resourceFacade.condition(ignore, null)) return null
+        if (efi.ecfi.getResource().condition(ignore, null)) return null;
 
         if (toFieldName != null && toFieldName.length() > 0) {
-            EntityCondition ec = makeConditionToField(fieldName, getComparisonOperator(operator), toFieldName)
-            if (ignoreCase) ec.ignoreCase()
-            return ec
+            EntityCondition ec = makeConditionToField(fieldName, getComparisonOperator(operator), toFieldName);
+            if (ignoreCase) ec.ignoreCase();
+            return ec;
         } else {
-            Object condValue
+            Object condValue;
             if (value != null && value.length() > 0) {
                 // NOTE: have to convert value (if needed) later on because we don't know which entity/field this is for, or change to pass in entity?
-                condValue = value
+                condValue = value;
             } else {
-                condValue = fromObj
+                condValue = fromObj;
             }
-            if (ignoreIfEmpty && ObjectUtilities.isEmpty(condValue)) return null
+            if (ignoreIfEmpty && ObjectUtil.isEmpty(condValue)) return null;
 
-            EntityCondition mainEc = makeCondition(fieldName, getComparisonOperator(operator), condValue)
-            if (ignoreCase) mainEc.ignoreCase()
+            EntityCondition mainEc = makeCondition(fieldName, getComparisonOperator(operator), condValue);
+            if (ignoreCase) mainEc.ignoreCase();
 
-            EntityCondition ec = mainEc
-            if (orNull) ec = makeCondition(mainEc, JoinOperator.OR, makeCondition(fieldName, ComparisonOperator.EQUALS, null))
-            return ec
+            EntityCondition ec = mainEc;
+            if (orNull) ec = makeCondition(mainEc, JoinOperator.OR, makeCondition(fieldName, ComparisonOperator.EQUALS, null));
+            return ec;
         }
     }
 
     public EntityCondition makeActionCondition(MNode node) {
-        Map<String, String> attrs = node.attributes
+        Map<String, String> attrs = node.getAttributes();
         return makeActionCondition(attrs.get("field-name"),
-                attrs.get("operator") ?: "equals", (attrs.get("from") ?: attrs.get("field-name")),
-        attrs.get("value"), attrs.get("to-field-name"), (attrs.get("ignore-case") ?: "false") == "true",
-                (attrs.get("ignore-if-empty") ?: "false") == "true", (attrs.get("or-null") ?: "false") == "true",
-                (attrs.get("ignore") ?: "false"))
+                attrs.get("operator") != null ? attrs.get("operator"): "equals", (attrs.get("from") != null ? attrs.get("from"): attrs.get("field-name")),
+        attrs.get("value"), attrs.get("to-field-name"), (attrs.get("ignore-case") != null ? attrs.get("ignore-case"): "false").equals("true") ,
+                (attrs.get("ignore-if-empty") != null ? attrs.get("ignore-if-empty"): "false").equals("true"), (attrs.get("or-null")!= null ? attrs.get("or-null"): "false").equals("true"),
+                (attrs.get("ignore")!= null ?attrs.get("ignore"): "false"));
     }
 
     public EntityCondition makeActionConditions(MNode node, boolean isCached) {
-        ArrayList<EntityCondition> condList = new ArrayList()
-        ArrayList<MNode> subCondList = node.getChildren()
-        int subCondListSize = subCondList.size()
+        ArrayList<EntityCondition> condList = new ArrayList<>();
+        ArrayList<MNode> subCondList = node.getChildren();
+        int subCondListSize = subCondList.size();
         for (int i = 0; i < subCondListSize; i++) {
-            MNode subCond = (MNode) subCondList.get(i)
-            if ("econdition".equals(subCond.nodeName)) {
-                EntityCondition econd = makeActionCondition(subCond)
-                if (econd != null) condList.add(econd)
-            } else if ("econditions".equals(subCond.nodeName)) {
-                EntityCondition econd = makeActionConditions(subCond, isCached)
-                if (econd != null) condList.add(econd)
-            } else if ("date-filter".equals(subCond.nodeName)) {
+            MNode subCond = subCondList.get(i);
+            if ("econdition".equals(subCond.getName())) {
+                EntityCondition econd = makeActionCondition(subCond);
+                if (econd != null) condList.add(econd);
+            } else if ("econditions".equals(subCond.getName())) {
+                EntityCondition econd = makeActionConditions(subCond, isCached);
+                if (econd != null) condList.add(econd);
+            } else if ("date-filter".equals(subCond.getName())) {
                 if (!isCached) {
-                    Timestamp validDate = subCond.attribute("valid-date") ?
-                            efi.ecfi.resourceFacade.expression(subCond.attribute("valid-date"), null) as Timestamp : null
-                    condList.add(makeConditionDate(subCond.attribute("from-field-name") ?: "fromDate",
-                            subCond.attribute("thru-field-name") ?: "thruDate", validDate,
-                            'true'.equals(subCond.attribute("ignore-if-empty")), subCond.attribute("ignore") ?: 'false'))
+                    Timestamp validDate = subCond.attribute("valid-date") != null ?
+                            Timestamp.valueOf((String)efi.ecfi.getResource().expression(subCond.attribute("valid-date"), null)): null;
+                    condList.add(makeConditionDate(subCond.attribute("from-field-name") != null ? subCond.attribute("from-field-name"): "fromDate",
+                            subCond.attribute("thru-field-name") != null ? subCond.attribute("thru-field-name"): "thruDate", validDate,
+                            "true".equals(subCond.attribute("ignore-if-empty")), subCond.attribute("ignore") != null? subCond.attribute("ignore"): "false"));
                 }
-            } else if ("econdition-object".equals(subCond.nodeName)) {
-                Object curObj = efi.ecfi.resourceFacade.expression(subCond.attribute("field"), null)
-                if (curObj == null) continue
+            } else if ("econdition-object".equals(subCond.getName())) {
+                Object curObj = efi.ecfi.getResource().expression(subCond.attribute("field"), null);
+                if (curObj == null) continue;
                 if (curObj instanceof Map) {
-                    Map curMap = (Map) curObj
-                    if (curMap.isEmpty()) continue
-                    EntityCondition curCond = makeCondition(curMap, ComparisonOperator.EQUALS, JoinOperator.AND)
-                    condList.add((EntityConditionImplBase) curCond)
-                    continue
+                    Map curMap = (Map) curObj;
+                    if (curMap.isEmpty()) continue;
+                    EntityCondition curCond = makeCondition(curMap, ComparisonOperator.EQUALS, JoinOperator.AND);
+                    condList.add(curCond);
+                    continue;
                 }
                 if (curObj instanceof EntityConditionImplBase) {
-                    EntityConditionImplBase curCond = (EntityConditionImplBase) curObj
-                    condList.add(curCond)
-                    continue
+                    EntityConditionImplBase curCond = (EntityConditionImplBase) curObj;
+                    condList.add(curCond);
+                    continue;
                 }
-                throw new BaseArtifactException("The econdition-object field attribute must contain only Map and EntityCondition objects, found entry of type [${curObj.getClass().getName()}]")
+                throw new BaseException("The econdition-object field attribute must contain only Map and EntityCondition objects, found entry of type [${curObj.getClass().getName()}]");
             }
         }
-        return makeCondition(condList, getJoinOperator(node.attribute("combine")))
+        return makeCondition(condList, getJoinOperator(node.attribute("combine")));
     }
 
-    protected static final Map<ComparisonOperator, String> comparisonOperatorStringMap = new EnumMap(ComparisonOperator.class)
+    protected static final Map<ComparisonOperator, String> comparisonOperatorStringMap = new EnumMap(ComparisonOperator.class);
     static {
-        comparisonOperatorStringMap.put(ComparisonOperator.EQUALS, "=")
-        comparisonOperatorStringMap.put(ComparisonOperator.NOT_EQUAL, "<>")
-        comparisonOperatorStringMap.put(ComparisonOperator.LESS_THAN, "<")
-        comparisonOperatorStringMap.put(ComparisonOperator.GREATER_THAN, ">")
-        comparisonOperatorStringMap.put(ComparisonOperator.LESS_THAN_EQUAL_TO, "<=")
-        comparisonOperatorStringMap.put(ComparisonOperator.GREATER_THAN_EQUAL_TO, ">=")
-        comparisonOperatorStringMap.put(ComparisonOperator.IN, "IN")
-        comparisonOperatorStringMap.put(ComparisonOperator.NOT_IN, "NOT IN")
-        comparisonOperatorStringMap.put(ComparisonOperator.BETWEEN, "BETWEEN")
-        comparisonOperatorStringMap.put(ComparisonOperator.NOT_BETWEEN, "NOT BETWEEN")
-        comparisonOperatorStringMap.put(ComparisonOperator.LIKE, "LIKE")
-        comparisonOperatorStringMap.put(ComparisonOperator.NOT_LIKE, "NOT LIKE")
-        comparisonOperatorStringMap.put(ComparisonOperator.IS_NULL, "IS NULL")
-        comparisonOperatorStringMap.put(ComparisonOperator.IS_NOT_NULL, "IS NOT NULL")
+        comparisonOperatorStringMap.put(ComparisonOperator.EQUALS, "=");
+        comparisonOperatorStringMap.put(ComparisonOperator.NOT_EQUAL, "<>");
+        comparisonOperatorStringMap.put(ComparisonOperator.LESS_THAN, "<");
+        comparisonOperatorStringMap.put(ComparisonOperator.GREATER_THAN, ">");
+        comparisonOperatorStringMap.put(ComparisonOperator.LESS_THAN_EQUAL_TO, "<=");
+        comparisonOperatorStringMap.put(ComparisonOperator.GREATER_THAN_EQUAL_TO, ">=");
+        comparisonOperatorStringMap.put(ComparisonOperator.IN, "IN");
+        comparisonOperatorStringMap.put(ComparisonOperator.NOT_IN, "NOT IN");
+        comparisonOperatorStringMap.put(ComparisonOperator.BETWEEN, "BETWEEN");
+        comparisonOperatorStringMap.put(ComparisonOperator.NOT_BETWEEN, "NOT BETWEEN");
+        comparisonOperatorStringMap.put(ComparisonOperator.LIKE, "LIKE");
+        comparisonOperatorStringMap.put(ComparisonOperator.NOT_LIKE, "NOT LIKE");
+        comparisonOperatorStringMap.put(IS_NULL, "IS NULL");
+        comparisonOperatorStringMap.put(ComparisonOperator.IS_NOT_NULL, "IS NOT NULL");
     }
-    protected static final Map<String, ComparisonOperator> stringComparisonOperatorMap = [
-            "=":ComparisonOperator.EQUALS,
-            "equals":ComparisonOperator.EQUALS,
+    protected static final Map<String, ComparisonOperator> stringComparisonOperatorMap = new ConcurrentHashMap<String, ComparisonOperator>(){{
 
-            "not-equals":ComparisonOperator.NOT_EQUAL,
-            "not-equal":ComparisonOperator.NOT_EQUAL,
-            "!=":ComparisonOperator.NOT_EQUAL,
-            "<>":ComparisonOperator.NOT_EQUAL,
+        put("=",ComparisonOperator.EQUALS);
+                put("equals",ComparisonOperator.EQUALS);
 
-            "less-than":ComparisonOperator.LESS_THAN,
-            "less":ComparisonOperator.LESS_THAN,
-            "<":ComparisonOperator.LESS_THAN,
+                put("not-equals",ComparisonOperator.NOT_EQUAL);
+                put("not-equal",ComparisonOperator.NOT_EQUAL);
+                put("!=",ComparisonOperator.NOT_EQUAL);
+                put("<>",ComparisonOperator.NOT_EQUAL);
 
-            "greater-than":ComparisonOperator.GREATER_THAN,
-            "greater":ComparisonOperator.GREATER_THAN,
-            ">":ComparisonOperator.GREATER_THAN,
+                put("less-than",ComparisonOperator.LESS_THAN);
+                put("less",ComparisonOperator.LESS_THAN);
+                put("<",ComparisonOperator.LESS_THAN);
 
-            "less-than-equal-to":ComparisonOperator.LESS_THAN_EQUAL_TO,
-            "less-equals":ComparisonOperator.LESS_THAN_EQUAL_TO,
-            "<=":ComparisonOperator.LESS_THAN_EQUAL_TO,
+                put("greater-than",ComparisonOperator.GREATER_THAN);
+                put("greater",ComparisonOperator.GREATER_THAN);
+                put(">",ComparisonOperator.GREATER_THAN);
 
-            "greater-than-equal-to":ComparisonOperator.GREATER_THAN_EQUAL_TO,
-            "greater-equals":ComparisonOperator.GREATER_THAN_EQUAL_TO,
-            ">=":ComparisonOperator.GREATER_THAN_EQUAL_TO,
+                put("less-than-equal-to",ComparisonOperator.LESS_THAN_EQUAL_TO);
+                put("less-equals",ComparisonOperator.LESS_THAN_EQUAL_TO);
+                put("<=",ComparisonOperator.LESS_THAN_EQUAL_TO);
 
-            "in":ComparisonOperator.IN,
-            "IN":ComparisonOperator.IN,
+                put("greater-than-equal-to",ComparisonOperator.GREATER_THAN_EQUAL_TO);
+                put("greater-equals",ComparisonOperator.GREATER_THAN_EQUAL_TO);
+                put(">=",ComparisonOperator.GREATER_THAN_EQUAL_TO);
 
-            "not-in":ComparisonOperator.NOT_IN,
-            "NOT IN":ComparisonOperator.NOT_IN,
+                put("in",ComparisonOperator.IN);
+                put("IN",ComparisonOperator.IN);
 
-            "between":ComparisonOperator.BETWEEN,
-            "BETWEEN":ComparisonOperator.BETWEEN,
+                put("not-in",ComparisonOperator.NOT_IN);
+                put("NOT IN",ComparisonOperator.NOT_IN);
 
-            "not-between":ComparisonOperator.NOT_BETWEEN,
-            "NOT BETWEEN":ComparisonOperator.NOT_BETWEEN,
+                put("between",ComparisonOperator.BETWEEN);
+                put("BETWEEN",ComparisonOperator.BETWEEN);
 
-            "like":ComparisonOperator.LIKE,
-            "LIKE":ComparisonOperator.LIKE,
+                put("not-between",ComparisonOperator.NOT_BETWEEN);
+                put("NOT BETWEEN",ComparisonOperator.NOT_BETWEEN);
 
-            "not-like":ComparisonOperator.NOT_LIKE,
-            "NOT LIKE":ComparisonOperator.NOT_LIKE,
+                put("like",ComparisonOperator.LIKE);
+                put("LIKE",ComparisonOperator.LIKE);
 
-            "is-null":ComparisonOperator.IS_NULL,
-            "IS NULL":ComparisonOperator.IS_NULL,
+                put("not-like",ComparisonOperator.NOT_LIKE);
+                put("NOT LIKE",ComparisonOperator.NOT_LIKE);
 
-            "is-not-null":ComparisonOperator.IS_NOT_NULL,
-            "IS NOT NULL":ComparisonOperator.IS_NOT_NULL
-    ]
+                put("is-null", IS_NULL);
+                put("IS NULL", IS_NULL);
 
-    public static String getJoinOperatorString(JoinOperator op) { return JoinOperator.OR.is(op) ? "OR" : "AND" }
-    public static JoinOperator getJoinOperator(String opName) { return "or".equalsIgnoreCase(opName) ? JoinOperator.OR :JoinOperator.AND }
+                put("is-not-null",ComparisonOperator.IS_NOT_NULL);
+                put("IS NOT NULL",ComparisonOperator.IS_NOT_NULL);
+    }};
 
-    public static String getComparisonOperatorString(EntityCondition.ComparisonOperator op) { return comparisonOperatorStringMap.get(op) }
+    public static String getJoinOperatorString(JoinOperator op) { return JoinOperator.OR==op ? "OR" : "AND"; }
+    public static JoinOperator getJoinOperator(String opName) { return "or".equalsIgnoreCase(opName) ? JoinOperator.OR :JoinOperator.AND; }
+
+    public static String getComparisonOperatorString(EntityCondition.ComparisonOperator op) { return comparisonOperatorStringMap.get(op); }
     public static EntityCondition.ComparisonOperator getComparisonOperator(String opName) {
-        if (opName == null) return ComparisonOperator.EQUALS
-        ComparisonOperator co = stringComparisonOperatorMap.get(opName)
-        return co != null ? co : ComparisonOperator.EQUALS
+        if (opName == null) return ComparisonOperator.EQUALS;
+        ComparisonOperator co = stringComparisonOperatorMap.get(opName);
+        return co != null ? co : ComparisonOperator.EQUALS;
     }
 
     public static boolean compareByOperator(Object value1, ComparisonOperator op, Object value2) {
         switch (op) {
-            case ComparisonOperator.EQUALS:
-                return value1 == value2
-            case ComparisonOperator.NOT_EQUAL:
-                return value1 != value2
-            case ComparisonOperator.LESS_THAN:
-                Comparable comp1 = ObjectUtilities.makeComparable(value1)
-                Comparable comp2 = ObjectUtilities.makeComparable(value2)
-                return comp1 < comp2
-            case ComparisonOperator.GREATER_THAN:
-                Comparable comp1 = ObjectUtilities.makeComparable(value1)
-                Comparable comp2 = ObjectUtilities.makeComparable(value2)
-                return comp1 > comp2
-            case ComparisonOperator.LESS_THAN_EQUAL_TO:
-                Comparable comp1 = ObjectUtilities.makeComparable(value1)
-                Comparable comp2 = ObjectUtilities.makeComparable(value2)
-                return comp1 <= comp2
-            case ComparisonOperator.GREATER_THAN_EQUAL_TO:
-                Comparable comp1 = ObjectUtilities.makeComparable(value1)
-                Comparable comp2 = ObjectUtilities.makeComparable(value2)
-                return comp1 >= comp2
-            case ComparisonOperator.IN:
+            case EQUALS:
+                return value1 == value2;
+            case NOT_EQUAL:
+                return value1 != value2;
+            case LESS_THAN:{
+                Comparable comp1 = ObjectUtil.makeComparable(value1);
+                Comparable comp2 = ObjectUtil.makeComparable(value2);
+                return comp1.compareTo(comp2) < 0;
+            }
+            case GREATER_THAN:{
+                Comparable comp1 = ObjectUtil.makeComparable(value1);
+                Comparable comp2 = ObjectUtil.makeComparable(value2);
+                return comp1.compareTo(comp2) > 0;
+            }
+            case LESS_THAN_EQUAL_TO:{
+                Comparable comp1 = ObjectUtil.makeComparable(value1);
+                Comparable comp2 = ObjectUtil.makeComparable(value2);
+                return comp1.compareTo(comp2) <= 0;
+            }
+            case GREATER_THAN_EQUAL_TO:{
+                Comparable comp1 = ObjectUtil.makeComparable(value1);
+                Comparable comp2 = ObjectUtil.makeComparable(value2);
+                return comp1.compareTo(comp2) >= 0;
+            }
+
+            case IN:{
                 if (value2 instanceof Collection) {
-                    return ((Collection) value2).contains(value1)
+                    return ((Collection) value2).contains(value1);
                 } else {
                     // not a Collection, try equals
-                    return value1 == value2
+                    return value1 == value2;
                 }
-            case ComparisonOperator.NOT_IN:
+            }
+            case NOT_IN:{
                 if (value2 instanceof Collection) {
-                    return !((Collection) value2).contains(value1)
+                    return !((Collection) value2).contains(value1);
                 } else {
                     // not a Collection, try not-equals
-                    return value1 != value2
+                    return value1 != value2;
                 }
-            case ComparisonOperator.BETWEEN:
+            }
+
+            case BETWEEN:{
                 if (value2 instanceof Collection && ((Collection) value2).size() == 2) {
-                    Comparable comp1 = ObjectUtilities.makeComparable(value1)
-                    Iterator iterator = ((Collection) value2).iterator()
-                    Comparable lowObj = ObjectUtilities.makeComparable(iterator.next())
-                    Comparable highObj = ObjectUtilities.makeComparable(iterator.next())
-                    return lowObj <= comp1 && comp1 < highObj
+                    Comparable comp1 = ObjectUtil.makeComparable(value1);
+                    Iterator iterator = ((Collection) value2).iterator();
+                    Comparable lowObj = ObjectUtil.makeComparable(iterator.next());
+                    Comparable highObj = ObjectUtil.makeComparable(iterator.next());
+                    return lowObj.compareTo(comp1) <= 0 && comp1.compareTo(highObj) < 0;
                 } else {
-                    return false
+                    return false;
                 }
-            case ComparisonOperator.NOT_BETWEEN:
+            }
+
+            case NOT_BETWEEN:{
                 if (value2 instanceof Collection && ((Collection) value2).size() == 2) {
-                    Comparable comp1 = ObjectUtilities.makeComparable(value1)
-                    Iterator iterator = ((Collection) value2).iterator()
-                    Comparable lowObj = ObjectUtilities.makeComparable(iterator.next())
-                    Comparable highObj = ObjectUtilities.makeComparable(iterator.next())
-                    return lowObj > comp1 && comp1 >= highObj
+                    Comparable comp1 = ObjectUtil.makeComparable(value1);
+                    Iterator iterator = ((Collection) value2).iterator();
+                    Comparable lowObj = ObjectUtil.makeComparable(iterator.next());
+                    Comparable highObj = ObjectUtil.makeComparable(iterator.next());
+                    return lowObj.compareTo(comp1) > 0  && comp1.compareTo(highObj) >= 0;
                 } else {
-                    return false
+                    return false;
                 }
-            case ComparisonOperator.LIKE:
-                return ObjectUtilities.compareLike(value1, value2)
-            case ComparisonOperator.NOT_LIKE:
-                return !ObjectUtilities.compareLike(value1, value2)
-            case ComparisonOperator.IS_NULL:
-                return value1 == null
-            case ComparisonOperator.IS_NOT_NULL:
-                return value1 != null
+            }
+            case LIKE:
+                return ObjectUtil.compareLike(value1, value2);
+            case NOT_LIKE:
+                return !ObjectUtil.compareLike(value1, value2);
+            case IS_NULL:
+                return value1 == null;
+            case IS_NOT_NULL:
+                return value1 != null;
         }
         // default return false
-        return false
+        return false;
     }
 }

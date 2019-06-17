@@ -1833,15 +1833,15 @@ public class EntityFacadeImpl implements EntityFacade {
         return dbSequencedIdPrimary(ed.getFullEntityName(), entityInfo.sequencePrimaryStagger, entityInfo.sequenceBankSize)
     }
 
-    protected final static long defaultBankSize = 50L
+    public final static long defaultBankSize = 50L;
     protected Lock getDbSequenceLock(String seqName) {
-        Lock oldLock, dbSequenceLock = dbSequenceLocks.get(seqName)
+        Lock oldLock, dbSequenceLock = dbSequenceLocks.get(seqName);
         if (dbSequenceLock == null) {
-            dbSequenceLock = new ReentrantLock()
-            oldLock = dbSequenceLocks.putIfAbsent(seqName, dbSequenceLock)
-            if (oldLock != null) return oldLock
+            dbSequenceLock = new ReentrantLock();
+            oldLock = dbSequenceLocks.putIfAbsent(seqName, dbSequenceLock);
+            if (oldLock != null) return oldLock;
         }
-        return dbSequenceLock
+        return dbSequenceLock;
     }
     protected String dbSequencedIdPrimary(String seqName, long staggerMax, long bankSize) {
 
