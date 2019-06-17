@@ -435,69 +435,69 @@ public class EntityFacadeImpl implements EntityFacade {
 //        return entityRrList
 //    }
 //
-//    public Map<String, List<String>> loadAllEntityLocations() {
-//        // lock or wait for lock, this lock used here and for checking entity defined
-//        locationLoadLock.lock()
-//
-//        try {
-//            // load all entity files based on ResourceReference
-//            long startTime = System.currentTimeMillis()
-//
-//            Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
-//            // when loading all entity locations we expect this to be null, if it isn't no need to load
-//            if (entityLocationCache != null) return entityLocationCache
-//            entityLocationCache = new HashMap<>()
-//
-//            List<ResourceReference> allEntityFileLocations = getAllEntityFileLocations()
-//            for (ResourceReference entityRr in allEntityFileLocations) this.loadEntityFileLocations(entityRr, entityLocationCache)
-//            if (logger.isInfoEnabled()) logger.info("Found entities in ${allEntityFileLocations.size()} files in ${System.currentTimeMillis() - startTime}ms")
-//
-//            // put in the cache for other code to use; needed before DbViewEntity load so DB queries work
-//            entityLocationSingleCache.put(entityLocSingleEntryName, entityLocationCache)
-//
-//            // look for view-entity definitions in the database (zkit.entity.view.DbViewEntity)
-//            if (entityLocationCache.get("zkit.entity.view.DbViewEntity")) {
-//                int numDbViewEntities = 0
-//                for (EntityValue dbViewEntity in find("zkit.entity.view.DbViewEntity").list()) {
-//                    if (dbViewEntity.packageName) {
-//                        List<String> pkgList = (List<String>) entityLocationCache.get((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName)
-//                        if (pkgList == null) {
-//                            pkgList = new LinkedList<>()
-//                            entityLocationCache.put((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName, pkgList)
-//                        }
-//                        if (!pkgList.contains("_DB_VIEW_ENTITY_")) pkgList.add("_DB_VIEW_ENTITY_")
-//                    }
-//
-//                    List<String> nameList = (List<String>) entityLocationCache.get((String) dbViewEntity.dbViewEntityName)
-//                    if (nameList == null) {
-//                        nameList = new LinkedList<>()
-//                        // put in cache under both plain entityName and fullEntityName
-//                        entityLocationCache.put((String) dbViewEntity.dbViewEntityName, nameList)
-//                    }
-//                    if (!nameList.contains("_DB_VIEW_ENTITY_")) nameList.add("_DB_VIEW_ENTITY_")
-//
-//                    numDbViewEntities++
-//                }
-//                if (logger.infoEnabled) logger.info("Found ${numDbViewEntities} view-entity definitions in database (DbViewEntity records)")
-//            } else {
-//                logger.warn("Could not find view-entity definitions in database (zkit.entity.view.DbViewEntity), no location found for the zkit.entity.view.DbViewEntity entity.")
-//            }
-//
-//            /* a little code to show all entities and their locations
-//            Set<String> enSet = new TreeSet(entityLocationCache.keySet())
-//            for (String en in enSet) {
-//                List lst = entityLocationCache.get(en)
-//                entityLocationCache.put(en, Collections.unmodifiableList(lst))
-//                logger.warn("TOREMOVE entity ${en}: ${lst}")
-//            }
-//            */
-//
-//            return entityLocationCache
-//        } finally {
-//            locationLoadLock.unlock()
-//        }
-//    }
-//
+    public Map<String, List<String>> loadAllEntityLocations() {
+        // lock or wait for lock, this lock used here and for checking entity defined
+        locationLoadLock.lock();
+
+        try {
+            // load all entity files based on ResourceReference
+            long startTime = System.currentTimeMillis();
+
+            Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName);
+            // when loading all entity locations we expect this to be null, if it isn't no need to load
+            if (entityLocationCache != null) return entityLocationCache;
+            entityLocationCache = new HashMap<>();
+
+            List<ResourceReference> allEntityFileLocations = getAllEntityFileLocations();
+            for (ResourceReference entityRr : allEntityFileLocations) this.loadEntityFileLocations(entityRr, entityLocationCache);
+            if (logger.isInfoEnabled()) logger.info("Found entities in ${allEntityFileLocations.size()} files in ${System.currentTimeMillis() - startTime}ms");
+
+            // put in the cache for other code to use; needed before DbViewEntity load so DB queries work
+            entityLocationSingleCache.put(entityLocSingleEntryName, entityLocationCache);
+
+            // look for view-entity definitions in the database (zkit.entity.view.DbViewEntity)
+            if (entityLocationCache.get("zkit.entity.view.DbViewEntity") != null) {
+                int numDbViewEntities = 0;
+                for (EntityValue dbViewEntity : find("zkit.entity.view.DbViewEntity").list()) {
+                    if (dbViewEntity.get("packageName") != null) {
+                        List<String> pkgList = entityLocationCache.get(dbViewEntity.getString("packageName") + "." + dbViewEntity.getString("dbViewEntityName"));
+                        if (pkgList == null) {
+                            pkgList = new LinkedList<>();
+                            entityLocationCache.put(dbViewEntity.getString("dbViewEntityName") + "." + dbViewEntity.getString("dbViewEntityName"), pkgList);
+                        }
+                        if (!pkgList.contains("_DB_VIEW_ENTITY_")) pkgList.add("_DB_VIEW_ENTITY_");
+                    }
+
+                    List<String> nameList = entityLocationCache.get(dbViewEntity.getString("dbViewEntityName"));
+                    if (nameList == null) {
+                        nameList = new LinkedList<>();
+                        // put in cache under both plain entityName and fullEntityName
+                        entityLocationCache.put( dbViewEntity.getString("dbViewEntityName"), nameList);
+                    }
+                    if (!nameList.contains("_DB_VIEW_ENTITY_")) nameList.add("_DB_VIEW_ENTITY_");
+
+                    numDbViewEntities++;
+                }
+                if (logger.isInfoEnabled()) logger.info("Found ${numDbViewEntities} view-entity definitions in database (DbViewEntity records)");
+            } else {
+                logger.warn("Could not find view-entity definitions in database (zkit.entity.view.DbViewEntity), no location found for the zkit.entity.view.DbViewEntity entity.");
+            }
+
+            /* a little code to show all entities and their locations
+            Set<String> enSet = new TreeSet(entityLocationCache.keySet())
+            for (String en in enSet) {
+                List lst = entityLocationCache.get(en)
+                entityLocationCache.put(en, Collections.unmodifiableList(lst))
+                logger.warn("TOREMOVE entity ${en}: ${lst}")
+            }
+            */
+
+            return entityLocationCache;
+        } finally {
+            locationLoadLock.unlock();
+        }
+    }
+
     //注意：仅由loadAllEntityLocations（）调用，它是同步/锁定的，因此不需要用
     protected void loadEntityFileLocations(ResourceReference entityRr, Map<String, List<String>> entityLocationCache) {
         MNode entityRoot = getEntityFileRoot(entityRr);
