@@ -108,7 +108,11 @@ public class EntityFacadeImpl implements EntityFacade {
         entitySequenceBankCache = ecfi.getCache().getCache("entity.sequence.bank");
 
         // 初始化每个组的连接池（DataSource）
-        initAllDatasources();
+        try {
+            initAllDatasources();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         entityCache = new EntityCache(this);
         entityDataFeed = new EntityDataFeed(this);
@@ -677,7 +681,7 @@ public class EntityFacadeImpl implements EntityFacade {
             String finalEntityName = entityName;
             String finalPackageName = packageName;
             List<MNode> packageChildren = entityRoot.getChildren().stream().filter((MNode it)-> (it.attribute("entity-name").equals(finalEntityName) || it.attribute("short-alias").equals(finalEntityName)) &&
-                    (finalPackageName == null || (it.attribute("package").equals(finalPackageName) || it.attribute("package-name").equals(finalPackageName1)))).collect(Collectors.toList());
+                    (finalPackageName == null || (it.attribute("package").equals(finalPackageName) || it.attribute("package-name").equals(finalPackageName)))).collect(Collectors.toList());
             for (MNode childNode : packageChildren) {
                 if (childNode.getName().equals("extend-entity")) {
                     extendEntityNodes.add(childNode);
