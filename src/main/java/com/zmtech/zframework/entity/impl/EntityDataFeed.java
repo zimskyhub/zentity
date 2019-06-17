@@ -1,83 +1,65 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
-package com.zmtech.zframework.entity.impl
+package com.zmtech.zframework.entity.impl;
 
+import com.zmtech.zframework.entity.EntityList;
 import com.zmtech.zframework.entity.EntityValue;
-import groovy.transform.CompileStatic
-import org.moqui.entity.EntityCondition
-import org.moqui.entity.EntityException
-import org.moqui.entity.EntityList
-import org.moqui.entity.EntityValue
-import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import com.zmtech.zframework.exception.EntityException;
+import com.zmtech.zframework.util.EntityJavaUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import javax.cache.Cache
-import javax.transaction.Status
-import javax.transaction.Synchronization
-import javax.transaction.Transaction
-import javax.transaction.TransactionManager
-import javax.transaction.xa.XAException
+import javax.cache.Cache;
+import javax.transaction.Status;
+import javax.transaction.Synchronization;
+import javax.transaction.Transaction;
+import javax.transaction.TransactionManager;
+import javax.transaction.xa.XAException;
 import java.io.Serializable;
-import java.sql.Timestamp
+import java.sql.Timestamp;
 import java.util.*;
-import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.RejectedExecutionException;
 
-@CompileStatic
-class EntityDataFeed {
-    protected final static Logger logger = LoggerFactory.getLogger(EntityDataFeed.class)
 
-    protected final EntityFacadeImpl efi
+public class EntityDataFeed {
+    protected final static Logger logger = LoggerFactory.getLogger(EntityDataFeed.class);
 
-    protected final Cache<String, ArrayList<DocumentEntityInfo>> dataFeedEntityInfo
-    Set<String> entitiesWithDataFeed = null
+    protected final EntityFacadeImpl efi;
 
-    EntityDataFeed(EntityFacadeImpl efi) {
-        this.efi = efi
-        dataFeedEntityInfo = efi.ecfi.cacheFacade.getCache("entity.data.feed.info")
+    protected final Cache<String, ArrayList<DocumentEntityInfo>> dataFeedEntityInfo;
+    Set<String> entitiesWithDataFeed = null;
+
+    public EntityDataFeed(EntityFacadeImpl efi) {
+        this.efi = efi;
+        dataFeedEntityInfo = efi.ecfi.getCache().getCache("entity.data.feed.info");
     }
 
-    EntityFacadeImpl getEfi() { return efi }
+    public EntityFacadeImpl getEfi() { return efi; }
 
     /** This method gets the latest documents for a DataFeed based on DataFeed.lastFeedStamp, and updates lastFeedStamp
      * to the current time. This method should be called in a service or something to manage the transaction.
      * See the org.moqui.impl.EntityServices.get#DataFeedLatestDocuments service.*/
-    List<Map> getFeedLatestDocuments(String dataFeedId) {
+    public List<Map> getFeedLatestDocuments(String dataFeedId) {
         EntityValue dataFeed = efi.find("moqui.entity.feed.DataFeed").condition("dataFeedId", dataFeedId)
-                .useCache(false).forUpdate(true).one()
-        Timestamp fromUpdateStamp = dataFeed.getTimestamp("lastFeedStamp")
-        Timestamp thruUpdateStamp = new Timestamp(System.currentTimeMillis())
+                .useCache(false).forUpdate(true).one();
+        Timestamp fromUpdateStamp = dataFeed.getTimestamp("lastFeedStamp");
+        Timestamp thruUpdateStamp = new Timestamp(System.currentTimeMillis());
         // get the List first, if no errors update lastFeedStamp
-        List<Map> documentList = getFeedDocuments(dataFeedId, fromUpdateStamp, thruUpdateStamp)
-        dataFeed.lastFeedStamp = thruUpdateStamp
-        dataFeed.update()
-        return documentList
+        List<Map> documentList = getFeedDocuments(dataFeedId, fromUpdateStamp, thruUpdateStamp);
+        dataFeed.lastFeedStamp = thruUpdateStamp;
+        dataFeed.update();
+        return documentList;
     }
 
-    ArrayList<Map> getFeedDocuments(String dataFeedId, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
+    public ArrayList<Map> getFeedDocuments(String dataFeedId, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
         EntityList dataFeedDocumentList = efi.find("moqui.entity.feed.DataFeedDocument")
-                .condition("dataFeedId", dataFeedId).useCache(true).list()
+                .condition("dataFeedId", dataFeedId).useCache(true).list();
 
-        ArrayList<Map> fullDocumentList = new ArrayList<>()
-        for (EntityValue dataFeedDocument in dataFeedDocumentList) {
-            String dataDocumentId = dataFeedDocument.dataDocumentId
-            ArrayList<Map> curDocList = efi.getDataDocuments(dataDocumentId, null, fromUpdateStamp, thruUpdatedStamp)
-            fullDocumentList.addAll(curDocList)
+        ArrayList<Map> fullDocumentList = new ArrayList<>();
+        for (EntityValue dataFeedDocument : dataFeedDocumentList) {
+            String dataDocumentId = dataFeedDocument.dataDocumentId;
+            ArrayList<Map> curDocList = efi.getDataDocuments(dataDocumentId, null, fromUpdateStamp, thruUpdatedStamp);
+            fullDocumentList.addAll(curDocList);
         }
-        return fullDocumentList
+        return fullDocumentList;
     }
 
     /* Notes for real-time push DataFeed:
@@ -110,220 +92,220 @@ class EntityDataFeed {
 
      */
 
-    void dataFeedCheckAndRegister(EntityValue ev, boolean isUpdate, Map valueMap, Map oldValues) {
+    public void dataFeedCheckAndRegister(EntityValue ev, boolean isUpdate, Map valueMap, Map oldValues) {
         // logger.warn("============== DataFeed checking entity isModified=${ev.isModified()} [${ev.getEntityName()}] value: ${ev}")
         // String debugEntityName = "Request"
         // if (ev.getEntityName().endsWith(debugEntityName)) logger.warn("======= dataFeedCheckAndRegister update? ${isUpdate} mod? ${ev.isModified()}\nev: ${ev}\noldValues=${oldValues}")
 
         // if the value isn't modified don't register for DataFeed at all
-        if (!ev.isModified()) return
-        if (isUpdate && oldValues == null) return
+        if (!ev.isModified()) return;
+        if (isUpdate && oldValues == null) return;
 
-                // see if this should be added to the feed
-                ArrayList<DocumentEntityInfo> entityInfoList = getDataFeedEntityInfoList(ev.getEntityName())
+        // see if this should be added to the feed
+        ArrayList<DocumentEntityInfo> entityInfoList = getDataFeedEntityInfoList(ev.getEntityName());
         // if (ev.getEntityName().endsWith(debugEntityName)) logger.warn("======= dataFeedCheckAndRegister entityInfoList size ${entityInfoList.size()}")
         if (entityInfoList.size() > 0) {
             // logger.warn("============== found registered entity [${ev.getEntityName()}] value: ${ev}")
 
             // populate and pass the dataDocumentIdSet, and/or other things needed?
-            Set<String> dataDocumentIdSet = new HashSet<String>()
-            for (DocumentEntityInfo entityInfo in entityInfoList) {
+            Set<String> dataDocumentIdSet = new HashSet<String>();
+            for (DocumentEntityInfo entityInfo : entityInfoList) {
                 // only add value if a field in the document was changed
-                boolean fieldModified = false
-                for (String fieldName in entityInfo.fields) {
+                boolean fieldModified = false;
+                for (String fieldName : entityInfo.fields) {
                     // logger.warn("DataFeed ${entityInfo.dataDocumentId} check field ${fieldName} isUpdate ${isUpdate} isFieldModified ${ev.isFieldModified(fieldName)} value ${valueMap.get(fieldName)} oldValue ${oldValues?.get(fieldName)}")
-                    if (ev.isFieldModified(fieldName)) { fieldModified = true; break }
+                    if (ev.isFieldModified(fieldName)) { fieldModified = true; break; }
 
-                    if (!valueMap.containsKey(fieldName)) continue
+                    if (!valueMap.containsKey(fieldName)) continue;
 
-                    Object value = valueMap.get(fieldName)
-                    Object oldValue = oldValues?.get(fieldName)
+                    Object value = valueMap.get(fieldName);
+                    Object oldValue = oldValues != null?oldValues.get(fieldName):null;
 
                     // logger.warn("DataFeed ${entityInfo.dataDocumentId} check field ${fieldName} isUpdate ${isUpdate} value ${value} oldValue ${oldValue} continue ${(isUpdate && value == oldValue) || (!isUpdate && value == null)}")
 
                     // if isUpdate but old value == new value, then it hasn't been updated, so skip it
-                    if (isUpdate && value == oldValue) continue
+                    if (isUpdate && value == oldValue) continue;
                     // if it's a create and there is no value don't log a change
-                    if (!isUpdate && value == null) continue
+                    if (!isUpdate && value == null) continue;
 
-                    fieldModified = true
+                    fieldModified = true;
                 }
-                if (!fieldModified) continue
+                if (!fieldModified) continue;
 
                 // only add value and dataDocumentId if there are no conditions or if this record matches all conditions
                 //     (not necessary, but this is an optimization to avoid false positives)
-                boolean matchedConditions = true
-                if (entityInfo.conditions) for (Map.Entry<String, String> conditionEntry in entityInfo.conditions.entrySet()) {
-                    Object evValue = ev.get(conditionEntry.getKey())
+                boolean matchedConditions = true;
+                if (entityInfo.conditions != null) for (Map.Entry<String, String> conditionEntry : entityInfo.conditions.entrySet()) {
+                    Object evValue = ev.get(conditionEntry.getKey());
                     // if ev doesn't have field populated, ignore the condition; we'll pick it up later in the big document query
-                    if (evValue == null) continue
-                    if (evValue != conditionEntry.getValue()) { matchedConditions = false; break }
+                    if (evValue == null) continue;
+                    if (evValue != conditionEntry.getValue()) { matchedConditions = false; break; }
                 }
 
-                if (!matchedConditions) continue
+                if (!matchedConditions) continue;
 
-                        // if we get here field(s) were modified and condition(s) passed
-                dataDocumentIdSet.add((String) entityInfo.dataDocumentId)
+
+                dataDocumentIdSet.add(entityInfo.dataDocumentId);
             }
 
             if (dataDocumentIdSet) {
                 // logger.warn("============== DataFeed registering entity value [${ev.getEntityName()}] value: ${ev.getPrimaryKeys()}")
                 // NOTE: comment out this line to disable real-time push DataFeed in one simple place:
-                getDataFeedSynchronization().addValueToFeed(ev, dataDocumentIdSet)
+                getDataFeedSynchronization().addValueToFeed(ev, dataDocumentIdSet);
             }
         }
     }
 
     protected DataFeedSynchronization getDataFeedSynchronization() {
-        DataFeedSynchronization dfxr = (DataFeedSynchronization) efi.ecfi.transactionFacade.getActiveSynchronization("DataFeedSynchronization")
+        DataFeedSynchronization dfxr = (DataFeedSynchronization) efi.ecfi.getTransaction().getActiveSynchronization("DataFeedSynchronization");
         if (dfxr == null) {
-            dfxr = new DataFeedSynchronization(this)
-            dfxr.enlist()
+            dfxr = new DataFeedSynchronization(this);
+            dfxr.enlist();
         }
-        return dfxr
+        return dfxr;
     }
 
-    final Set<String> dataFeedSkipEntities = new HashSet<String>(['moqui.entity.SequenceValueItem'])
-    protected final static ArrayList<DocumentEntityInfo> emptyList = new ArrayList<DocumentEntityInfo>()
+    final Set<String> dataFeedSkipEntities = new HashSet<String>(['moqui.entity.SequenceValueItem']);
+    protected final static ArrayList<DocumentEntityInfo> emptyList = new ArrayList<DocumentEntityInfo>();
 
     // NOTE: this is called frequently (every create/update/delete)
-    ArrayList<DocumentEntityInfo> getDataFeedEntityInfoList(String fullEntityName) {
+    public ArrayList<DocumentEntityInfo> getDataFeedEntityInfoList(String fullEntityName) {
         // see if this is a known entity in a feed
         // NOTE: this avoids issues with false negatives from the cache or excessive rebuilds (for every entity the
         //     first time) but means if an entity is added to a DataDocument at runtime it won't pick it up!!!!
         // NOTE2: this could be cleared explicitly when a DataDocument is added or changed, but that is done through
         //     direct DB stuff now (data load, etc), there is no UI or services for it
-        if (entitiesWithDataFeed == null) rebuildDataFeedEntityInfo()
-        if (!entitiesWithDataFeed.contains(fullEntityName)) return emptyList
+        if (entitiesWithDataFeed == null) rebuildDataFeedEntityInfo();
+        if (!entitiesWithDataFeed.contains(fullEntityName)) return emptyList;
 
-        ArrayList<DocumentEntityInfo> cachedList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName)
-        if (cachedList != null) return cachedList
+        ArrayList<DocumentEntityInfo> cachedList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName);
+        if (cachedList != null) return cachedList;
 
         // if this is an entity to skip, return now (do after primary lookup to avoid additional performance overhead in common case)
         if (dataFeedSkipEntities.contains(fullEntityName)) {
-            dataFeedEntityInfo.put(fullEntityName, emptyList)
-            return emptyList
+            dataFeedEntityInfo.put(fullEntityName, emptyList);
+            return emptyList;
         }
 
         // logger.warn("=============== getting DocumentEntityInfo for [${fullEntityName}], from cache: ${entityInfoList}")
         // MAYBE (often causes issues): only rebuild if the cache is empty, most entities won't have any entry in it and don't want a rebuild for each one
-        rebuildDataFeedEntityInfo()
+        rebuildDataFeedEntityInfo();
         // now we should have all document entityInfos for all entities
-        cachedList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName)
-        if (cachedList != null) return cachedList
+        cachedList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName);
+        if (cachedList != null) return cachedList;
 
         // remember that we don't have any info
-        dataFeedEntityInfo.put(fullEntityName, emptyList)
-        return emptyList
+        dataFeedEntityInfo.put(fullEntityName, emptyList);
+        return emptyList;
     }
 
     // this should never be called except through getDataFeedEntityInfoList()
-    private long lastRebuildTime = 0
+    private long lastRebuildTime = 0;
     protected synchronized void rebuildDataFeedEntityInfo() {
         // under load make sure waiting threads don't redo it, give it some time
-        if (System.currentTimeMillis() < (lastRebuildTime + 60000)) return
+        if (System.currentTimeMillis() < (lastRebuildTime + 60000)) return;
 
         // logger.info("Building entity.data.feed.info cache")
-        long startTime = System.currentTimeMillis()
+        long startTime = System.currentTimeMillis();
 
         // rebuild from the DB for this and other entities, ie have to do it for all DataFeeds and
         //     DataDocuments because we can't query it by entityName
-        Map<String, ArrayList<DocumentEntityInfo>> localInfo = new HashMap<>()
+        Map<String, ArrayList<DocumentEntityInfo>> localInfo = new HashMap<>();
 
         EntityList dataFeedAndDocumentList = efi.find("moqui.entity.feed.DataFeedAndDocument")
-                .condition("dataFeedTypeEnumId", "DTFDTP_RT_PUSH").useCache(true).disableAuthz().list()
+                .condition("dataFeedTypeEnumId", "DTFDTP_RT_PUSH").useCache(true).disableAuthz().list();
         //logger.warn("============= got dataFeedAndDocumentList: ${dataFeedAndDocumentList}")
-        Set<String> fullDataDocumentIdSet = new HashSet<String>()
-        int dataFeedAndDocumentListSize = dataFeedAndDocumentList.size()
+        Set<String> fullDataDocumentIdSet = new HashSet<String>();
+        int dataFeedAndDocumentListSize = dataFeedAndDocumentList.size();
         for (int i = 0; i < dataFeedAndDocumentListSize; i++) {
-            EntityValue dataFeedAndDocument = (EntityValue) dataFeedAndDocumentList.get(i)
-            fullDataDocumentIdSet.add(dataFeedAndDocument.getString("dataDocumentId"))
+            EntityValue dataFeedAndDocument = (EntityValue) dataFeedAndDocumentList.get(i);
+            fullDataDocumentIdSet.add(dataFeedAndDocument.getString("dataDocumentId"));
         }
 
-        for (String dataDocumentId in fullDataDocumentIdSet) {
-            Map<String, DocumentEntityInfo> entityInfoMap = getDataDocumentEntityInfo(dataDocumentId)
+        for (String dataDocumentId : fullDataDocumentIdSet) {
+            Map<String, DocumentEntityInfo> entityInfoMap = getDataDocumentEntityInfo(dataDocumentId);
             // got a Map for all entities in the document, now split them by entity and add to master list for the entity
-            for (Map.Entry<String, DocumentEntityInfo> entityInfoMapEntry in entityInfoMap.entrySet()) {
-                String entityName = entityInfoMapEntry.getKey()
-                ArrayList<DocumentEntityInfo> newEntityInfoList = (ArrayList<DocumentEntityInfo>) localInfo.get(entityName)
+            for (Map.Entry<String, DocumentEntityInfo> entityInfoMapEntry : entityInfoMap.entrySet()) {
+                String entityName = entityInfoMapEntry.getKey();
+                ArrayList<DocumentEntityInfo> newEntityInfoList = (ArrayList<DocumentEntityInfo>) localInfo.get(entityName);
                 if (newEntityInfoList == null) {
-                    newEntityInfoList = new ArrayList<DocumentEntityInfo>()
-                    localInfo.put(entityName, newEntityInfoList)
+                    newEntityInfoList = new ArrayList<DocumentEntityInfo>();
+                    localInfo.put(entityName, newEntityInfoList);
                     // logger.warn("============= added dataFeedEntityInfo entry for entity [${entityInfoMapEntry.getKey()}]")
                 }
-                newEntityInfoList.add(entityInfoMapEntry.getValue())
+                newEntityInfoList.add(entityInfoMapEntry.getValue());
             }
         }
 
-        Set<String> entityNameSet = localInfo.keySet()
+        Set<String> entityNameSet = localInfo.keySet();
         if (entitiesWithDataFeed == null) {
-            logger.info("Built entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
-            if (logger.isTraceEnabled()) logger.trace("Built entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities: ${entityNameSet}")
+            logger.info("Built entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities");
+            if (logger.isTraceEnabled()) logger.trace("Built entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities: ${entityNameSet}");
         } else {
-            logger.info("Rebuilt entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
+            logger.info("Rebuilt entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities");
         }
-        dataFeedEntityInfo.putAll(localInfo)
-        entitiesWithDataFeed = entityNameSet
-        lastRebuildTime = System.currentTimeMillis()
+        dataFeedEntityInfo.putAll(localInfo);
+        entitiesWithDataFeed = entityNameSet;
+        lastRebuildTime = System.currentTimeMillis();
     }
 
-    Map<String, DocumentEntityInfo> getDataDocumentEntityInfo(String dataDocumentId) {
-        EntityValue dataDocument = null
-        EntityList dataDocumentFieldList = null
-        EntityList dataDocumentConditionList = null
-        boolean alreadyDisabled = efi.ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
+    public Map<String, DocumentEntityInfo> getDataDocumentEntityInfo(String dataDocumentId) {
+        EntityValue dataDocument = null;
+        EntityList dataDocumentFieldList = null;
+        EntityList dataDocumentConditionList = null;
+        boolean alreadyDisabled = efi.ecfi.getExecutionContext().getArtifactExecution().disableAuthz();
         try {
-            dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
-            if (dataDocument == null) throw new EntityException("No DataDocument found with ID [${dataDocumentId}]")
-            dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
-            dataDocumentConditionList = dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false)
+            dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId);
+            if (dataDocument == null) throw new EntityException("No DataDocument found with ID [${dataDocumentId}]");
+            dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false);
+            dataDocumentConditionList = dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false);
         } finally {
-            if (!alreadyDisabled) efi.ecfi.getExecutionContext().getArtifactExecution().enableAuthz()
+            if (!alreadyDisabled) efi.ecfi.getExecutionContext().getArtifactExecution().enableAuthz();
         }
 
-        String primaryEntityName = dataDocument.primaryEntityName
-        EntityDefinition primaryEd = efi.getEntityDefinition(primaryEntityName)
+        String primaryEntityName = dataDocument.primaryEntityName;
+        EntityDefinition primaryEd = efi.getEntityDefinition(primaryEntityName);
 
         Map<String, DocumentEntityInfo> entityInfoMap = [:]
 
         // start with the primary entity
-        entityInfoMap.put(primaryEntityName, new DocumentEntityInfo(primaryEntityName, dataDocumentId, primaryEntityName, ""))
+        entityInfoMap.put(primaryEntityName, new DocumentEntityInfo(primaryEntityName, dataDocumentId, primaryEntityName, ""));
 
         // have to go through entire fieldTree instead of entity names directly from fieldPath because may not have hash (#) separator
         Map<String, Object> fieldTree = [:]
-        for (EntityValue dataDocumentField in dataDocumentFieldList) {
-            String fieldPath = (String) dataDocumentField.fieldPath
-            if (fieldPath.contains("(")) continue
-            Map currentTree = fieldTree
-            DocumentEntityInfo currentEntityInfo = entityInfoMap.get(primaryEntityName)
-            StringBuilder currentRelationshipPath = new StringBuilder()
-            EntityDefinition currentEd = primaryEd
-            ArrayList<String> fieldPathElementList = EntityDataDocument.fieldPathToList(fieldPath)
-            int fieldPathElementListSize = fieldPathElementList.size()
+        for (EntityValue dataDocumentField : dataDocumentFieldList) {
+            String fieldPath = (String) dataDocumentField.fieldPath;
+            if (fieldPath.contains("(")) continue;
+            Map currentTree = fieldTree;
+            DocumentEntityInfo currentEntityInfo = entityInfoMap.get(primaryEntityName);
+            StringBuilder currentRelationshipPath = new StringBuilder();
+            EntityDefinition currentEd = primaryEd;
+            ArrayList<String> fieldPathElementList = EntityDataDocument.fieldPathToList(fieldPath);
+            int fieldPathElementListSize = fieldPathElementList.size();
             for (int i = 0; i < fieldPathElementListSize; i++) {
-                String fieldPathElement = (String) fieldPathElementList.get(i)
+                String fieldPathElement = (String) fieldPathElementList.get(i);
                 if (i < (fieldPathElementListSize - 1)) {
-                    if (currentRelationshipPath.length() > 0) currentRelationshipPath.append(":")
-                    currentRelationshipPath.append(fieldPathElement)
+                    if (currentRelationshipPath.length() > 0) currentRelationshipPath.append(":");
+                    currentRelationshipPath.append(fieldPathElement);
 
-                    Map subTree = (Map) currentTree.get(fieldPathElement)
-                    if (subTree == null) { subTree = [:]; currentTree.put(fieldPathElement, subTree) }
-                    currentTree = subTree
+                    Map subTree = (Map) currentTree.get(fieldPathElement);
+                    if (subTree == null) { subTree = [:]; currentTree.put(fieldPathElement, subTree); }
+                    currentTree = subTree;
 
                     // make sure we have an entityInfo Map
-                    RelationshipInfo relInfo = currentEd.getRelationshipInfo(fieldPathElement)
-                    if (relInfo == null) throw new EntityException("Could not find relationship [${fieldPathElement}] from entity [${currentEd.getFullEntityName()}] as part of DataDocumentField.fieldPath [${fieldPath}]")
-                    String relEntityName = relInfo.relatedEntityName
-                    EntityDefinition relEd = relInfo.relatedEd
+                    EntityJavaUtil.RelationshipInfo relInfo = currentEd.getRelationshipInfo(fieldPathElement)
+                    if (relInfo == null) throw new EntityException("Could not find relationship [${fieldPathElement}] from entity [${currentEd.getFullEntityName()}] as part of DataDocumentField.fieldPath [${fieldPath}]");
+                    String relEntityName = relInfo.relatedEntityName;
+                    EntityDefinition relEd = relInfo.relatedEd;
 
                     // add entry for the related entity
                     if (!entityInfoMap.containsKey(relEntityName)) entityInfoMap.put(relEntityName,
                             new DocumentEntityInfo(relEntityName, dataDocumentId, primaryEntityName,
-                                    currentRelationshipPath.toString()))
+                                    currentRelationshipPath.toString()));
 
                     // add PK fields of the related entity as fields for the current entity so changes on them will also trigger a data feed
-                    Map relKeyMap = relInfo.keyMap
-                    for (String fkFieldName in relKeyMap.keySet()) {
+                    Map relKeyMap = relInfo.keyMap;
+                    for (String fkFieldName : relKeyMap.keySet()) {
                         currentTree.put(fkFieldName, fkFieldName)
                         // save the current field name (not the alias)
                         currentEntityInfo.fields.add(fkFieldName)
@@ -350,7 +332,7 @@ class EntityDataFeed {
         return entityInfoMap
     }
 
-    static class DocumentEntityInfo implements Serializable {
+    public static class DocumentEntityInfo implements Serializable {
         String fullEntityName
         String dataDocumentId
         String primaryEntityName
@@ -381,8 +363,7 @@ class EntityDataFeed {
         }
     }
 
-    @CompileStatic
-    static class DataFeedSynchronization implements Synchronization {
+    public static class DataFeedSynchronization implements Synchronization {
         protected final static Logger logger = LoggerFactory.getLogger(DataFeedSynchronization.class)
 
         protected ExecutionContextFactoryImpl ecfi
@@ -439,7 +420,7 @@ class EntityDataFeed {
         }
     }
 
-    static class FeedRunnable implements Runnable {
+    public static class FeedRunnable implements Runnable {
         private ExecutionContextFactoryImpl ecfi
         private EntityDataFeed edf
         private EntityList feedValues

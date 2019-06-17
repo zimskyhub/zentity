@@ -30,15 +30,16 @@ public class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     public EntityFacadeImpl.DatasourceInfo dsi = null;
 
 
-    EntityDatasourceFactoryImpl() { }
+    EntityDatasourceFactoryImpl() {
+    }
 
     @Override
     public EntityDatasourceFactory init(EntityFacade ef, MNode datasourceNode) {
-        // local fields
+        // 本地字段信息
         this.efi = (EntityFacadeImpl) ef;
         this.datasourceNode = datasourceNode;
 
-        // init the DataSource
+        // 初始化数据源
         dsi = new EntityFacadeImpl.DatasourceInfo(efi, datasourceNode);
         if (dsi.jndiName != null && !dsi.jndiName.isEmpty()) {
             try {
@@ -47,9 +48,12 @@ public class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
                     Hashtable<String, Object> h = new Hashtable<>();
                     h.put(Context.INITIAL_CONTEXT_FACTORY, dsi.serverJndi.attribute("initial-context-factory"));
                     h.put(Context.PROVIDER_URL, dsi.serverJndi.attribute("context-provider-url"));
-                    if (dsi.serverJndi.attribute("url-pkg-prefixes") != null) h.put(Context.URL_PKG_PREFIXES, dsi.serverJndi.attribute("url-pkg-prefixes"));
-                    if (dsi.serverJndi.attribute("security-principal") != null) h.put(Context.SECURITY_PRINCIPAL, dsi.serverJndi.attribute("security-principal"));
-                    if (dsi.serverJndi.attribute("security-credentials") != null) h.put(Context.SECURITY_CREDENTIALS, dsi.serverJndi.attribute("security-credentials"));
+                    if (dsi.serverJndi.attribute("url-pkg-prefixes") != null)
+                        h.put(Context.URL_PKG_PREFIXES, dsi.serverJndi.attribute("url-pkg-prefixes"));
+                    if (dsi.serverJndi.attribute("security-principal") != null)
+                        h.put(Context.SECURITY_PRINCIPAL, dsi.serverJndi.attribute("security-principal"));
+                    if (dsi.serverJndi.attribute("security-credentials") != null)
+                        h.put(Context.SECURITY_CREDENTIALS, dsi.serverJndi.attribute("security-credentials"));
                     ic = new InitialContext(h);
                 } else {
                     ic = new InitialContext();
@@ -57,22 +61,22 @@ public class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
 
                 this.dataSource = (DataSource) ic.lookup(dsi.jndiName);
                 if (this.dataSource == null) {
-                    logger.error("Could not find DataSource with name ["+dsi.jndiName+"] in JNDI server ["+(dsi.serverJndi != null ? dsi.serverJndi.attribute("context-provider-url") : "default")+
-                            "] for datasource with group-name ["+datasourceNode.attribute("group-name")+".");
+                    logger.error("数据源错误: 无法找到名称为 [" + dsi.jndiName + "] 的数据源, 所在 JNDI server 为[" + (dsi.serverJndi != null ? dsi.serverJndi.attribute("context-provider-url") : "default") +
+                            "] 数据源所属组名称为 [" + datasourceNode.attribute("group-name") + ".");
                 }
             } catch (NamingException ne) {
-                logger.error("Error finding DataSource with name ["+dsi.jndiName+"] in JNDI server ["+(dsi.serverJndi != null ? dsi.serverJndi.attribute("context-provider-url") : "default")+
-                        "] for datasource with group-name [${"+datasourceNode.attribute("group-name")+"}].", ne);
+                logger.error("数据源错误: 无法找到名称为 [" + dsi.jndiName + "] 的数据源,所在 JNDI server 为 [" + (dsi.serverJndi != null ? dsi.serverJndi.attribute("context-provider-url") : "default") +
+                        "] 数据源所属组名称为 [${" + datasourceNode.attribute("group-name") + "}].", ne);
             }
         } else if (dsi.inlineJdbc != null) {
-            // special thing for embedded derby, just set an system property; for derby.log, etc
+            // 嵌入式deby的特性，只需设置一个系统属性;
             if (datasourceNode.attribute("database-conf-name").equals("derby") && System.getProperty("derby.system.home") == null) {
-                System.setProperty("derby.system.home", efi.ecfi.runtimePath + "/db/derby")；
-                logger.info("Set property derby.system.home to [${"+System.getProperty("derby.system.home")+"}]");
+                System.setProperty("derby.system.home", efi.ecfi.getRuntimePath() + "/db/derby");
+                logger.info("数据源设置: 设置属性 derby.system.home 的值为 [${" + System.getProperty("derby.system.home") + "}]");
             }
 
-            TransactionInternal ti = efi.ecfi.transactionFacade.getTransactionInternal();
-            // init the DataSource, if it fails for any reason retry a few times
+            TransactionInternal ti = efi.ecfi.getTransaction().getTransactionInternal();
+            // 初始化DataSource，如果失败会重试几次
             for (int retry = 1; retry <= DS_RETRY_COUNT; retry++) {
                 try {
                     this.dataSource = ti.getDataSource(efi, datasourceNode);
@@ -81,8 +85,8 @@ public class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
                     if (retry < DS_RETRY_COUNT) {
                         Throwable cause = t;
                         while (cause.getCause() != null) cause = cause.getCause();
-                        logger.error("Error connecting to DataSource ${"+datasourceNode.attribute("group-name")+"} ("+datasourceNode.attribute("database-conf-name")+
-                                "), try ${"+retry+"} of "+DS_RETRY_COUNT+": "+cause);
+                        logger.error("数据源错误: 无法连接数据源 ${" + datasourceNode.attribute("group-name") + "} (" + datasourceNode.attribute("database-conf-name") +
+                                "), 正在重试,第 ${" + retry + "} / " + DS_RETRY_COUNT + " 次 进程: " + cause + "...");
                         try {
                             sleep(DS_RETRY_SLEEP);
                         } catch (InterruptedException e) {
@@ -94,7 +98,7 @@ public class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
                 }
             }
         } else {
-            throw new EntityException("Found datasource with no jdbc sub-element (in datasource with group-name "+datasourceNode.attribute("group-name")+")");
+            throw new EntityException("数据源错误: 在jdbc sub-element 里没有找到组名为: (" + datasourceNode.attribute("group-name") + ") 的数据源");
         }
 
         return this;
@@ -102,24 +106,33 @@ public class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
 
     @Override
     public void destroy() {
-        // NOTE: TransactionInternal DataSource will be destroyed when the TransactionFacade is destroyed
+        // 注意：销毁TransactionFacade时将销毁TransactionInternal DataSource;
     }
 
     @Override
     public boolean checkTableExists(String entityName) {
         EntityDefinition ed;
-        // just ignore EntityException on getEntityDefinition
-        try { ed = efi.getEntityDefinition(entityName); } catch (EntityException e) { return false; }
-        // may happen if all entity names includes a DB view entity or other that doesn't really exist
+        // 忽略getEntityDefinition上的EntityException
+        try {
+            ed = efi.getEntityDefinition(entityName);
+        } catch (EntityException e) {
+            return false;
+        }
+        // 如果所有实体名称里包含DB视图实体或其他不存在的实体，则可能会发生
         if (ed == null) return false;
         return ed.tableExistsDbMetaOnly();
     }
+
     @Override
     public boolean checkAndAddTable(String entityName) {
         EntityDefinition ed;
-        // just ignore EntityException on getEntityDefinition
-        try { ed = efi.getEntityDefinition(entityName); } catch (EntityException e) { return false; }
-        // may happen if all entity names includes a DB view entity or other that doesn't really exist
+        // 忽略getEntityDefinition上的EntityException
+        try {
+            ed = efi.getEntityDefinition(entityName);
+        } catch (EntityException e) {
+            return false;
+        }
+        // 如果所有实体名称里包含DB视图实体或其他不存在的实体，则可能会发生
         if (ed == null) return false;
         return efi.getEntityDbMeta().checkTableStartup(ed);
     }
@@ -127,13 +140,17 @@ public class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     @Override
     public EntityValue makeEntityValue(String entityName) {
         EntityDefinition entityDefinition = efi.getEntityDefinition(entityName);
-        if (entityDefinition == null) throw new EntityException("Entity not found for name [${entityName}]");
+        if (entityDefinition == null) throw new EntityException("实体名称错误: 没有找到名称为 [" + entityName + "] 的实体");
         return new EntityValueImpl(entityDefinition, efi);
     }
 
     @Override
-    public EntityFind makeEntityFind(String entityName) { return new EntityFindImpl(efi, entityName); }
+    public EntityFind makeEntityFind(String entityName) {
+        return new EntityFindImpl(efi, entityName);
+    }
 
     @Override
-    public DataSource getDataSource() { return dataSource; }
+    public DataSource getDataSource() {
+        return dataSource;
+    }
 }

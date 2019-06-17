@@ -58,6 +58,8 @@ public interface TransactionFacade {
     /** Run in a separate transaction, even if one is in place. */
     Object runRequireNew(Integer timeout, String rollbackMessage, Closure closure);
 
+    TransactionInternal getTransactionInternal();
+
     javax.transaction.TransactionManager getTransactionManager();
     javax.transaction.UserTransaction getUserTransaction();
 

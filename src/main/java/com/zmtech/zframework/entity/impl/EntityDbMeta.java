@@ -1,537 +1,532 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
-package com.zmtech.zframework.entity.impl
+package com.zmtech.zframework.entity.impl;
 
-import com.zmtech.zframework.util.EntityJavaUtil;
-import groovy.transform.CompileStatic
-import org.moqui.entity.EntityException
-import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
-import org.moqui.util.CollectionUtilities
-import org.moqui.util.MNode
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import com.zmtech.zframework.exception.EntityException;
+import com.zmtech.zframework.util.CollectionUtil;
+import com.zmtech.zframework.util.EntityJavaUtil.*;
+import com.zmtech.zframework.util.MNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.sql.*
-import java.util.TreeSet;
-import java.util.concurrent.locks.ReentrantLock
+import java.sql.*;
+import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
-@CompileStatic
-class EntityDbMeta {
-    protected final static Logger logger = LoggerFactory.getLogger(EntityDbMeta.class)
 
-    static final boolean useTxForMetaData = false
+public class EntityDbMeta {
+    protected final static Logger logger = LoggerFactory.getLogger(EntityDbMeta.class);
+
+    static final boolean useTxForMetaData = false;
 
     // this keeps track of when tables are checked and found to exist or are created
-    protected HashMap<String, Timestamp> entityTablesChecked = new HashMap<>()
+    protected HashMap<String, Timestamp> entityTablesChecked = new HashMap<>();
     // a separate Map for tables checked to exist only (used in finds) so repeated checks are needed for unused entities
-    protected HashMap<String, Boolean> entityTablesExist = new HashMap<>()
+    protected HashMap<String, Boolean> entityTablesExist = new HashMap<>();
 
-    protected HashMap<String, Boolean> runtimeAddMissingMap = new HashMap<>()
+    protected HashMap<String, Boolean> runtimeAddMissingMap = new HashMap<>();
 
-    protected EntityFacadeImpl efi
+    protected EntityFacadeImpl efi;
 
-    EntityDbMeta(EntityFacadeImpl efi) { this.efi = efi }
+    public EntityDbMeta(EntityFacadeImpl efi) { this.efi = efi; }
 
-    boolean checkTableRuntime(EntityDefinition ed) {
-        EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
+    public boolean checkTableRuntime(EntityDefinition ed) {
+        EntityInfo entityInfo = ed.entityInfo;
         // most common case: not view entity and already checked
-        boolean alreadyChecked = entityTablesChecked.containsKey(entityInfo.fullEntityName)
-        if (alreadyChecked) return false
+        boolean alreadyChecked = entityTablesChecked.containsKey(entityInfo.fullEntityName);
+        if (alreadyChecked) return false;
 
-        String groupName = entityInfo.groupName
-        Boolean runtimeAddMissing = (Boolean) runtimeAddMissingMap.get(groupName)
+        String groupName = entityInfo.groupName;
+        Boolean runtimeAddMissing = (Boolean) runtimeAddMissingMap.get(groupName);
         if (runtimeAddMissing == null) {
-            MNode datasourceNode = efi.getDatasourceNode(groupName)
-            MNode dbNode = efi.getDatabaseNode(groupName)
-            String ramAttr = datasourceNode?.attribute("runtime-add-missing")
-            runtimeAddMissing = ramAttr ? !"false".equals(ramAttr) : !"false".equals(dbNode.attribute("default-runtime-add-missing"))
-            runtimeAddMissingMap.put(groupName, runtimeAddMissing)
+            MNode datasourceNode = efi.getDatasourceNode(groupName);
+            MNode dbNode = efi.getDatabaseNode(groupName);
+            String ramAttr = datasourceNode !=null ?datasourceNode.attribute("runtime-add-missing"):null;
+            runtimeAddMissing = ramAttr!= null ? !"false".equals(ramAttr) : !"false".equals(dbNode.attribute("default-runtime-add-missing"));
+            runtimeAddMissingMap.put(groupName, runtimeAddMissing);
         }
-        if (!runtimeAddMissing.booleanValue()) return false
+        if (!runtimeAddMissing.booleanValue()) return false;
 
         if (entityInfo.isView) {
-            boolean tableCreated = false
-            for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
-                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
-                if (checkTableRuntime(med)) tableCreated = true
+            boolean tableCreated = false;
+            for (MNode memberEntityNode : ed.getEntityNode().children("member-entity")) {
+                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"));
+                if (checkTableRuntime(med)) tableCreated = true;
             }
-            return tableCreated
+            return tableCreated;
         } else {
             // already looked above to see if this entity has been checked
             // do the real check, in a synchronized method
-            return internalCheckTable(ed, false)
+            return internalCheckTable(ed, false);
         }
     }
-    boolean checkTableStartup(EntityDefinition ed) {
+    public boolean checkTableStartup(EntityDefinition ed) {
         if (ed.isViewEntity) {
-            boolean tableCreated = false
-            for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
-                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
-                if (checkTableStartup(med)) tableCreated = true
+            boolean tableCreated = false;
+            for (MNode memberEntityNode : ed.getEntityNode().children("member-entity")) {
+                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"));
+                if (checkTableStartup(med)) tableCreated = true;
             }
-            return tableCreated
+            return tableCreated;
         } else {
-            return internalCheckTable(ed, true)
+            return internalCheckTable(ed, true);
         }
     }
 
-    void forceCheckTableRuntime(EntityDefinition ed) {
-        entityTablesExist.remove(ed.getFullEntityName())
-        entityTablesChecked.remove(ed.getFullEntityName())
-        checkTableRuntime(ed)
+    public void forceCheckTableRuntime(EntityDefinition ed) {
+        entityTablesExist.remove(ed.getFullEntityName());
+        entityTablesChecked.remove(ed.getFullEntityName());
+        checkTableRuntime(ed);
     }
-    void forceCheckExistingTables() {
-        entityTablesExist.clear()
-        entityTablesChecked.clear()
-        for (String entityName in efi.getAllEntityNames()) {
-            EntityDefinition ed = efi.getEntityDefinition(entityName)
-            if (ed.isViewEntity) continue
-            if (tableExists(ed)) checkTableRuntime(ed)
+    public void forceCheckExistingTables() {
+        entityTablesExist.clear();
+        entityTablesChecked.clear();
+        for (String entityName : efi.getAllEntityNames()) {
+            EntityDefinition ed = efi.getEntityDefinition(entityName);
+            if (ed.isViewEntity) continue;
+            if (tableExists(ed)) checkTableRuntime(ed);
         }
     }
 
-    synchronized boolean internalCheckTable(EntityDefinition ed, boolean startup) {
+    public synchronized boolean internalCheckTable(EntityDefinition ed, boolean startup) {
         // if it's in this table we've already checked it
-        if (entityTablesChecked.containsKey(ed.getFullEntityName())) return false
+        if (entityTablesChecked.containsKey(ed.getFullEntityName())) return false;
 
-        MNode datasourceNode = efi.getDatasourceNode(ed.getEntityGroupName())
+        MNode datasourceNode = efi.getDatasourceNode(ed.getEntityGroupName());
         // if there is no @database-conf-name skip this, it's probably not a SQL/JDBC datasource
-        if (!datasourceNode.attribute('database-conf-name')) return false
+        if (datasourceNode.attribute("database-conf-name") == null) return false;
 
-        long startTime = System.currentTimeMillis()
-        boolean doCreate = !tableExists(ed)
+        long startTime = System.currentTimeMillis();
+        boolean doCreate = !tableExists(ed);
         if (doCreate) {
-            createTable(ed)
+            createTable(ed);
             // create explicit and foreign key auto indexes
-            createIndexes(ed)
+            createIndexes(ed);
             // create foreign keys to all other tables that exist
-            createForeignKeys(ed, false)
+            createForeignKeys(ed, false);
         } else {
             // table exists, see if it is missing any columns
-            ArrayList<FieldInfo> mcs = getMissingColumns(ed)
-            int mcsSize = mcs.size()
-            for (int i = 0; i < mcsSize; i++) addColumn(ed, (FieldInfo) mcs.get(i))
+            ArrayList<FieldInfo> mcs = getMissingColumns(ed);
+            int mcsSize = mcs.size();
+            for (int i = 0; i < mcsSize; i++) addColumn(ed, (FieldInfo) mcs.get(i));
             // create foreign keys after checking each to see if it already exists
             if (startup) {
-                createForeignKeys(ed, true)
+                createForeignKeys(ed, true);
             } else {
-                MNode dbNode = efi.getDatabaseNode(ed.getEntityGroupName())
-                String runtimeAddFks = datasourceNode.attribute("runtime-add-fks") ?: "true"
-                if ((!runtimeAddFks && "true".equals(dbNode.attribute("default-runtime-add-fks"))) || "true".equals(runtimeAddFks))
-                    createForeignKeys(ed, true)
+                MNode dbNode = efi.getDatabaseNode(ed.getEntityGroupName());
+                String runtimeAddFks = datasourceNode.attribute("runtime-add-fks") !=null ? datasourceNode.attribute("runtime-add-fks"): "true";
+                if ((runtimeAddFks == null && "true".equals(dbNode.attribute("default-runtime-add-fks"))) || "true".equals(runtimeAddFks))
+                    createForeignKeys(ed, true);
             }
         }
-        entityTablesChecked.put(ed.getFullEntityName(), new Timestamp(System.currentTimeMillis()))
-        entityTablesExist.put(ed.getFullEntityName(), true)
+        entityTablesChecked.put(ed.getFullEntityName(), new Timestamp(System.currentTimeMillis()));
+        entityTablesExist.put(ed.getFullEntityName(), true);
 
-        if (logger.isTraceEnabled()) logger.trace("Checked table for entity [${ed.getFullEntityName()}] in ${(System.currentTimeMillis()-startTime)/1000} seconds")
-        return doCreate
+        if (logger.isTraceEnabled()) logger.trace("Checked table for entity [${ed.getFullEntityName()}] in ${(System.currentTimeMillis()-startTime)/1000} seconds");
+        return doCreate;
     }
 
-    boolean tableExists(EntityDefinition ed) {
-        Boolean exists = entityTablesExist.get(ed.getFullEntityName())
-        if (exists != null) return exists.booleanValue()
+    public boolean tableExists(EntityDefinition ed) {
+        Boolean exists = entityTablesExist.get(ed.getFullEntityName());
+        if (exists != null) return exists.booleanValue();
 
-        return tableExistsInternal(ed)
+        return tableExistsInternal(ed);
     }
-    synchronized boolean tableExistsInternal(EntityDefinition ed) {
-        Boolean exists = entityTablesExist.get(ed.getFullEntityName())
-        if (exists != null) return exists.booleanValue()
+    public synchronized boolean tableExistsInternal(EntityDefinition ed) {
+        Boolean exists = entityTablesExist.get(ed.getFullEntityName());
+        if (exists != null) return exists.booleanValue();
 
-        Boolean dbResult = null
+        Boolean dbResult = null;
         if (ed.isViewEntity) {
-            boolean anyExist = false
-            for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
-                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
-                if (tableExists(med)) { anyExist = true; break }
+            boolean anyExist = false;
+            for (MNode memberEntityNode : ed.getEntityNode().children("member-entity")) {
+                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"));
+                if (tableExists(med)) { anyExist = true; break; }
             }
-            dbResult = anyExist
+            dbResult = anyExist;
         } else {
-            String groupName = ed.getEntityGroupName()
-            Connection con = null
-            ResultSet tableSet1 = null
-            ResultSet tableSet2 = null
-            boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
+            String groupName = ed.getEntityGroupName();
+            Connection con = null;
+            ResultSet tableSet1 = null;
+            ResultSet tableSet2 = null;
+            boolean beganTx = useTxForMetaData ? efi.ecfi.getTransaction().begin(5) : false;
             try {
-                con = efi.getConnection(groupName)
-                DatabaseMetaData dbData = con.getMetaData()
+                con = efi.getConnection(groupName);
+                DatabaseMetaData dbData = con.getMetaData();
 
-                String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM"]
-                tableSet1 = dbData.getTables(null, ed.getSchemaName(), ed.getTableName(), types)
+                String[] types = new String[]{"TABLE", "VIEW", "ALIAS", "SYNONYM"};
+                tableSet1 = dbData.getTables(null, ed.getSchemaName(), ed.getTableName(), types);
                 if (tableSet1.next()) {
-                    dbResult = true
+                    dbResult = true;
                 } else {
                     // try lower case, just in case DB is case sensitive
-                    tableSet2 = dbData.getTables(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), types)
+                    tableSet2 = dbData.getTables(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), types);
                     if (tableSet2.next()) {
-                        dbResult = true
+                        dbResult = true;
                     } else {
-                        if (logger.isTraceEnabled()) logger.trace("Table for entity ${ed.getFullEntityName()} does NOT exist")
-                        dbResult = false
+                        if (logger.isTraceEnabled()) logger.trace("Table for entity ${ed.getFullEntityName()} does NOT exist");
+                        dbResult = false;
                     }
                 }
             } catch (Exception e) {
-                throw new EntityException("Exception checking to see if table ${ed.getTableName()} exists", e)
+                throw new EntityException("Exception checking to see if table ${ed.getTableName()} exists", e);
             } finally {
-                if (tableSet1 != null && !tableSet1.isClosed()) tableSet1.close()
-                if (tableSet2 != null && !tableSet2.isClosed()) tableSet2.close()
-                if (con != null) con.close()
-                if (beganTx) efi.ecfi.transactionFacade.commit()
+                try {
+                    if (tableSet1 != null && !tableSet1.isClosed()) tableSet1.close();
+                    if (tableSet2 != null && !tableSet2.isClosed()) tableSet2.close();
+                    if (con != null) con.close();
+                    if (beganTx) efi.ecfi.getTransaction().commit();
+                } catch (SQLException e) {
+                    throw new EntityException("Exception checking to see if table ${ed.getTableName()} exists", e);
+                }
+
             }
         }
 
-        if (dbResult == null) throw new EntityException("No result checking if entity ${ed.getFullEntityName()} table exists")
+        if (dbResult == null) throw new EntityException("No result checking if entity ${ed.getFullEntityName()} table exists");
 
         if (dbResult && !ed.isViewEntity) {
             // on the first check also make sure all columns/etc exist; we'll do this even on read/exist check otherwise query will blow up when doesn't exist
-            ArrayList<FieldInfo> mcs = getMissingColumns(ed)
-            int mcsSize = mcs.size()
-            for (int i = 0; i < mcsSize; i++) addColumn(ed, (FieldInfo) mcs.get(i))
+            ArrayList<FieldInfo> mcs = getMissingColumns(ed);
+            int mcsSize = mcs.size();
+            for (int i = 0; i < mcsSize; i++) addColumn(ed, (FieldInfo) mcs.get(i));
         }
         // don't remember the result for view-entities, get if from member-entities... if we remember it we have to set
         //     it for all view-entities when a member-entity is created
-        if (!ed.isViewEntity) entityTablesExist.put(ed.getFullEntityName(), dbResult)
-        return dbResult
+        if (!ed.isViewEntity) entityTablesExist.put(ed.getFullEntityName(), dbResult);
+        return dbResult;
     }
 
-    void createTable(EntityDefinition ed) {
-        if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create table")
-        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create table for a view entity")
+    public void createTable(EntityDefinition ed) {
+        if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create table");
+        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create table for a view entity");
 
-        String groupName = ed.getEntityGroupName()
-        MNode databaseNode = efi.getDatabaseNode(groupName)
+        String groupName = ed.getEntityGroupName();
+        MNode databaseNode = efi.getDatabaseNode(groupName);
 
-        StringBuilder sql = new StringBuilder("CREATE TABLE ").append(ed.getFullTableName()).append(" (")
+        StringBuilder sql = new StringBuilder("CREATE TABLE ").append(ed.getFullTableName()).append(" (");
 
-        FieldInfo[] allFieldInfoArray = ed.entityInfo.allFieldInfoArray
+        FieldInfo[] allFieldInfoArray = ed.entityInfo.allFieldInfoArray;
         for (int i = 0; i < allFieldInfoArray.length; i++) {
-            FieldInfo fi = (FieldInfo) allFieldInfoArray[i]
-            MNode fieldNode = fi.fieldNode
-            String sqlType = efi.getFieldSqlType(fi.type, ed)
-            String javaType = fi.javaType
+            FieldInfo fi = (FieldInfo) allFieldInfoArray[i];
+            MNode fieldNode = fi.fieldNode;
+            String sqlType = efi.getFieldSqlType(fi.type, ed);
+            String javaType = fi.javaType;
 
-            sql.append(fi.columnName).append(" ").append(sqlType)
+            sql.append(fi.columnName).append(" ").append(sqlType);
 
-            if ("String" == javaType || "java.lang.String" == javaType) {
-                if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))
-                if (databaseNode.attribute("collate")) sql.append(" COLLATE ").append(databaseNode.attribute("collate"))
+            if ("String".equals(javaType)  || "java.lang.String".equals(javaType) ) {
+                if (databaseNode.attribute("character-set") != null) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"));
+                if (databaseNode.attribute("collate") != null) sql.append(" COLLATE ").append(databaseNode.attribute("collate"));
             }
 
-            if (fi.isPk || fieldNode.attribute("not-null") == "true") {
-                if (databaseNode.attribute("always-use-constraint-keyword") == "true") sql.append(" CONSTRAINT")
-                sql.append(" NOT NULL")
+            if (fi.isPk || fieldNode.attribute("not-null").equals(true)) {
+                if (databaseNode.attribute("always-use-constraint-keyword") == "true") sql.append(" CONSTRAINT");
+                sql.append(" NOT NULL");
             }
-            sql.append(", ")
+            sql.append(", ");
         }
 
-        if (databaseNode.attribute("use-pk-constraint-names") != "false") {
-            String pkName = "PK_" + ed.getTableName()
-            int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
-            if (pkName.length() > constraintNameClipLength) pkName = pkName.substring(0, constraintNameClipLength)
-            sql.append("CONSTRAINT ")
-            if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
-            sql.append(pkName)
+        if (!databaseNode.attribute("use-pk-constraint-names").equals("false")) {
+            String pkName = "PK_" + ed.getTableName();
+            int constraintNameClipLength = Integer.valueOf(databaseNode.attribute("constraint-name-clip-length") != null? databaseNode.attribute("constraint-name-clip-length"):"30");
+            if (pkName.length() > constraintNameClipLength) pkName = pkName.substring(0, constraintNameClipLength);
+            sql.append("CONSTRAINT ");
+            if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() != null && !ed.getSchemaName().isEmpty()? ed.getSchemaName() + "." : "");
+            sql.append(pkName);
         }
-        sql.append(" PRIMARY KEY (")
+        sql.append(" PRIMARY KEY (");
 
-        FieldInfo[] pkFieldInfoArray = ed.entityInfo.pkFieldInfoArray
+        FieldInfo[] pkFieldInfoArray = ed.entityInfo.pkFieldInfoArray;
         for (int i = 0; i < pkFieldInfoArray.length; i++) {
-            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
-            if (i > 0) sql.append(", ")
-            sql.append(fi.getFullColumnName())
+            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i];
+            if (i > 0) sql.append(", ");
+            sql.append(fi.getFullColumnName());
         }
-        sql.append("))")
+        sql.append("))");
 
         // some MySQL-specific inconveniences...
-        if (databaseNode.attribute("table-engine")) sql.append(" ENGINE ").append(databaseNode.attribute("table-engine"))
-        if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))
-        if (databaseNode.attribute("collate")) sql.append(" COLLATE ").append(databaseNode.attribute("collate"))
+        if (databaseNode.attribute("table-engine") != null) sql.append(" ENGINE ").append(databaseNode.attribute("table-engine"));
+        if (databaseNode.attribute("character-set") != null) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"));
+        if (databaseNode.attribute("collate")!= null) sql.append(" COLLATE ").append(databaseNode.attribute("collate"));
 
-        logger.info("Creating table for ${ed.getFullEntityName()} pks: ${ed.getPkFieldNames()}")
-        if (logger.traceEnabled) logger.trace("Create Table with SQL: " + sql.toString())
+        logger.info("Creating table for ${ed.getFullEntityName()} pks: ${ed.getPkFieldNames()}");
+        if (logger.isTraceEnabled()) logger.trace("Create Table with SQL: " + sql.toString());
 
-        runSqlUpdate(sql, groupName)
-        if (logger.infoEnabled) logger.info("Created table ${ed.getFullTableName()} for entity ${ed.getFullEntityName()} in group ${groupName}")
+        runSqlUpdate(sql, groupName);
+        if (logger.isInfoEnabled()) logger.info("Created table ${ed.getFullTableName()} for entity ${ed.getFullEntityName()} in group ${groupName}");
     }
 
-    ArrayList<FieldInfo> getMissingColumns(EntityDefinition ed) {
-        if (ed.isViewEntity) return new ArrayList<FieldInfo>()
+    public ArrayList<FieldInfo> getMissingColumns(EntityDefinition ed) {
+        if (ed.isViewEntity) return new ArrayList<FieldInfo>();
 
-        String groupName = ed.getEntityGroupName()
-        Connection con = null
-        ResultSet colSet1 = null
-        ResultSet colSet2 = null
-        boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
+        String groupName = ed.getEntityGroupName();
+        Connection con = null;
+        ResultSet colSet1 = null;
+        ResultSet colSet2 = null;
+        boolean beganTx = useTxForMetaData ? efi.ecfi.getTransaction().begin(5) : false;
         try {
-            con = efi.getConnection(groupName)
-            DatabaseMetaData dbData = con.getMetaData()
+            con = efi.getConnection(groupName);
+            DatabaseMetaData dbData = con.getMetaData();
             // con.setAutoCommit(false)
 
-            ArrayList<FieldInfo> fieldInfos = new ArrayList<>(ed.allFieldInfoList)
-            int fieldCount = fieldInfos.size()
-            colSet1 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName(), "%")
+            ArrayList<FieldInfo> fieldInfos = new ArrayList<>(ed.allFieldInfoList);
+            int fieldCount = fieldInfos.size();
+            colSet1 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName(), "%");
             if (colSet1.isClosed()) {
-                logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
-                return new ArrayList<FieldInfo>()
+                logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!");
+                return new ArrayList<>();
             }
             while (colSet1.next()) {
-                String colName = colSet1.getString("COLUMN_NAME")
-                int fieldInfosSize = fieldInfos.size()
+                String colName = colSet1.getString("COLUMN_NAME");
+                int fieldInfosSize = fieldInfos.size();
                 for (int i = 0; i < fieldInfosSize; i++) {
-                    FieldInfo fi = (FieldInfo) fieldInfos.get(i)
-                    if (fi.columnName == colName || fi.columnName.toLowerCase() == colName) {
-                        fieldInfos.remove(i)
-                        break
+                    FieldInfo fi = fieldInfos.get(i);
+                    if (fi.columnName.equals(colName)  || fi.columnName.toLowerCase().equals(colName)) {
+                        fieldInfos.remove(i);
+                        break;
                     }
                 }
             }
 
             if (fieldInfos.size() == fieldCount) {
                 // try lower case table name
-                colSet2 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), "%")
+                colSet2 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), "%");
                 if (colSet2.isClosed()) {
-                    logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
-                    return new ArrayList<FieldInfo>()
+                    logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!");
+                    return new ArrayList<>();
                 }
                 while (colSet2.next()) {
-                    String colName = colSet2.getString("COLUMN_NAME")
-                    int fieldInfosSize = fieldInfos.size()
+                    String colName = colSet2.getString("COLUMN_NAME");
+                    int fieldInfosSize = fieldInfos.size();
                     for (int i = 0; i < fieldInfosSize; i++) {
-                        FieldInfo fi = (FieldInfo) fieldInfos.get(i)
-                        if (fi.columnName == colName || fi.columnName.toLowerCase() == colName) {
-                            fieldInfos.remove(i)
-                            break
+                        FieldInfo fi = fieldInfos.get(i);
+                        if (fi.columnName.equals(colName)  || fi.columnName.toLowerCase().equals(colName)) {
+                            fieldInfos.remove(i);
+                            break;
                         }
                     }
                 }
 
                 if (fieldInfos.size() == fieldCount) {
-                    logger.warn("Could not find any columns to match fields for entity ${ed.getFullEntityName()}")
-                    return new ArrayList<FieldInfo>()
+                    logger.warn("Could not find any columns to match fields for entity ${ed.getFullEntityName()}");
+                    return new ArrayList<>();
                 }
             }
-            return fieldInfos
+            return fieldInfos;
         } catch (Exception e) {
-            logger.error("Exception checking for missing columns in table ${ed.getTableName()}", e)
-            return new ArrayList<FieldInfo>()
+            logger.error("Exception checking for missing columns in table ${ed.getTableName()}", e);
+            return new ArrayList<>();
         } finally {
-            if (colSet1 != null && !colSet1.isClosed()) colSet1.close()
-            if (colSet2 != null && !colSet2.isClosed()) colSet2.close()
-            if (con != null && !con.isClosed()) con.close()
-            if (beganTx) efi.ecfi.transactionFacade.commit()
+            try {
+                if (colSet2 != null && !colSet2.isClosed()) colSet2.close();
+                if (con != null && !con.isClosed()) con.close();
+                if (beganTx) efi.ecfi.getTransaction().commit();
+            } catch (SQLException e) {
+                e.printStackTrace();
+                throw new EntityException("Exception checking to see if table ${ed.getTableName()} exists", e);
+            }
+
         }
     }
 
-    void addColumn(EntityDefinition ed, FieldInfo fi) {
-        if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot add column")
-        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot add column for a view entity")
+    public void addColumn(EntityDefinition ed, FieldInfo fi) {
+        if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot add column");
+        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot add column for a view entity");
 
-        String groupName = ed.getEntityGroupName()
-        MNode databaseNode = efi.getDatabaseNode(groupName)
+        String groupName = ed.getEntityGroupName();
+        MNode databaseNode = efi.getDatabaseNode(groupName);
 
-        MNode fieldNode = fi.fieldNode
+        MNode fieldNode = fi.fieldNode;
 
-        String sqlType = efi.getFieldSqlType(fieldNode.attribute("type"), ed)
-        String javaType = efi.getFieldJavaType(fieldNode.attribute("type"), ed)
+        String sqlType = efi.getFieldSqlType(fieldNode.attribute("type"), ed);
+        String javaType = efi.getFieldJavaType(fieldNode.attribute("type"), ed);
 
-        StringBuilder sql = new StringBuilder("ALTER TABLE ").append(ed.getFullTableName())
-        String colName = fi.columnName
+        StringBuilder sql = new StringBuilder("ALTER TABLE ").append(ed.getFullTableName());
+        String colName = fi.columnName;
         // NOTE: if any databases need "ADD COLUMN" instead of just "ADD", change this to try both or based on config
-        sql.append(" ADD ").append(colName).append(" ").append(sqlType)
+        sql.append(" ADD ").append(colName).append(" ").append(sqlType);
 
-        if ("String" == javaType || "java.lang.String" == javaType) {
-            if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))
-            if (databaseNode.attribute("collate")) sql.append(" COLLATE ").append(databaseNode.attribute("collate"))
+        if ("String".equals(javaType)  || "java.lang.String".equals(javaType) ) {
+            if (databaseNode.attribute("character-set") != null) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"));
+            if (databaseNode.attribute("collate") != null) sql.append(" COLLATE ").append(databaseNode.attribute("collate"));
         }
 
-        runSqlUpdate(sql, groupName)
-        if (logger.infoEnabled) logger.info("Added column ${colName} to table ${ed.tableName} for field ${fi.name} of entity ${ed.getFullEntityName()} in group ${groupName}")
+        runSqlUpdate(sql, groupName);
+        if (logger.isInfoEnabled()) logger.info("Added column ${colName} to table ${ed.tableName} for field ${fi.name} of entity ${ed.getFullEntityName()} in group ${groupName}");
     }
 
-    void createIndexes(EntityDefinition ed) {
-        if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create indexes")
-        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create indexes for a view entity")
+    public void createIndexes(EntityDefinition ed) {
+        if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create indexes");
+        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create indexes for a view entity");
 
-        String groupName = ed.getEntityGroupName()
-        MNode databaseNode = efi.getDatabaseNode(groupName)
+        String groupName = ed.getEntityGroupName();
+        MNode databaseNode = efi.getDatabaseNode(groupName);
 
-        if (databaseNode.attribute("use-indexes") == "false") return
+        if (databaseNode.attribute("use-indexes").equals("false")) return;
 
-        int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
+        int constraintNameClipLength = Integer.valueOf(databaseNode.attribute("constraint-name-clip-length") != null? databaseNode.attribute("constraint-name-clip-length"):"30");
 
         // first do index elements
-        for (MNode indexNode in ed.entityNode.children("index")) {
-            StringBuilder sql = new StringBuilder("CREATE ")
-            if (databaseNode.attribute("use-indexes-unique") != "false" && indexNode.attribute("unique") == "true") {
-                sql.append("UNIQUE ")
-                if (databaseNode.attribute("use-indexes-unique-where-not-null") == "true") sql.append("WHERE NOT NULL ")
+        for (MNode indexNode : ed.getEntityNode().children("index")) {
+            StringBuilder sql = new StringBuilder("CREATE ");
+            if (!databaseNode.attribute("use-indexes-unique").equals("false") && indexNode.attribute("unique").equals("true")) {
+                sql.append("UNIQUE ");
+                if (databaseNode.attribute("use-indexes-unique-where-not-null").equals("true")) sql.append("WHERE NOT NULL ");
             }
-            sql.append("INDEX ")
-            if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
-            sql.append(indexNode.attribute("name")).append(" ON ").append(ed.getFullTableName())
+            sql.append("INDEX ");
+            if (databaseNode.attribute("use-schema-for-all").equals("true")) sql.append(ed.getSchemaName() != null && !ed.getSchemaName().isEmpty()? ed.getSchemaName() + "." : "");
+            sql.append(indexNode.attribute("name")).append(" ON ").append(ed.getFullTableName());
 
-            sql.append(" (")
-            boolean isFirst = true
-            for (MNode indexFieldNode in indexNode.children("index-field")) {
-                if (isFirst) isFirst = false else sql.append(", ")
-                sql.append(ed.getColumnName(indexFieldNode.attribute("name")))
+            sql.append(" (");
+            boolean isFirst = true;
+            for (MNode indexFieldNode : indexNode.children("index-field")) {
+                if (isFirst) isFirst = false; else sql.append(", ");
+                sql.append(ed.getColumnName(indexFieldNode.attribute("name")));
             }
-            sql.append(")")
+            sql.append(")");
 
-            runSqlUpdate(sql, groupName)
+            runSqlUpdate(sql, groupName);
         }
 
         // do fk auto indexes
-        if (databaseNode.attribute("use-foreign-key-indexes") == "false") return
-        for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
-            if (relInfo.type != "one") continue
+        if (databaseNode.attribute("use-foreign-key-indexes") == "false") return;
+        for (RelationshipInfo relInfo : ed.getRelationshipsInfo(false)) {
+            if (relInfo.type.equals("one")) continue;
 
-            String indexName = makeFkIndexName(ed, relInfo, constraintNameClipLength)
-            StringBuilder sql = new StringBuilder("CREATE INDEX ")
-            if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
-            sql.append(indexName).append(" ON ").append(ed.getFullTableName())
+            String indexName = makeFkIndexName(ed, relInfo, constraintNameClipLength);
+            StringBuilder sql = new StringBuilder("CREATE INDEX ");
+            if (databaseNode.attribute("use-schema-for-all").equals("true")) sql.append(ed.getSchemaName() != null && !ed.getSchemaName().isEmpty() ? ed.getSchemaName() + "." : "");
+            sql.append(indexName).append(" ON ").append(ed.getFullTableName());
 
-            sql.append(" (")
-            Map keyMap = relInfo.keyMap
-            boolean isFirst = true
-            for (String fieldName in keyMap.keySet()) {
-                if (isFirst) isFirst = false else sql.append(", ")
-                sql.append(ed.getColumnName(fieldName))
+            sql.append(" (");
+            Map<String,String> keyMap = relInfo.keyMap;
+            boolean isFirst = true;
+            for (String fieldName : keyMap.keySet()) {
+                if (isFirst) isFirst = false; else sql.append(", ");
+                sql.append(ed.getColumnName(fieldName));
             }
-            sql.append(")")
+            sql.append(")");
 
             // logger.warn("====== create relationship index [${indexName}] for entity [${ed.getFullEntityName()}]")
-            runSqlUpdate(sql, groupName)
+            runSqlUpdate(sql, groupName);
         }
     }
 
-    static String makeFkIndexName(EntityDefinition ed, RelationshipInfo relInfo, int constraintNameClipLength) {
-        String relatedEntityName = relInfo.relatedEd.entityInfo.internalEntityName
-        StringBuilder indexName = new StringBuilder()
-        if (relInfo.relNode.attribute("fk-name")) indexName.append(relInfo.relNode.attribute("fk-name"))
-        if (!indexName) {
-            String title = relInfo.title ?: ""
-            String edEntityName = ed.entityInfo.internalEntityName
-            int edEntityNameLength = edEntityName.length()
+    public static String makeFkIndexName(EntityDefinition ed, RelationshipInfo relInfo, int constraintNameClipLength) {
+        String relatedEntityName = relInfo.relatedEd.entityInfo.internalEntityName;
+        StringBuilder indexName = new StringBuilder();
+        if (relInfo.relNode.attribute("fk-name") != null) indexName.append(relInfo.relNode.attribute("fk-name"));
+        if (indexName==null) {
+            String title = relInfo.title != null ?relInfo.title: "";
+            String edEntityName = ed.entityInfo.internalEntityName;
+            int edEntityNameLength = edEntityName.length();
 
-            int commonChars = 0
+            int commonChars = 0;
             while (title.length() > commonChars && edEntityNameLength > commonChars &&
-                    title.charAt(commonChars) == edEntityName.charAt(commonChars)) commonChars++
+                    title.charAt(commonChars) == edEntityName.charAt(commonChars)) commonChars++;
 
-            int relLength = relatedEntityName.length()
-            int relEndCommonChars = relatedEntityName.length() - 1
+            int relLength = relatedEntityName.length();
+            int relEndCommonChars = relatedEntityName.length() - 1;
             while (relEndCommonChars > 0 && edEntityNameLength > relEndCommonChars &&
                     relatedEntityName.charAt(relEndCommonChars) == edEntityName.charAt(edEntityNameLength - (relLength - relEndCommonChars)))
-                relEndCommonChars--
+                relEndCommonChars--;
 
             if (commonChars > 0) {
-                indexName.append(edEntityName)
-                for (char cc in title.substring(0, commonChars).chars) if (Character.isUpperCase(cc)) indexName.append(cc)
-                indexName.append(title.substring(commonChars))
-                indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
-                if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
-                if (Character.isUpperCase(cc)) indexName.append(cc)
+                indexName.append(edEntityName);
+                for (char cc : title.substring(0, commonChars).toCharArray()) if (Character.isUpperCase(cc)) indexName.append(cc);
+                indexName.append(title.substring(commonChars));
+                indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1));
+                if (relEndCommonChars < (relLength - 1)) for (char cc : relatedEntityName.substring(relEndCommonChars + 1).toCharArray())
+                if (Character.isUpperCase(cc)) indexName.append(cc);
             } else {
-                indexName.append(edEntityName).append(title)
-                indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
-                if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
-                if (Character.isUpperCase(cc)) indexName.append(cc)
+                indexName.append(edEntityName).append(title);
+                indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1));
+                if (relEndCommonChars < (relLength - 1)) for (char cc : relatedEntityName.substring(relEndCommonChars + 1).toCharArray())
+                if (Character.isUpperCase(cc)) indexName.append(cc);
             }
 
             // logger.warn("Index for entity [${ed.getFullEntityName()}], title=${title}, commonChars=${commonChars}, indexName=${indexName}")
             // logger.warn("Index for entity [${ed.getFullEntityName()}], relatedEntityName=${relatedEntityName}, relEndCommonChars=${relEndCommonChars}, indexName=${indexName}")
         }
-        shrinkName(indexName, constraintNameClipLength - 3)
-        indexName.insert(0, "IDX")
-        return indexName.toString()
+        shrinkName(indexName, constraintNameClipLength - 3);
+        indexName.insert(0, "IDX");
+        return indexName.toString();
     }
 
     /** Loop through all known entities and for each that has an existing table check each foreign key to see if it
      * exists in the database, and if it doesn't but the related table does exist then add the foreign key. */
-    int createForeignKeysForExistingTables() {
-        int created = 0
-        for (String en in efi.getAllEntityNames()) {
-            EntityDefinition ed = efi.getEntityDefinition(en)
-            if (ed.isViewEntity) continue
+    public int createForeignKeysForExistingTables() {
+        int created = 0;
+        for (String en : efi.getAllEntityNames()) {
+            EntityDefinition ed = efi.getEntityDefinition(en);
+            if (ed.isViewEntity) continue;
             if (tableExists(ed)) {
-                int result = createForeignKeys(ed, true)
-                created += result
+                int result = createForeignKeys(ed, true);
+                created += result;
             }
         }
-        return created
+        return created;
     }
-    int dropAllForeignKeys() {
-        int dropped = 0
-        for (String en in efi.getAllEntityNames()) {
-            EntityDefinition ed = efi.getEntityDefinition(en)
-            if (ed.isViewEntity) continue
+    public int dropAllForeignKeys() {
+        int dropped = 0;
+        for (String en : efi.getAllEntityNames()) {
+            EntityDefinition ed = efi.getEntityDefinition(en);
+            if (ed.isViewEntity) continue;
             if (tableExists(ed)) {
-                int result = dropForeignKeys(ed)
-                logger.info("Dropped ${result} FKs for entity ${ed.fullEntityName}")
-                dropped += result
+                int result = dropForeignKeys(ed);
+                logger.info("Dropped ${result} FKs for entity ${ed.fullEntityName}");
+                dropped += result;
             }
         }
-        return dropped
+        return dropped;
     }
 
 
-    Boolean foreignKeyExists(EntityDefinition ed, RelationshipInfo relInfo) {
-        String groupName = ed.getEntityGroupName()
-        EntityDefinition relEd = relInfo.relatedEd
-        Connection con = null
-        ResultSet ikSet1 = null
-        ResultSet ikSet2 = null
+    public Boolean foreignKeyExists(EntityDefinition ed, RelationshipInfo relInfo) {
+        String groupName = ed.getEntityGroupName();
+        EntityDefinition relEd = relInfo.relatedEd;
+        Connection con = null;
+        ResultSet ikSet1 = null;
+        ResultSet ikSet2 = null;
         try {
-            con = efi.getConnection(groupName)
-            DatabaseMetaData dbData = con.getMetaData()
+            con = efi.getConnection(groupName);
+            DatabaseMetaData dbData = con.getMetaData();
 
             // don't rely on constraint name, look at related table name, keys
 
             // get set of fields on main entity to match against (more unique than fields on related entity)
-            Map keyMap = relInfo.keyMap
-            Set<String> fieldNames = new HashSet(keyMap.keySet())
-            Set<String> fkColsFound = new HashSet()
+            Map keyMap = relInfo.keyMap;
+            Set<String> fieldNames = new HashSet<String>(keyMap.keySet());
+            Set<String> fkColsFound = new HashSet<>();
 
-            ikSet1 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName())
+            ikSet1 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName());
             while (ikSet1.next()) {
-                String pkTable = ikSet1.getString("PKTABLE_NAME")
+                String pkTable = ikSet1.getString("PKTABLE_NAME");
                 // logger.info("FK exists [${ed.getFullEntityName()}] - [${relNode."@title"}${relEd.getFullEntityName()}] PKTABLE_NAME [${ikSet.getString("PKTABLE_NAME")}] PKCOLUMN_NAME [${ikSet.getString("PKCOLUMN_NAME")}] FKCOLUMN_NAME [${ikSet.getString("FKCOLUMN_NAME")}]")
-                if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue
-                String fkCol = ikSet1.getString("FKCOLUMN_NAME")
-                fkColsFound.add(fkCol)
-                for (String fn in fieldNames) {
-                    String fnColName = ed.getColumnName(fn)
+                if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue;
+                String fkCol = ikSet1.getString("FKCOLUMN_NAME");
+                fkColsFound.add(fkCol);
+                for (String fn : fieldNames) {
+                    String fnColName = ed.getColumnName(fn);
                     if (fnColName == fkCol || fnColName.toLowerCase() == fkCol) {
-                        fieldNames.remove(fn)
-                        break
+                        fieldNames.remove(fn);
+                        break;
                     }
                 }
             }
             if (fieldNames.size() > 0) {
                 // try with lower case table name
-                ikSet2 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName().toLowerCase())
+                ikSet2 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName().toLowerCase());
                 while (ikSet2.next()) {
-                    String pkTable = ikSet2.getString("PKTABLE_NAME")
+                    String pkTable = ikSet2.getString("PKTABLE_NAME");
                     // logger.info("FK exists [${ed.getFullEntityName()}] - [${relNode."@title"}${relEd.getFullEntityName()}] PKTABLE_NAME [${ikSet.getString("PKTABLE_NAME")}] PKCOLUMN_NAME [${ikSet.getString("PKCOLUMN_NAME")}] FKCOLUMN_NAME [${ikSet.getString("FKCOLUMN_NAME")}]")
-                    if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue
-                    String fkCol = ikSet2.getString("FKCOLUMN_NAME")
-                    fkColsFound.add(fkCol)
-                    for (String fn in fieldNames) {
-                        String fnColName = ed.getColumnName(fn)
+                    if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue;
+                    String fkCol = ikSet2.getString("FKCOLUMN_NAME");
+                    fkColsFound.add(fkCol);
+                    for (String fn : fieldNames) {
+                        String fnColName = ed.getColumnName(fn);
                         if (fnColName == fkCol || fnColName.toLowerCase() == fkCol) {
-                            fieldNames.remove(fn)
-                            break
+                            fieldNames.remove(fn);
+                            break;
                         }
                     }
                 }
@@ -540,91 +535,103 @@ class EntityDbMeta {
             // logger.info("Checking FK exists for entity [${ed.getFullEntityName()}] relationship [${relNode."@title"}${relEd.getFullEntityName()}] fields to match are [${keyMap.keySet()}] FK columns found [${fkColsFound}] final fieldNames (empty for match) [${fieldNames}]")
 
             // if we found all of the key-map field-names then fieldNames will be empty, and we have a full fk
-            return (fieldNames.size() == 0)
+            return (fieldNames.size() == 0);
         } catch (Exception e) {
-            logger.error("Exception checking to see if foreign key exists for table ${ed.getTableName()}", e)
-            return null
+            logger.error("Exception checking to see if foreign key exists for table ${ed.getTableName()}", e);
+            return null;
         } finally {
-            if (ikSet1 != null && !ikSet1.isClosed()) ikSet1.close()
-            if (ikSet2 != null && !ikSet2.isClosed()) ikSet2.close()
-            if (con != null) con.close()
+            try {
+                if (ikSet1 != null && !ikSet1.isClosed()) ikSet1.close();
+                if (ikSet2 != null && !ikSet2.isClosed()) ikSet2.close();
+                if (con != null) con.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+                throw new EntityException("");
+            }
+
         }
     }
-    String getForeignKeyName(EntityDefinition ed, RelationshipInfo relInfo) {
-        String groupName = ed.getEntityGroupName()
-        EntityDefinition relEd = relInfo.relatedEd
-        Connection con = null
-        ResultSet ikSet1 = null
-        ResultSet ikSet2 = null
+    public String getForeignKeyName(EntityDefinition ed, RelationshipInfo relInfo) {
+        String groupName = ed.getEntityGroupName();
+        EntityDefinition relEd = relInfo.relatedEd;
+        Connection con = null;
+        ResultSet ikSet1 = null;
+        ResultSet ikSet2 = null;
         try {
-            con = efi.getConnection(groupName)
-            DatabaseMetaData dbData = con.getMetaData()
+            con = efi.getConnection(groupName);
+            DatabaseMetaData dbData = con.getMetaData();
 
             // don't rely on constraint name, look at related table name, keys
 
             // get set of fields on main entity to match against (more unique than fields on related entity)
-            Map keyMap = relInfo.keyMap
-            List<String> fieldNames = new ArrayList(keyMap.keySet())
-            Map<String, Set<String>> fieldsByFkName = new HashMap<>()
+            Map keyMap = relInfo.keyMap;
+            List<String> fieldNames = new ArrayList<String>(keyMap.keySet());
+            Map<String, Set<String>> fieldsByFkName = new HashMap<>();
 
-            ikSet1 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName())
+            ikSet1 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName());
             while (ikSet1.next()) {
-                String pkTable = ikSet1.getString("PKTABLE_NAME")
+                String pkTable = ikSet1.getString("PKTABLE_NAME");
                 // logger.info("FK exists [${ed.getFullEntityName()}] - [${relNode."@title"}${relEd.getFullEntityName()}] PKTABLE_NAME [${ikSet.getString("PKTABLE_NAME")}] PKCOLUMN_NAME [${ikSet.getString("PKCOLUMN_NAME")}] FKCOLUMN_NAME [${ikSet.getString("FKCOLUMN_NAME")}]")
-                if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue
-                String fkCol = ikSet1.getString("FKCOLUMN_NAME")
-                String fkName = ikSet1.getString("FK_NAME")
+                if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue;
+                String fkCol = ikSet1.getString("FKCOLUMN_NAME");
+                String fkName = ikSet1.getString("FK_NAME");
                 // logger.warn("FK pktable ${pkTable} fkcol ${fkCol} fkName ${fkName}")
-                if (!fkName) continue
-                for (String fn in fieldNames) {
-                    String fnColName = ed.getColumnName(fn)
+                if (!fkName) continue;
+                for (String fn : fieldNames) {
+                    String fnColName = ed.getColumnName(fn);
                     if (fnColName == fkCol || fnColName.toLowerCase() == fkCol) {
-                        CollectionUtilities.addToSetInMap(fkName, fn, fieldsByFkName)
+                        CollectionUtil.addToSetInMap(fkName, fn, fieldsByFkName);
                         break
                     }
                 }
             }
             if (fieldNames.size() > 0) {
                 // try with lower case table name
-                ikSet2 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName().toLowerCase())
+                ikSet2 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName().toLowerCase());
                 while (ikSet2.next()) {
-                    String pkTable = ikSet2.getString("PKTABLE_NAME")
+                    String pkTable = ikSet2.getString("PKTABLE_NAME");
                     // logger.info("FK exists [${ed.getFullEntityName()}] - [${relNode."@title"}${relEd.getFullEntityName()}] PKTABLE_NAME [${ikSet.getString("PKTABLE_NAME")}] PKCOLUMN_NAME [${ikSet.getString("PKCOLUMN_NAME")}] FKCOLUMN_NAME [${ikSet.getString("FKCOLUMN_NAME")}]")
-                    if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue
-                    String fkCol = ikSet2.getString("FKCOLUMN_NAME")
-                    String fkName = ikSet2.getString("FK_NAME")
+                    if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue;
+                    String fkCol = ikSet2.getString("FKCOLUMN_NAME");
+                    String fkName = ikSet2.getString("FK_NAME");
                     // logger.warn("FK pktable ${pkTable} fkcol ${fkCol} fkName ${fkName}")
-                    if (!fkName) continue
-                    for (String fn in fieldNames) {
-                        String fnColName = ed.getColumnName(fn)
+                    if (!fkName) continue;
+                    for (String fn : fieldNames) {
+                        String fnColName = ed.getColumnName(fn);
                         if (fnColName == fkCol || fnColName.toLowerCase() == fkCol) {
-                            CollectionUtilities.addToSetInMap(fkName, fn, fieldsByFkName)
-                            break
+                            CollectionUtil.addToSetInMap(fkName, fn, fieldsByFkName);
+                            break;
                         }
                     }
                 }
             }
 
             // logger.warn("fieldNames: ${fieldNames}"); logger.warn("fieldsByFkName: ${fieldsByFkName}")
-            for (Map.Entry<String, Set<String>> entry in fieldsByFkName.entrySet()) {
-                if (entry.value.containsAll(fieldNames)) return entry.key
+            for (Map.Entry<String, Set<String>> entry : fieldsByFkName.entrySet()) {
+                if (entry.getValue().containsAll(fieldNames)) return entry.getKey();
             }
-            return null
+            return null;
         } catch (Exception e) {
-            logger.error("Exception getting foreign key name for table ${ed.getTableName()}", e)
-            return null
+            logger.error("Exception getting foreign key name for table ${ed.getTableName()}", e);
+            return null;
         } finally {
-            if (ikSet1 != null && !ikSet1.isClosed()) ikSet1.close()
-            if (ikSet2 != null && !ikSet2.isClosed()) ikSet2.close()
-            if (con != null) con.close()
+            try {
+                if (ikSet1 != null && !ikSet1.isClosed()) ikSet1.close();
+                if (ikSet2 != null && !ikSet2.isClosed()) ikSet2.close();
+                if (con != null) con.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+                throw new EntityException("");
+            }
+
         }
     }
 
-    int createForeignKeys(EntityDefinition ed, boolean checkFkExists) {
+    public int createForeignKeys(EntityDefinition ed, boolean checkFkExists) {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create foreign keys")
         if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create foreign keys for a view entity")
 
-        if (ed.getEfi().ecfi.getEci().artifactExecutionFacade.entityFkCreateDisabled()) return 0
+//        if (ed.getEfi().ecfi.getEci().artifactExecutionFacade.entityFkCreateDisabled()) return 0
 
         // NOTE: in order to get all FKs in place by the time they are used we will probably need to check all incoming
         //     FKs as well as outgoing because of entity use order, tables not rechecked after first hit, etc
@@ -697,7 +704,7 @@ class EntityDbMeta {
         return created
     }
 
-    int dropForeignKeys(EntityDefinition ed) {
+    public int dropForeignKeys(EntityDefinition ed) {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot drop foreign keys")
         if (ed.isViewEntity) throw new IllegalArgumentException("Cannot drop foreign keys for a view entity")
 
@@ -713,7 +720,7 @@ class EntityDbMeta {
         int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
 
         int dropped = 0
-        for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
+        for (EntityJavaUtil.RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             if (relInfo.type != "one") continue
 
             EntityDefinition relEd = relInfo.relatedEd
@@ -745,7 +752,7 @@ class EntityDbMeta {
         return dropped
     }
 
-    static String makeFkConstraintName(EntityDefinition ed, RelationshipInfo relInfo, int constraintNameClipLength) {
+    public static String makeFkConstraintName(EntityDefinition ed, RelationshipInfo relInfo, int constraintNameClipLength) {
         StringBuilder constraintName = new StringBuilder()
         if (relInfo.relNode.attribute("fk-name")) constraintName.append(relInfo.relNode.attribute("fk-name"))
         if (!constraintName) {
@@ -769,7 +776,7 @@ class EntityDbMeta {
         return constraintName.toString()
     }
 
-    static void shrinkName(StringBuilder name, int maxLength) {
+    public static void shrinkName(StringBuilder name, int maxLength) {
         if (name.length() > maxLength) {
             // remove vowels from end toward beginning
             for (int i = name.length()-1; i >= 0 && name.length() > maxLength; i--) {
@@ -782,8 +789,8 @@ class EntityDbMeta {
         }
     }
 
-    final ReentrantLock sqlLock = new ReentrantLock()
-    Integer runSqlUpdate(CharSequence sql, String groupName) {
+    public final ReentrantLock sqlLock = new ReentrantLock()
+    public Integer runSqlUpdate(CharSequence sql, String groupName) {
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
         sqlLock.lock()
         Integer records = null
@@ -815,7 +822,7 @@ class EntityDbMeta {
     /* ================= */
 
     /** Generate a Liquibase Changelog for a set of entity definitions */
-    MNode liquibaseInitChangelog(String filterRegexp) {
+    public MNode liquibaseInitChangelog(String filterRegexp) {
         MNode rootNode = new MNode("databaseChangeLog", [xmlns               :"http://www.liquibase.org/xml/ns/dbchangelog",
                 "xmlns:xsi"         :"http://www.w3.org/2001/XMLSchema-instance", "xmlns:ext":"http://www.liquibase.org/xml/ns/dbchangelog-ext",
                 "xsi:schemaLocation":"http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd"])
@@ -938,7 +945,7 @@ class EntityDbMeta {
 
         return rootNode
     }
-    MNode liquibaseDiffChangelog(String filterRegexp) {
+    public MNode liquibaseDiffChangelog(String filterRegexp) {
         return null
     }
 }

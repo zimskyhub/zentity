@@ -111,6 +111,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
         txStackInfoListThread.remove();
     }
 
+    @Override
     public TransactionInternal getTransactionInternal() { return transactionInternal; }
 
     public TransactionManager getTransactionManager() { return tm; }

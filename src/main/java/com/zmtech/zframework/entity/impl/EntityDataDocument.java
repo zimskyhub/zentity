@@ -1,175 +1,203 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
-package com.zmtech.zframework.entity.impl
+package com.zmtech.zframework.entity.impl;
 
+import com.zmtech.zframework.entity.EntityCondition;
+import com.zmtech.zframework.entity.EntityFind;
+import com.zmtech.zframework.entity.EntityList;
+import com.zmtech.zframework.entity.EntityValue;
+import com.zmtech.zframework.exception.EntityException;
 import com.zmtech.zframework.util.EntityJavaUtil;
-import groovy.json.JsonOutput
-import groovy.transform.CompileStatic
-import org.moqui.entity.*
-import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.entity.condition.ConditionAlias
-import org.moqui.impl.entity.condition.ConditionField
-import org.moqui.impl.entity.condition.FieldValueCondition
-import org.moqui.util.CollectionUtilities
-import org.moqui.util.MNode
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import groovy.json.JsonOutput;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.sql.Timestamp
+import java.sql.Timestamp;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
-@CompileStatic
-class EntityDataDocument {
-    protected final static Logger logger = LoggerFactory.getLogger(EntityDataDocument.class)
 
-    protected final EntityFacadeImpl efi
+public class EntityDataDocument {
+    protected final static Logger logger = LoggerFactory.getLogger(EntityDataDocument.class);
 
-    EntityDataDocument(EntityFacadeImpl efi) {
-        this.efi = efi
+    protected final EntityFacadeImpl efi;
+
+    public EntityDataDocument(EntityFacadeImpl efi) {
+        this.efi = efi;
     }
 
-    int writeDocumentsToFile(String filename, List<String> dataDocumentIds, EntityCondition condition,
+    public int writeDocumentsToFile(String filename, List<String> dataDocumentIds, EntityCondition condition,
                              Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp, boolean prettyPrint) {
-        File outFile = new File(filename)
-        if (!outFile.createNewFile()) {
-            efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('File ${filename} already exists.','',[filename:filename]))
-            return 0
+        File outFile = new File(filename);
+
+        if(outFile.exists()){
+            efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件写入错误: 文件 [${filename}] 已经存在!","",new HashMap<String,Object>(){{
+                put("filename",filename);
+            }}));
+            return 0;
         }
-
-        PrintWriter pw = new PrintWriter(outFile)
-
-        pw.write("[\n")
-        int valuesWritten = writeDocumentsToWriter(pw, dataDocumentIds, condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint)
-        pw.write("{}\n]\n")
-        pw.close()
-        efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} documents to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
-        return valuesWritten
+        try {
+            outFile.createNewFile();
+            PrintWriter pw = new PrintWriter(outFile);
+            pw.write("[\n");
+            int valuesWritten = writeDocumentsToWriter(pw, dataDocumentIds, condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint);
+            pw.write("{}\n]\n");
+            pw.close();
+            efi.ecfi.getEci().message.addMessage(efi.ecfi.getResource().expand("文件写入成功: 已写入 ${valuesWritten} 文档到文件 ${filename} 中!","",new HashMap<String,Object>(){{
+                put("valuesWritten",valuesWritten);
+                put("filename",filename);
+            }}));
+            return valuesWritten;
+        } catch (IOException e) {
+            efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","",new HashMap<String,Object>(){{
+                put("filename",filename);
+                put("error",e.toString());
+            }}));
+            return 0;
+        }
+        return 0;
     }
-    int writeDocumentsToDirectory(String dirname, List<String> dataDocumentIds, EntityCondition condition,
+
+    public int writeDocumentsToDirectory(String dirname, List<String> dataDocumentIds, EntityCondition condition,
                                   Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp, boolean prettyPrint) {
-        File outDir = new File(dirname)
-        if (!outDir.exists()) outDir.mkdir()
+        File outDir = new File(dirname);
+        if (!outDir.exists()) outDir.mkdir();
         if (!outDir.isDirectory()) {
-            efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('Path ${dirname} is not a directory.','',[dirname:dirname]))
-            return 0
+            efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件夹写入错误: 路径 ${dirname} 并不是文件夹.","",new HashMap<String,Object>(){{
+                put("dirname",dirname);
+            }}));
+            return 0;
         }
 
-        int valuesWritten = 0
+        int valuesWritten = 0;
 
-        for (String dataDocumentId in dataDocumentIds) {
-            String filename = "${dirname}/${dataDocumentId}.json"
-            File outFile = new File(filename)
-            if (outFile.exists()) {
-                efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping document ${dataDocumentId}.','',[filename:filename,dataDocumentId:dataDocumentId]))
-                continue
-            }
-            outFile.createNewFile()
+        for (String dataDocumentId : dataDocumentIds) {
+            try {
+                String filename = dirname+"/"+dataDocumentId+".json";
 
-            PrintWriter pw = new PrintWriter(outFile)
-            pw.write("[\n")
-            valuesWritten += writeDocumentsToWriter(pw, [dataDocumentId], condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint)
-            pw.write("{}\n]\n")
-            pw.close()
-            efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten, filename:filename]))
-        }
-
-        return valuesWritten
-    }
-    int writeDocumentsToWriter(Writer pw, List<String> dataDocumentIds, EntityCondition condition,
-                               Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp, boolean prettyPrint) {
-        if (dataDocumentIds == null || dataDocumentIds.size() == 0) return 0
-        int valuesWritten = 0
-        for (String dataDocumentId in dataDocumentIds) {
-            ArrayList<Map> documentList = getDataDocuments(dataDocumentId, condition, fromUpdateStamp, thruUpdatedStamp)
-            int docListSize = documentList.size()
-            for (int i = 0; i < docListSize; i++) {
-                if (valuesWritten > 0) pw.write(",\n")
-                Map document = (Map) documentList.get(i)
-                String json = JsonOutput.toJson(document)
-                if (prettyPrint) {
-                    pw.write(JsonOutput.prettyPrint(json))
-                } else {
-                    pw.write(json)
+                File outFile = new File(filename);
+                if (outFile.exists()) {
+                    efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件写入错误: 文件 ${filename} 已经存储, 文档 ${dataDocumentId} 跳过存储.","",new HashMap<String,Object>(){{
+                        put("filename",filename);
+                        put("dataDocumentId",dataDocumentId);
+                    }}));
+                    continue;
                 }
-                valuesWritten++
+                outFile.createNewFile();
+
+
+                PrintWriter pw = new PrintWriter(outFile);
+                pw.write("[\n");
+                valuesWritten += writeDocumentsToWriter(pw, Collections.singletonList(dataDocumentId), condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint);
+                pw.write("{}\n]\n");
+                pw.close();
+
+                int finalValuesWritten = valuesWritten;
+                efi.ecfi.getEci().message.addMessage(efi.ecfi.getResource().expand("已写入 ${valuesWritten} 条记录到文件 ${filename} 中","",new HashMap<String,Object>(){{
+                    put("valuesWritten", finalValuesWritten);
+                    put("filename",filename);
+                }}));
+            } catch (IOException e) {
+                efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","",new HashMap<String,Object>(){{
+                    put("filename",filename);
+                    put("error",e.toString());
+                }}));
             }
         }
-        if (valuesWritten > 0) pw.write("\n")
-
-        return valuesWritten
+        return valuesWritten;
     }
 
-    static class DataDocumentInfo {
-        String dataDocumentId
-        EntityValue dataDocument
-        EntityList dataDocumentFieldList
-        String primaryEntityName
-        EntityDefinition primaryEd
-        ArrayList<String> primaryPkFieldNames
-        Map<String, Object> fieldTree = [:]
-        Map<String, String> fieldAliasPathMap = [:]
-        boolean hasExpressionField = false
-        EntityDefinition entityDef
+    public int writeDocumentsToWriter(Writer pw, List<String> dataDocumentIds, EntityCondition condition,
+                               Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp, boolean prettyPrint) {
+        if (dataDocumentIds == null || dataDocumentIds.size() == 0) return 0;
+        int valuesWritten = 0;
 
-        DataDocumentInfo(String dataDocumentId, EntityFacadeImpl efi) {
-            this.dataDocumentId = dataDocumentId
+        try {
+            for (String dataDocumentId : dataDocumentIds) {
+                ArrayList<Map> documentList = getDataDocuments(dataDocumentId, condition, fromUpdateStamp, thruUpdatedStamp);
+                int docListSize = documentList.size();
+                for (int i = 0; i < docListSize; i++) {
+                    if (valuesWritten > 0) pw.write(",\n");
+                    Map document = documentList.get(i);
+                    String json = JsonOutput.toJson(document);
+                    if (prettyPrint) {
+                        pw.write(JsonOutput.prettyPrint(json));
+                    } else {
+                        pw.write(json);
+                    }
+                    valuesWritten++;
+                }
+            }
+            if (valuesWritten > 0) pw.write("\n");
+        } catch (IOException e) {
+            efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","",new HashMap<String,Object>(){{
+                put("filename",filename);
+                put("error",e.toString());
+            }}));
+        }
 
-            dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
-            if (dataDocument == null) throw new EntityException("No DataDocument found with ID ${dataDocumentId}")
+        return valuesWritten;
+    }
+
+    public static class DataDocumentInfo {
+        public String dataDocumentId;
+        public EntityValue dataDocument;
+        public EntityList dataDocumentFieldList;
+        public String primaryEntityName;
+        public EntityDefinition primaryEd;
+        public ArrayList<String> primaryPkFieldNames;
+        public Map<String, Object> fieldTree = new ConcurrentHashMap<>();
+        public Map<String, String> fieldAliasPathMap = new ConcurrentHashMap<>();
+        public boolean hasExpressionField = false;
+        public EntityDefinition entityDef;
+
+        public DataDocumentInfo(String dataDocumentId, EntityFacadeImpl efi) {
+            this.dataDocumentId = dataDocumentId;
+
+            dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId);
+            if (dataDocument == null) throw new EntityException("文档查询错误: 没有找到ID为 [${dataDocumentId}] 的文档");
             dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, ['sequenceNum', 'fieldPath'], true, false)
 
-            primaryEntityName = (String) dataDocument.getNoCheckSimple("primaryEntityName")
-            primaryEd = efi.getEntityDefinition(primaryEntityName)
-            primaryPkFieldNames = primaryEd.getPkFieldNames()
+            primaryEntityName = (String) dataDocument.getNoCheckSimple("primaryEntityName");
+            primaryEd = efi.getEntityDefinition(primaryEntityName);
+            primaryPkFieldNames = primaryEd.getPkFieldNames();
 
-            AtomicBoolean hasExprMut = new AtomicBoolean(false)
-            populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, hasExprMut, false)
-            hasExpressionField = hasExprMut.get()
+            AtomicBoolean hasExprMut = new AtomicBoolean(false);
+            populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, hasExprMut, false);
+            hasExpressionField = hasExprMut.get();
 
-            EntityDynamicViewImpl dynamicView = new EntityDynamicViewImpl(efi)
-            dynamicView.entityNode.attributes.put("package", "DataDocument")
-            dynamicView.entityNode.attributes.put("entity-name", dataDocumentId)
+            EntityDynamicViewImpl dynamicView = new EntityDynamicViewImpl(efi);
+            dynamicView.entityNode.getAttributes().put("package", "DataDocument");
+            dynamicView.entityNode.getAttributes().put("entity-name", dataDocumentId);
 
             // add member entities and field aliases to dynamic view
-            dynamicView.addMemberEntity("PRIM", primaryEntityName, null, null, null)
-            AtomicInteger incrementer = new AtomicInteger()
-            fieldTree.put("_ALIAS", "PRIM")
-            addDataDocRelatedEntity(dynamicView, "PRIM", fieldTree, incrementer, makeDdfByAlias(dataDocumentFieldList))
+            dynamicView.addMemberEntity("PRIM", primaryEntityName, null, null, null);
+            AtomicInteger incrementer = new AtomicInteger();
+            fieldTree.put("_ALIAS", "PRIM");
+            addDataDocRelatedEntity(dynamicView, "PRIM", fieldTree, incrementer, makeDdfByAlias(dataDocumentFieldList));
             // logger.warn("=========== ${dataDocumentId} fieldTree=${fieldTree}")
             // logger.warn("=========== ${dataDocumentId} fieldAliasPathMap=${fieldAliasPathMap}")
 
-            entityDef = dynamicView.makeEntityDefinition()
+            entityDef = dynamicView.makeEntityDefinition();
         }
     }
 
-    EntityDefinition makeEntityDefinition(String dataDocumentId) {
-        DataDocumentInfo ddi = new DataDocumentInfo(dataDocumentId, efi)
-        return ddi.entityDef
+    public EntityDefinition makeEntityDefinition(String dataDocumentId) {
+        DataDocumentInfo ddi = new DataDocumentInfo(dataDocumentId, efi);
+        return ddi.entityDef;
     }
 
-    EntityFind makeDataDocumentFind(String dataDocumentId) {
+    public EntityFind makeDataDocumentFind(String dataDocumentId) {
         DataDocumentInfo ddi = new DataDocumentInfo(dataDocumentId, efi)
         EntityList dataDocumentConditionList = ddi.dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false)
         return makeDataDocumentFind(ddi, dataDocumentConditionList, null, null)
     }
 
-    EntityFind makeDataDocumentFind(DataDocumentInfo ddi, EntityList dataDocumentConditionList,
+    public EntityFind makeDataDocumentFind(DataDocumentInfo ddi, EntityList dataDocumentConditionList,
                                     Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
         // build the query condition for the primary entity and all related entities
         EntityDefinition ed = ddi.entityDef
@@ -224,7 +252,7 @@ class EntityDataDocument {
         return mainFind
     }
 
-    ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
+    public ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
         ExecutionContextImpl eci = efi.ecfi.getEci()
 
         DataDocumentInfo ddi = new DataDocumentInfo(dataDocumentId, efi)
@@ -356,7 +384,7 @@ class EntityDataDocument {
         return documentMapList as ArrayList<Map>
     }
 
-    static ArrayList<String> fieldPathToList(String fieldPath) {
+    public static ArrayList<String> fieldPathToList(String fieldPath) {
         int openParenIdx = fieldPath.indexOf("(")
         ArrayList<String> fieldPathElementList = new ArrayList<>()
         if (openParenIdx == -1) {
@@ -373,7 +401,7 @@ class EntityDataDocument {
         }
         return fieldPathElementList
     }
-    static void populateFieldTreeAndAliasPathMap(EntityList dataDocumentFieldList, List<String> primaryPkFieldNames,
+    public static void populateFieldTreeAndAliasPathMap(EntityList dataDocumentFieldList, List<String> primaryPkFieldNames,
                                                  Map<String, Object> fieldTree, Map<String, String> fieldAliasPathMap, AtomicBoolean hasExprMut, boolean allPks) {
         for (EntityValue dataDocumentField in dataDocumentFieldList) {
             String fieldPath = (String) dataDocumentField.getNoCheckSimple("fieldPath")
