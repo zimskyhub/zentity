@@ -16,12 +16,12 @@ import java.util.Set;
 
 public class FieldToFieldCondition implements EntityConditionImplBase {
 
-    protected static final Class thisClass = FieldValueCondition.class;
+    private static final Class thisClass = FieldValueCondition.class;
     protected ConditionField field;
     protected EntityCondition.ComparisonOperator operator;
-    protected ConditionField toField;
+    private ConditionField toField;
     protected boolean ignoreCase = false;
-    protected int curHashCode;
+    private int curHashCode;
 
     public FieldToFieldCondition(ConditionField field, EntityCondition.ComparisonOperator operator, ConditionField toField) {
         this.field = field;
@@ -42,6 +42,19 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
             typeValue = fi != null ? fi.typeValue : 1;
             if (typeValue == 1) sql.append("UPPER(");
         }
+        makeSubSql(subMemberEd, sql, mainEd, fi, typeValue, field);
+
+        sql.append(' ').append(EntityConditionFactoryImpl.getComparisonOperatorString(operator)).append(' ');
+
+        int toTypeValue = -1;
+        if (ignoreCase) {
+            toTypeValue = toField.getFieldInfo(mainEd) != null ? toField.getFieldInfo(mainEd).typeValue : 1;
+            if (toTypeValue == 1) sql.append("UPPER(");
+        }
+        makeSubSql(subMemberEd, sql, mainEd, toFi, toTypeValue, toField);
+    }
+
+    private void makeSubSql(EntityDefinition subMemberEd, StringBuilder sql, EntityDefinition mainEd, FieldInfo fi, int typeValue, ConditionField field) {
         if (subMemberEd != null) {
             MNode aliasNode = fi.fieldNode;
             String aliasField = aliasNode.attribute("field");
@@ -51,23 +64,6 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
             sql.append(field.getColumnName(mainEd));
         }
         if (ignoreCase && typeValue == 1) sql.append(")");
-
-        sql.append(' ').append(EntityConditionFactoryImpl.getComparisonOperatorString(operator)).append(' ');
-
-        int toTypeValue = -1;
-        if (ignoreCase) {
-            toTypeValue = toField.getFieldInfo(mainEd) != null ? toField.getFieldInfo(mainEd).typeValue : 1;
-            if (toTypeValue == 1) sql.append("UPPER(");
-        }
-        if (subMemberEd != null) {
-            MNode aliasNode = toFi.fieldNode;
-            String aliasField = aliasNode.attribute("field");
-            if (aliasField == null || aliasField.isEmpty()) aliasField = toFi.name;
-            sql.append(subMemberEd.getColumnName(aliasField));
-        } else {
-            sql.append(toField.getColumnName(mainEd));
-        }
-        if (ignoreCase && toTypeValue == 1) sql.append(")");
     }
 
     @Override
@@ -151,8 +147,7 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
         // NOTE: for Java Enums the != is WAY faster than the .equals
         if (operator != that.operator) return false;
         if (!toField.equals(that.toField)) return false;
-        if (ignoreCase != that.ignoreCase) return false;
-        return true;
+        return ignoreCase == that.ignoreCase;
     }
 
     @Override

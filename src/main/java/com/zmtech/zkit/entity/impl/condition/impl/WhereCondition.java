@@ -16,8 +16,8 @@ import java.util.Set;
 
 
 public class WhereCondition implements EntityConditionImplBase {
-    protected final static Logger logger = LoggerFactory.getLogger(WhereCondition.class);
-    protected String sqlWhereClause;
+    private final static Logger logger = LoggerFactory.getLogger(WhereCondition.class);
+    private String sqlWhereClause;
 
     public WhereCondition(String sqlWhereClause) {
         this.sqlWhereClause = sqlWhereClause != null ? sqlWhereClause : "";
@@ -84,8 +84,7 @@ public class WhereCondition implements EntityConditionImplBase {
     public boolean equals(Object o) {
         if (o == null || o.getClass() != getClass()) return false;
         WhereCondition that = (WhereCondition) o;
-        if (!sqlWhereClause.equals(that.sqlWhereClause)) return false;
-        return true;
+        return sqlWhereClause.equals(that.sqlWhereClause);
     }
 
     @Override

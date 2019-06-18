@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+@SuppressWarnings("unused")
 public class ConditionAlias extends ConditionField implements Externalizable {
     private static final Class thisClass = ConditionAlias.class;
 
@@ -97,10 +98,9 @@ public class ConditionAlias extends ConditionField implements Externalizable {
         if (o == null || o.getClass() != thisClass) return false;
         ConditionAlias that = (ConditionAlias) o;
         // both Strings are intern'ed so use != operator for object compare
-        if (fieldName != that.fieldName) return false;
-        if (entityAlias != that.entityAlias) return false;
-        if (aliasEntityName != that.aliasEntityName) return false;
-        return true;
+        if (!fieldName.equals(that.fieldName)) return false;
+        if (!entityAlias.equals(that.entityAlias)) return false;
+        return aliasEntityName.equals(that.aliasEntityName);
     }
 
     @Override

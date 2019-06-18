@@ -17,9 +17,9 @@ import java.util.Set;
 
 public class DateCondition implements EntityConditionImplBase, Externalizable {
 
-    protected String fromFieldName;
-    protected String thruFieldName;
-    protected Timestamp compareStamp;
+    private String fromFieldName;
+    private String thruFieldName;
+    private Timestamp compareStamp;
     private EntityConditionImplBase conditionInternal;
     private int hashCodeInternal;
 
@@ -109,8 +109,7 @@ public class DateCondition implements EntityConditionImplBase, Externalizable {
         DateCondition that = (DateCondition) o;
         if (!this.compareStamp.equals(that.compareStamp)) return false;
         if (!fromFieldName.equals(that.fromFieldName)) return false;
-        if (!thruFieldName.equals(that.thruFieldName)) return false;
-        return true;
+        return thruFieldName.equals(that.thruFieldName);
     }
 
     @Override

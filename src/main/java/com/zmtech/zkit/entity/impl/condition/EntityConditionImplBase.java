@@ -9,14 +9,14 @@ import java.util.Set;
 public interface EntityConditionImplBase extends EntityCondition {
 
     /**
-     * Build SQL WHERE clause text to evaluate condition in a database.
+     * 为据库中条件构建SQL WHERE子句。
      */
     void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd);
 
     void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet);
 
     /**
-     * Get only conditions for fields in the member-entity of a view-entity, or if null then all aliases for member entities without sub-select=true
+     * 仅获取视图实体的成员实体中的字段的条件，如果为null则 sub-select = true的成员实体没有别名
      */
     EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd);
 }

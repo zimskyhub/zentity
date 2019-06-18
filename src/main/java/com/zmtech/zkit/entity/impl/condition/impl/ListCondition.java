@@ -14,7 +14,7 @@ import java.util.*;
 
 public class ListCondition implements EntityConditionImplBase {
     private ArrayList<EntityConditionImplBase> conditionList = new ArrayList<>();
-    protected JoinOperator operator;
+    private JoinOperator operator;
     private int conditionListSize = 0;
     private int curHashCode;
     private static final Class thisClass = ListCondition.class;
@@ -26,15 +26,11 @@ public class ListCondition implements EntityConditionImplBase {
             if (conditionListSize > 0) {
                 if (conditionList instanceof RandomAccess) {
                     // 尽可能避免创建迭代器
-                    int listSize = conditionList.size();
-                    for (int i = 0; i < listSize; i++) {
-                        EntityConditionImplBase cond = conditionList.get(i);
+                    for (EntityConditionImplBase cond : conditionList) {
                         if (cond != null) this.conditionList.add(cond);
                     }
                 } else {
-                    Iterator<EntityConditionImplBase> conditionIter = conditionList.iterator();
-                    while (conditionIter.hasNext()) {
-                        EntityConditionImplBase cond = conditionIter.next();
+                    for (EntityConditionImplBase cond : conditionList) {
                         if (cond != null) this.conditionList.add(cond);
                     }
                 }
