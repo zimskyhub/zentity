@@ -439,7 +439,7 @@ public class EntityConditionFactoryImpl implements EntityConditionFactory {
         comparisonOperatorStringMap.put(IS_NULL, "IS NULL");
         comparisonOperatorStringMap.put(ComparisonOperator.IS_NOT_NULL, "IS NOT NULL");
     }
-    private static final Map<String, ComparisonOperator> stringComparisonOperatorMap = ImmutableMap.<String, ComparisonOperator>builder()
+    static final Map<String, ComparisonOperator> stringComparisonOperatorMap = ImmutableMap.<String, ComparisonOperator>builder()
             .put("=",ComparisonOperator.EQUALS)
             .put("equals",ComparisonOperator.EQUALS)
             .put("not-equals",ComparisonOperator.NOT_EQUAL)

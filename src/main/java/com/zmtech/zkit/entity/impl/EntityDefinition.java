@@ -49,6 +49,9 @@ public class EntityDefinition {
 
     private Map<String, MNode> memberEntityAliasMap = null;
     private boolean hasSubSelectMembers = false;
+
+
+
     // these are used for every list find, so keep them here
     public final MNode entityConditionNode;
     public final MNode entityHavingEconditions;
@@ -1229,7 +1232,9 @@ public class EntityDefinition {
     public boolean equals(Object o) {
         if (o == null || o.getClass() != this.getClass()) return false;
         EntityDefinition that = (EntityDefinition) o;
-        if (!this.fullEntityName.equals(that.fullEntityName)) return false;
-        return true;
+        return this.fullEntityName.equals(that.fullEntityName);
+    }
+    public boolean isHasSubSelectMembers() {
+        return hasSubSelectMembers;
     }
 }
