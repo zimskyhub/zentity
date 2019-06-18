@@ -9,7 +9,6 @@ import com.zmtech.zkit.transaction.TransactionFacade;
 import com.zmtech.zkit.transaction.TransactionInternal;
 import com.zmtech.zkit.util.ContextJavaUtil.*;
 import com.zmtech.zkit.util.MNode;
-import groovy.lang.Closure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +24,7 @@ import java.sql.SQLException;
 import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 
 public class TransactionFacadeImpl implements TransactionFacade {
@@ -158,11 +158,11 @@ public class TransactionFacadeImpl implements TransactionFacade {
 
 
     @Override
-    public Object runUseOrBegin(Integer timeout, String rollbackMessage, Closure closure) {
+    public Object runUseOrBegin(Integer timeout, String rollbackMessage, Function<Boolean,Boolean> function) {
         if (rollbackMessage == null) rollbackMessage = "";
         boolean beganTransaction = begin(timeout);
         try {
-            return closure.call();
+            return function.apply(true);
         } catch (Throwable t) {
             rollback(beganTransaction, rollbackMessage, t);
             throw t;
@@ -171,11 +171,11 @@ public class TransactionFacadeImpl implements TransactionFacade {
         }
     }
     @Override
-    public Object runRequireNew(Integer timeout, String rollbackMessage, Closure closure) {
-        return runRequireNew(timeout, rollbackMessage, true, true, closure);
+    public Object runRequireNew(Integer timeout, String rollbackMessage, Function<Boolean,Boolean> function) {
+        return runRequireNew(timeout, rollbackMessage, true, true, function);
     }
     protected final static boolean requireNewThread = true;
-    public Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, boolean threadReuseEci, Closure closure) {
+    public Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, boolean threadReuseEci, Function<Boolean,Boolean> function) {
         AtomicReference<Object> result = new AtomicReference<>();
         if (requireNewThread) {
             // if there is a timeout for this thread wait 10x the timeout (so multiple seconds by 10k instead of 1k)
@@ -190,9 +190,9 @@ public class TransactionFacadeImpl implements TransactionFacade {
                     if (threadReuseEci) ecfi.useExecutionContextInThread(eci);
                     try {
                         if (beginTx) {
-                            result.set(runUseOrBegin(timeout, rollbackMessage, closure));
+                            result.set(runUseOrBegin(timeout, rollbackMessage, function));
                         } else {
-                            result.set(closure.call());
+                            result.set(function.apply(true));
                         }
                     } catch (Throwable t) {
 
@@ -225,9 +225,9 @@ public class TransactionFacadeImpl implements TransactionFacade {
             try {
                 if (isTransactionInPlace()) suspendedTransaction = suspend();
                 if (beginTx) {
-                    result.set(runUseOrBegin(timeout, rollbackMessage, closure));
+                    result.set(runUseOrBegin(timeout, rollbackMessage, function));
                 } else {
-                    result.set(closure.call());
+                    result.set(function.apply(true));
                 }
             } finally {
                 if (suspendedTransaction) resume();

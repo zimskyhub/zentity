@@ -2,10 +2,10 @@ package com.zmtech.zkit.transaction;
 
 import com.zmtech.zkit.exception.TransactionException;
 import com.zmtech.zkit.transaction.impl.TransactionCache;
-import groovy.lang.Closure;
 
 import javax.transaction.Synchronization;
 import javax.transaction.xa.XAResource;
+import java.util.function.Function;
 
 /** Use this interface to do transaction demarcation and related operations.
  * This should be used instead of using the JTA UserTransaction and TransactionManager interfaces.
@@ -54,9 +54,9 @@ import javax.transaction.xa.XAResource;
 public interface TransactionFacade {
 
     /** Run in current transaction if one is in place, begin and commit/rollback if none is. */
-    Object runUseOrBegin(Integer timeout, String rollbackMessage, Closure closure);
+    Object runUseOrBegin(Integer timeout, String rollbackMessage,  Function<Boolean,Boolean> function);
     /** Run in a separate transaction, even if one is in place. */
-    Object runRequireNew(Integer timeout, String rollbackMessage, Closure closure);
+    Object runRequireNew(Integer timeout, String rollbackMessage, Function<Boolean,Boolean> function);
 
     TransactionInternal getTransactionInternal();
 

@@ -9,9 +9,11 @@ import com.zmtech.zkit.exception.EntityNotFoundException;
 import com.zmtech.zkit.resource.impl.ResourceReference;
 import com.zmtech.zkit.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zkit.util.CollectionUtil;
-import com.zmtech.zkit.util.EntityJavaUtil;
+import com.zmtech.zkit.util.EntityJavaUtil.*;
 import com.zmtech.zkit.util.MNode;
 import com.zmtech.zkit.util.SystemBinding;
+import groovy.lang.Closure;
+import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException;
 
 import org.slf4j.Logger;
@@ -26,6 +28,7 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -440,26 +443,26 @@ public class EntityFacadeImpl implements EntityFacade {
 //    }
 //
     public Map<String, List<String>> loadAllEntityLocations() {
-        // lock or wait for lock, this lock used here and for checking entity defined
+        // 锁定或等待锁定，这里使用此锁定检查实体定义
         locationLoadLock.lock();
 
         try {
-            // load all entity files based on ResourceReference
+            // 基于ResourceReference加载所有实体文件
             long startTime = System.currentTimeMillis();
 
             Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName);
-            // when loading all entity locations we expect this to be null, if it isn't no need to load
+            // 当加载所有实体位置时，如果不需要加载，我们希望它为null
             if (entityLocationCache != null) return entityLocationCache;
             entityLocationCache = new HashMap<>();
 
             List<ResourceReference> allEntityFileLocations = getAllEntityFileLocations();
             for (ResourceReference entityRr : allEntityFileLocations) this.loadEntityFileLocations(entityRr, entityLocationCache);
-            if (logger.isInfoEnabled()) logger.info("Found entities in ${allEntityFileLocations.size()} files in ${System.currentTimeMillis() - startTime}ms");
+            if (logger.isInfoEnabled()) logger.info("实体操作信息: 找到 ["+allEntityFileLocations.size()+"] 个文件,用时 ["+(System.currentTimeMillis() - startTime)+"] 毫秒!");
 
-            // put in the cache for other code to use; needed before DbViewEntity load so DB queries work
+            // 放入缓存以供其他代码使用; 在DbViewEntity加载之前需要，以便DB查询工作
             entityLocationSingleCache.put(entityLocSingleEntryName, entityLocationCache);
 
-            // look for view-entity definitions in the database (zkit.entity.view.DbViewEntity)
+            // 查看数据库中 view-entity (zkit.entity.view.DbViewEntity) 定义
             if (entityLocationCache.get("zkit.entity.view.DbViewEntity") != null) {
                 int numDbViewEntities = 0;
                 for (EntityValue dbViewEntity : find("zkit.entity.view.DbViewEntity").list()) {
@@ -482,9 +485,9 @@ public class EntityFacadeImpl implements EntityFacade {
 
                     numDbViewEntities++;
                 }
-                if (logger.isInfoEnabled()) logger.info("Found ${numDbViewEntities} view-entity definitions in database (DbViewEntity records)");
+                if (logger.isInfoEnabled()) logger.info("实体操作信息: 在数据库中找到 ["+numDbViewEntities+"] 个视图实体定义!");
             } else {
-                logger.warn("Could not find view-entity definitions in database (zkit.entity.view.DbViewEntity), no location found for the zkit.entity.view.DbViewEntity entity.");
+                logger.warn("实体警告信息: 数据库中不存在 [zkit.entity.view.DbViewEntity] 的视图实体定义!");
             }
 
             /* a little code to show all entities and their locations
@@ -506,7 +509,7 @@ public class EntityFacadeImpl implements EntityFacade {
     protected void loadEntityFileLocations(ResourceReference entityRr, Map<String, List<String>> entityLocationCache) {
         MNode entityRoot = getEntityFileRoot(entityRr);
         if (entityRoot.getName() == "entities") {
-            // loop through all entity, view-entity, and extend-entity and add file location to List for any entity named
+            // 循环遍历所有实体，视图实体和扩展实体，并把已命名的实体添加文件位置到List
             int numEntities = 0;
             for (MNode entity : entityRoot.getChildren()) {
                 String entityName = entity.attribute("entity-name");
@@ -561,7 +564,7 @@ public class EntityFacadeImpl implements EntityFacade {
 
     protected EntityDefinition loadEntityDefinition(String entityName) {
         if (entityName.contains("#")) {
-            // 这是一个关系名称，绝对不是实体名称所以只返回null; 发生这种情况是因为我们在各个地方检查名称是否是实体名称，包括检查关系的位置
+            // 这是一个关系名称，不是实体名称所以只返回null; 发生这种情况是因为我们在各个地方检查名称是否是实体名称，包括检查关系的位置
             return null;
         }
 
@@ -571,10 +574,10 @@ public class EntityFacadeImpl implements EntityFacade {
         Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName);
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations();
 
-        List<String> entityLocationList = (List<String>) entityLocationCache.get(entityName);
+        List<String> entityLocationList = entityLocationCache.get(entityName);
         if (entityLocationList == null) {
-            if (logger.isWarnEnabled()) logger.warn("No location cache found for entity-name [${entityName}], reloading ALL entity file and DB locations");
-            if (isTraceEnabled) logger.trace("Unknown entity name ${entityName} location", new EntityException("Unknown entity name location"));
+            if (logger.isWarnEnabled()) logger.warn("实体操作警告: 没有找到实体 ["+entityName+"] 的缓存位置,重新加载实体文件和数据文件中...");
+            if (isTraceEnabled) logger.trace("实体操作跟踪: 未知的实体 ["+entityName+"] 路径!", new EntityException("未知的实体路径!"));
 
             // 删除单个缓存数据
             entityLocationSingleCache.remove(entityLocSingleEntryName);
@@ -686,7 +689,7 @@ public class EntityFacadeImpl implements EntityFacade {
                 if (childNode.getName().equals("extend-entity")) {
                     extendEntityNodes.add(childNode);
                 } else {
-                    if (entityNode != null) logger.warn("Entity ["+entityName+"] was found again at ["+location+"], so overriding definition from previous location");
+                    if (entityNode != null) logger.warn("实体操作警告: 找到路径为 ["+location+"] 实体 ["+entityName+"] 的重复定义, 覆盖之前版本的实体定义!");
                     entityNode = childNode.deepCopy(null);
                 }
             }
@@ -927,7 +930,7 @@ public class EntityFacadeImpl implements EntityFacade {
     public int loadEecaRulesFile(ResourceReference rr, HashMap<String, EntityEcaRule> ruleByIdMap, LinkedList<EntityEcaRule> ruleNoIdList) {
         MNode eecasRoot = MNode.parse(rr);
         int numLoaded = 0;
-        if(eecasRoot !== null)return numLoaded;
+        if(eecasRoot != null)return numLoaded;
         for (MNode eecaNode : eecasRoot.children("eeca")) {
             String entityName = eecaNode.attribute("entity");
             if (!isEntityDefined(entityName)) {
@@ -967,10 +970,10 @@ public class EntityFacadeImpl implements EntityFacade {
             edf.destroy();
         }
     }
-    // TODO: 做到这里
-    // used in tools screen
+
+    // 在工具页面中使用
     public void checkAllEntityTables(String groupName) {
-        // TODO: load framework entities first, then component/mantle/etc entities for better FKs on first pass
+        // TODO: 首先加载框架实体，然后加载组件/地幔/等实体，以便在第一次传递时获得更好的FK
         EntityDatasourceFactory edf = getDatasourceFactory(groupName);
         for (String entityName : getAllEntityNamesInGroup(groupName)) edf.checkAndAddTable(entityName);
     }
@@ -981,8 +984,8 @@ public class EntityFacadeImpl implements EntityFacade {
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations();
 
         TreeSet<String> allNames = new TreeSet<>();
-        // only add full entity names (with package in it, will always have at least one dot)
-        // only include entities that have a non-empty List of locations in the cache (otherwise are invalid entities)
+        // 只添加完整的实体名称（包含其中的包，总是至少有一个点）
+        // 仅包含缓存中具有非空位置列表的实体（否则为无效实体）
         for (Map.Entry<String, List<String>> entry : entityLocationCache.entrySet()) {
             String en = entry.getKey();
             List<String> locList = entry.getValue();
@@ -1030,10 +1033,14 @@ public class EntityFacadeImpl implements EntityFacade {
                 if (isView) CollectionUtil.addToBigDecimalInMap("viewEntities", BigDecimal.valueOf(1.0), curInfo);
                 else CollectionUtil.addToBigDecimalInMap("entities", BigDecimal.valueOf(1.0), curInfo);
             } else {
-                entityInfoMap.put(name, [name:name, entities:(isView ? 0 : 1), viewEntities:(isView ? 1 : 0)]);
+                entityInfoMap.put(name, new HashMap<String,Object>(){{
+                    put("name",name);
+                    put("entities",isView ? 0 : 1);
+                    put("viewEntities",isView ? 1 : 0);
+                }});
             }
         }
-        TreeSet<String> nameSet = new TreeSet(entityInfoMap.keySet());
+        TreeSet<String> nameSet = new TreeSet<>(entityInfoMap.keySet());
         List<Map> entityInfoList = new ArrayList<>();
         for (String name : nameSet) entityInfoList.add(entityInfoMap.get(name));
         return entityInfoList;
@@ -1051,16 +1058,16 @@ public class EntityFacadeImpl implements EntityFacade {
         Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName);
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations();
 
-        List<String> locList = (List<String>) entityLocationCache.get(entityName);
+        List<String> locList = entityLocationCache.get(entityName);
         return locList != null && locList.size() > 0;
     }
 
     @Override
     public EntityDefinition getEntityDefinition(String entityName) {
-        if (entityName == null) return null
+        if (entityName == null) return null;
         EntityDefinition ed = frameworkEntityDefinitions.get(entityName);
         if (ed != null) return ed;
-        ed = (EntityDefinition) entityDefinitionCache.get(entityName);
+        ed = entityDefinitionCache.get(entityName);
         if (ed != null) return ed;
         if (entityName.isEmpty()) return null;
         if (entityName.startsWith("DataDocument.")) {
@@ -1072,7 +1079,7 @@ public class EntityFacadeImpl implements EntityFacade {
 
     // used in tools screens
     public void clearEntityDefinitionFromCache(String entityName) {
-        EntityDefinition ed = (EntityDefinition) this.entityDefinitionCache.get(entityName);
+        EntityDefinition ed = this.entityDefinitionCache.get(entityName);
         if (ed != null) {
             this.entityDefinitionCache.remove(ed.entityInfo.internalEntityName);
             this.entityDefinitionCache.remove(ed.fullEntityName);
@@ -1098,158 +1105,201 @@ public class EntityFacadeImpl implements EntityFacade {
                 if (ed.getPkFieldNames().size() > 1) continue;
             }
 
-            eil.add([entityName:ed.entityInfo.internalEntityName, "package":ed.entityNode.attribute("package"),
-                    isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>);
+            EntityDefinition finalEd = ed;
+            eil.add(new HashMap<String,Object>(){{
+                put("entityName", finalEd.entityInfo.internalEntityName);
+                put("package", finalEd.getEntityNode().attribute("package"));
+                put("isView", finalEd.isViewEntity ? "true" : "false");
+                put("fullEntityName", finalEd.fullEntityName);
+            }});
         }
 
-        if (orderByField != null && !orderByField.isEmpty()) CollectionUtil.orderMapList(eil, [orderByField])
+        if (orderByField != null && !orderByField.isEmpty()) CollectionUtil.orderMapList(eil, Collections.singletonList(orderByField));
         return eil;
     }
 
     // used in tools screen (EntityDbView)
     public ArrayList<Map<String, Object>> getAllEntityRelatedFields(String en, String orderByField, String dbViewEntityName) {
         // make sure reverse-one many relationships exist
-        createAllAutoReverseManyRelationships()
+        createAllAutoReverseManyRelationships();
 
-        EntityValue dbViewEntity = dbViewEntityName ? find("zkit.entity.view.DbViewEntity").condition("dbViewEntityName", dbViewEntityName).one() : null
+        EntityValue dbViewEntity = dbViewEntityName != null && !dbViewEntity.isEmpty() ? find("zkit.entity.view.DbViewEntity").condition("dbViewEntityName", dbViewEntityName).one() : null;
 
-        ArrayList<Map<String, Object>> efl = new ArrayList<>()
-        EntityDefinition ed = null
-        try { ed = getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
-        if (ed == null) return efl
+        ArrayList<Map<String, Object>> efl = new ArrayList<>();
+        EntityDefinition ed = null;
+        try { ed = getEntityDefinition(en); } catch (EntityException e) { logger.warn("Problem finding entity definition", e); }
+        if (ed == null) return efl;
 
         // first get fields of the main entity
-        for (String fn in ed.getAllFieldNames()) {
-            MNode fieldNode = ed.getFieldNode(fn)
+        for (String fn : ed.getAllFieldNames()) {
+            MNode fieldNode = ed.getFieldNode(fn);
 
-            boolean inDbView = false
-            String functionName = null
+            boolean inDbView = false;
+            String functionName = null;
             EntityValue aliasVal = find("zkit.entity.view.DbViewEntityAlias")
-                    .condition([dbViewEntityName:dbViewEntityName, entityAlias:"MASTER", fieldName:fn] as Map<String, Object>).one()
-            if (aliasVal) {
-                inDbView = true
-                functionName = aliasVal.functionName
+                    .condition(new HashMap<String,Object>(){{
+                        put("dbViewEntityName",dbViewEntityName);
+                        put("entityAlias","MASTER");
+                        put("fieldName","fn");
+                    }}).one();
+            if (aliasVal != null) {
+                inDbView = true;
+                functionName = aliasVal.getString("functionName");
             }
 
-            efl.add([entityName:en, fieldName:fn, type:fieldNode.attribute("type"), cardinality:"one",
-                    inDbView:inDbView, functionName:functionName] as Map<String, Object>)
+            boolean finalInDbView = inDbView;
+            String finalFunctionName = functionName;
+            efl.add(new HashMap<String,Object>(){{
+                put("entityName",en);
+                put("fieldName",fn);
+                put("type",fieldNode.attribute("type"));
+                put("cardinality","one");
+                put("inDbView", finalInDbView);
+                put("functionName", finalFunctionName);
+
+            }});
         }
 
         // loop through all related entities and get their fields too
-        for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
+        for (RelationshipInfo relInfo : ed.getRelationshipsInfo(false)) {
             //[type:relNode."@type", title:(relNode."@title"?:""), relatedEntityName:relNode."@related-entity-name",
             //        keyMap:keyMap, targetParameterMap:targetParameterMap, prettyName:prettyName]
-            EntityDefinition red = null
-            try { red = getEntityDefinition((String) relInfo.relatedEntityName) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
-            if (red == null) continue
+            EntityDefinition red = null;
+            try { red = getEntityDefinition((String) relInfo.relatedEntityName); } catch (EntityException e) { logger.warn("Problem finding entity definition", e); }
+            if (red == null) continue;
 
-            EntityValue dbViewEntityMember = null
-            if (dbViewEntity) dbViewEntityMember = find("zkit.entity.view.DbViewEntityMember")
-                    .condition([dbViewEntityName:dbViewEntityName, entityName:red.getFullEntityName()] as Map<String, Object>).one()
+            EntityValue dbViewEntityMember = null;
+            if (dbViewEntity != null) dbViewEntityMember = find("zkit.entity.view.DbViewEntityMember")
+                    .condition(new HashMap<String,Object>(){{
+                        put("dbViewEntityName",dbViewEntityName);
+                        put("entityName",red.getFullEntityName());
+                    }}).one();
 
-            for (String fn in red.getAllFieldNames()) {
-                MNode fieldNode = red.getFieldNode(fn)
-                boolean inDbView = false
-                String functionName = null
-                if (dbViewEntityMember) {
+            for (String fn : red.getAllFieldNames()) {
+                MNode fieldNode = red.getFieldNode(fn);
+                boolean inDbView = false;
+                String functionName = null;
+                if (dbViewEntityMember != null) {
                     EntityValue aliasVal = find("zkit.entity.view.DbViewEntityAlias")
-                            .condition([dbViewEntityName:dbViewEntityName, entityAlias:dbViewEntityMember.entityAlias, fieldName:fn]).one()
-                    if (aliasVal) {
-                        inDbView = true
-                        functionName = aliasVal.functionName
+                            .condition(new HashMap<String,Object>(){{
+                                put("dbViewEntityName",dbViewEntityName);
+                                put("fieldName",fn);
+                                put("entityAlias",dbViewEntityMember.get("entityAlias"));
+                            }}).one();
+                    if (aliasVal != null) {
+                        inDbView = true;
+                        functionName = aliasVal.getString("functionName");
                     }
                 }
-                efl.add([entityName:relInfo.relatedEntityName, fieldName:fn, type:fieldNode.attribute("type"),
-                        cardinality:relInfo.type, title:relInfo.title, inDbView:inDbView, functionName:functionName] as Map<String, Object>)
+                boolean finalInDbView = inDbView;
+                String finalFunctionName = functionName;
+                efl.add(new HashMap<String,Object>(){{
+                    put("entityName",relInfo.relatedEntityName);
+                    put("fieldName",fn);
+                    put("type",fieldNode.attribute("type"));
+                    put("cardinality",relInfo.type);
+                    put("title",relInfo.title);
+                    put("inDbView", finalInDbView);
+                    put("functionName", finalFunctionName);
+                }});
             }
         }
 
-        if (orderByField) CollectionUtilities.orderMapList(efl, [orderByField])
-        return efl
+        if (orderByField != null ) CollectionUtil.orderMapList(efl,Collections.singletonList(orderByField));
+        return efl;
     }
 
     public MNode getDatabaseNode(String groupName) {
-        MNode node = databaseNodeByGroupName.get(groupName)
-        if (node != null) return node
-        return findDatabaseNode(groupName)
+        MNode node = databaseNodeByGroupName.get(groupName);
+        if (node != null) return node;
+        return findDatabaseNode(groupName);
     }
     protected MNode findDatabaseNode(String groupName) {
-        MNode datasourceNode = getDatasourceNode(groupName)
-        String databaseConfName = datasourceNode.attribute("database-conf-name")
-        MNode node = ecfi.confXmlRoot.first("database-list")
-                .first({ MNode it -> it.name == 'database' && it.attribute("name") == databaseConfName })
-        databaseNodeByGroupName.put(groupName, node)
-        return node
+        MNode datasourceNode = getDatasourceNode(groupName);
+        String databaseConfName = datasourceNode.attribute("database-conf-name");
+        MNode node = ecfi.getConfXmlRoot().first("database-list")
+                .first((MNode it) -> it.getName().equals("database") && it.attribute("name").equals(databaseConfName));
+        databaseNodeByGroupName.put(groupName, node);
+        return node;
     }
     protected MNode getDatabaseNodeByConf(String confName) {
-        return ecfi.confXmlRoot.first("database-list")
-                .first({ MNode it -> it.name == 'database' && it.attribute("name") == confName })
+        return ecfi.getConfXmlRoot().first("database-list")
+                .first((MNode it) -> it.getName().equals("database") && it.attribute("name").equals(confName));
     }
     public String getDatabaseConfName(String entityName) {
-        MNode dsNode = getDatasourceNode(getEntityGroupName(entityName))
-        if (dsNode == null) return null
-        return dsNode.attribute("database-conf-name")
+        MNode dsNode = getDatasourceNode(getEntityGroupName(entityName));
+        if (dsNode == null) return null;
+        return dsNode.attribute("database-conf-name");
     }
 
     public MNode getDatasourceNode(String groupName) {
-        MNode node = datasourceNodeByGroupName.get(groupName)
-        if (node != null) return node
-        return findDatasourceNode(groupName)
+        MNode node = datasourceNodeByGroupName.get(groupName);
+        if (node != null) return node;
+        return findDatasourceNode(groupName);
     }
     protected MNode findDatasourceNode(String groupName) {
-        MNode dsNode = getEntityFacadeNode().first({ MNode it -> it.name == 'datasource' && it.attribute("group-name") == groupName })
+        MNode dsNode = getEntityFacadeNode().first((MNode it) ->it.getName().equals("datasource" ) && it.attribute("group-name").equals(groupName));
         if (dsNode == null) dsNode = getEntityFacadeNode()
-                .first({ MNode it -> it.name == 'datasource' && it.attribute("group-name") == defaultGroupName })
-        dsNode.setSystemExpandAttributes(true)
-        datasourceNodeByGroupName.put(groupName, dsNode)
-        return dsNode
+                .first((MNode it) ->it.getName().equals("datasource") && it.attribute("group-name").equals(defaultGroupName));
+        dsNode.setSystemExpandAttributes(true);
+        datasourceNodeByGroupName.put(groupName, dsNode);
+        return dsNode;
     }
 
-    public EntityDbMeta getEntityDbMeta() { return dbMeta != null ? dbMeta : (dbMeta = new EntityDbMeta(this)) }
+    public EntityDbMeta getEntityDbMeta() { return dbMeta != null ? dbMeta : (dbMeta = new EntityDbMeta(this));}
 
     /** Get a JDBC Connection based on xa-properties configuration. The Conf Map should contain the default entity_ds properties
      * including entity_ds_db_conf, entity_ds_host, entity_ds_port, entity_ds_database, entity_ds_user, entity_ds_password */
     public XAConnection getConfConnection(Map<String, String> confMap) {
-        String confName = confMap.entity_ds_db_conf
-        MNode databaseNode = getDatabaseNodeByConf(confName)
-        MNode xaPropsNode = databaseNode.first("inline-jdbc")?.first("xa-properties")
-        if (xaPropsNode == null) throw new IllegalArgumentException("Could not find database.inline-jdbc.xa-properties element for conf name ${confName}")
+        String confName = confMap.get("entity_ds_db_conf");
+        MNode databaseNode = getDatabaseNodeByConf(confName);
+        MNode xaPropsNode = databaseNode.first("inline-jdbc").first("xa-properties");
+        if (xaPropsNode == null) throw new IllegalArgumentException("Could not find database.inline-jdbc.xa-properties element for conf name ${confName}");
 
-        String xaDsClassName = databaseNode.attribute("default-xa-ds-class")
-        if (!xaDsClassName) throw new IllegalArgumentException("Could database conf ${confName} has no default-xa-ds-class attribute")
-        XADataSource xaDs = (XADataSource) ecfi.classLoader.loadClass(xaDsClassName).newInstance()
-        for (Map.Entry<String, String> attrEntry in xaPropsNode.attributes.entrySet()) {
-            String propValue = ecfi.resourceFacade.expand(attrEntry.value, "", confMap)
+        String xaDsClassName = databaseNode.attribute("default-xa-ds-class");
+        if (xaDsClassName == null) throw new IllegalArgumentException("Could database conf ${confName} has no default-xa-ds-class attribute");
+        XADataSource xaDs = null;
+        // 按照配置获取链接
+        try {
+            xaDs = (XADataSource) ecfi.getClassLoader().loadClass(xaDsClassName).newInstance();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Could database conf ${confName} has no default-xa-ds-class attribute");
+        }
+
+        for (Map.Entry<String, String> attrEntry : xaPropsNode.getAttributes().entrySet()) {
+            String propValue = ecfi.getResource().expand(attrEntry.getValue(), "", confMap);
             try {
-                xaDs.putAt(attrEntry.key, propValue)
+                DefaultGroovyMethods.putAt(xaDs,attrEntry.getKey(),propValue);
             } catch (GroovyCastException e) {
-                if (isTraceEnabled) logger.trace("Cast failed, trying int", e)
-                xaDs.putAt(attrEntry.key, propValue as int)
+                if (isTraceEnabled) logger.trace("Cast failed, trying int", e);
+                DefaultGroovyMethods.putAt(xaDs,attrEntry.getKey(),Integer.valueOf(propValue));
             }
         }
 
-        return xaDs.getXAConnection(confMap.entity_ds_user, confMap.entity_ds_password)
+        return xaDs.getXAConnection(confMap.get("entity_ds_user"), confMap.get("entity_ds_password"));
     }
     // used in services
     public int runSqlUpdateConf(CharSequence sql, Map<String, String> confMap) {
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
-        int records = 0
-        ecfi.transactionFacade.runRequireNew(30, "Error in DB meta data change", false, true, {
-                XAConnection xacon = null
-                Connection con = null
-                Statement stmt = null
-        try {
-            xacon = getConfConnection(confMap)
-            con = xacon.getConnection()
-            stmt = con.createStatement()
-            records = stmt.executeUpdate(sql.toString())
-        } finally {
-            if (stmt != null) stmt.close()
-            if (con != null) con.close()
-            if (xacon != null) xacon.close()
+        AtomicInteger records = new AtomicInteger();
+        Closure test = new Closure() {
         }
-        })
-        return records
+        ecfi.getTransaction().runRequireNew(30, "Error in DB meta data change", false, true, ()-> {
+                XAConnection xacon = null;
+                Connection con = null;
+                Statement stmt = null;
+                try {
+                    xacon = getConfConnection(confMap);
+                    con = xacon.getConnection();
+                    stmt = con.createStatement();
+                    records.set(stmt.executeUpdate(sql.toString()));
+                } finally {
+                    if (stmt != null) stmt.close();
+                    if (con != null) con.close();
+                    if (xacon != null) xacon.close();
+                }
+        });
+        return records.get();
     }
     /* this needs more work, can't pass back ResultSet with Connection closed so need to somehow return Connection and ResultSet so both can be closed...
     ResultSet runSqlQueryConf(CharSequence sql, Map<String, String> confMap) {
