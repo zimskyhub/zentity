@@ -1,5 +1,6 @@
 package com.zmtech.zkit.cache.impl;
 
+import com.google.common.collect.ImmutableMap;
 import com.zmtech.zkit.cache.CacheFacade;
 import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zkit.tools.impl.ZCacheToolFactory;
@@ -152,21 +153,21 @@ public class CacheFacadeImpl implements CacheFacade {
                 ZStats stats = mc.getMStats();
                 Long expireIdle = mc.getAccessDuration() != null ? mc.getAccessDuration().getDurationAmount() : 0;
                 Long expireLive = mc.getCreationDuration() != null ? mc.getCreationDuration().getDurationAmount() : 0;
-                ci.add(new ConcurrentHashMap<String, Object>() {{
-                    put("name", co.getName());
-                    put("expireTimeIdle", expireIdle);
-                    put("expireTimeLive", expireLive);
-                    put("maxElements", mc.getMaxEntries());
-                    put("evictionStrategy", "LRU");
-                    put("size", mc.size());
-                    put("getCount", stats.getCacheGets());
-                    put("putCount", stats.getCachePuts());
-                    put("hitCount", stats.getCacheHits());
-                    put("missCountTotal", stats.getCacheMisses());
-                    put("evictionCount", stats.getCacheEvictions());
-                    put("removeCount", stats.getCacheRemovals());
-                    put("expireCount", stats.getCacheExpires());
-                }});
+                ci.add(ImmutableMap.<String, Object>builder()
+                        .put("name", co.getName())
+                        .put("expireTimeIdle", expireIdle)
+                        .put("expireTimeLive", expireLive)
+                        .put("maxElements", mc.getMaxEntries())
+                        .put("evictionStrategy", "LRU")
+                        .put("size", mc.size())
+                        .put("getCount", stats.getCacheGets())
+                        .put("putCount", stats.getCachePuts())
+                        .put("hitCount", stats.getCacheHits())
+                        .put("missCountTotal", stats.getCacheMisses())
+                        .put("evictionCount", stats.getCacheEvictions())
+                        .put("removeCount", stats.getCacheRemovals())
+                        .put("expireCount", stats.getCacheExpires())
+                        .build());
             } else {
                 logger.warn("无法获取名称为: [" + cn + "] 类型为: [" + co.getClass().getName() + "] 的详细信息");
             }
@@ -299,18 +300,18 @@ public class CacheFacadeImpl implements CacheFacade {
             List<Map<String, Object>> elementInfoList = new ArrayList<>();
             for (Object ce : mCache.getEntryList()) {
                 ZEntry entry = (ZEntry) ((Cache.Entry) ce).unwrap(ZEntry.class);
-                Map<String, Object> im = new HashMap<String, Object>() {{
-                    put("key", entry.getKey());
-                    put("value", entry.getValue());
-                    put("hitCount", entry.getAccessCount());
-                    put("creationTime", new Timestamp(entry.getCreatedTime()));
-                }};
+                Map<String, Object> im = ImmutableMap.<String, Object>builder()
+                        .put("key", entry.getKey())
+                        .put("value", entry.getValue())
+                        .put("hitCount", entry.getAccessCount())
+                        .put("creationTime", new Timestamp(entry.getCreatedTime()))
+                        .build();
                 if (entry.getLastUpdatedTime() > 0) im.put("lastUpdateTime", new Timestamp(entry.getLastUpdatedTime()));
                 if (entry.getLastAccessTime() > 0) im.put("lastAccessTime", new Timestamp(entry.getLastAccessTime()));
                 elementInfoList.add(im);
             }
             if (orderByField != null && !orderByField.isEmpty())
-                CollectionUtil.orderMapList(elementInfoList, Arrays.asList(orderByField));
+                CollectionUtil.orderMapList(elementInfoList, Collections.singletonList(orderByField));
             return elementInfoList;
         } else {
             return new ArrayList<>();

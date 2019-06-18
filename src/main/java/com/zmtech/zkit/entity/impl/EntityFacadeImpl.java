@@ -3,6 +3,9 @@ package com.zmtech.zkit.entity.impl;
 import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zkit.context.impl.ExecutionContextImpl;
 import com.zmtech.zkit.entity.*;
+import com.zmtech.zkit.entity.impl.condition.EntityConditionImplBase;
+import com.zmtech.zkit.entity.impl.condition.impl.FieldValueCondition;
+import com.zmtech.zkit.entity.impl.condition.impl.ListCondition;
 import com.zmtech.zkit.etl.SimpleEtl;
 import com.zmtech.zkit.exception.EntityException;
 import com.zmtech.zkit.exception.EntityNotFoundException;
@@ -11,6 +14,7 @@ import com.zmtech.zkit.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zkit.util.CollectionUtil;
 import com.zmtech.zkit.util.EntityJavaUtil.*;
 import com.zmtech.zkit.util.MNode;
+import com.zmtech.zkit.util.ObjectUtil;
 import com.zmtech.zkit.util.SystemBinding;
 import groovy.lang.Closure;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
@@ -1046,13 +1050,15 @@ public class EntityFacadeImpl implements EntityFacade {
         return entityInfoList;
     }
 
-    /** This is used mostly by the service engine to quickly determine whether a noun is an entity. Called for all
-     * ServiceDefinition init to see if the noun is an entity name. Called by entity auto check if no path and verb is
-     * one of the entity-auto supported verbs. */
+    /**
+     * 这主要由服务引擎使用，以快速确定名词是否是实体。
+     * 调用所有ServiceDefinition init以查看名词是否为实体名称。
+     * 如果没有路径和动词是实体自动支持的动词之一，则由实体自动检查调用。
+     */
     public boolean isEntityDefined(String entityName) {
         if (entityName == null) return false;
 
-        // Special treatment for framework entities, quick Map lookup (also faster than Cache get)
+        // 框架实体的特殊处理，map查找（比Cache get快）
         if (frameworkEntityDefinitions.containsKey(entityName)) return true;
 
         Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName);
@@ -1095,7 +1101,7 @@ public class EntityFacadeImpl implements EntityFacade {
         ArrayList<Map<String, Object>> eil = new ArrayList<>();
         for (String en : getAllEntityNames(filterRegexp)) {
             EntityDefinition ed = null;
-            try { ed = getEntityDefinition(en); } catch (EntityException e) { logger.warn("Problem finding entity definition", e); }
+            try { ed = getEntityDefinition(en); } catch (EntityException e) { logger.warn("实体操作警告: 无法找到实体定义!", e); }
             if (ed == null) continue;
             if (excludeViewEntities && ed.isViewEntity) continue;
 
@@ -1118,19 +1124,19 @@ public class EntityFacadeImpl implements EntityFacade {
         return eil;
     }
 
-    // used in tools screen (EntityDbView)
+    // 用于工具屏幕（EntityDbView）
     public ArrayList<Map<String, Object>> getAllEntityRelatedFields(String en, String orderByField, String dbViewEntityName) {
-        // make sure reverse-one many relationships exist
+        // 确保存在反向对多关系
         createAllAutoReverseManyRelationships();
 
-        EntityValue dbViewEntity = dbViewEntityName != null && !dbViewEntity.isEmpty() ? find("zkit.entity.view.DbViewEntity").condition("dbViewEntityName", dbViewEntityName).one() : null;
+        EntityValue dbViewEntity = dbViewEntityName != null && !dbViewEntityName.isEmpty() ? find("zkit.entity.view.DbViewEntity").condition("dbViewEntityName", dbViewEntityName).one() : null;
 
         ArrayList<Map<String, Object>> efl = new ArrayList<>();
         EntityDefinition ed = null;
         try { ed = getEntityDefinition(en); } catch (EntityException e) { logger.warn("Problem finding entity definition", e); }
         if (ed == null) return efl;
 
-        // first get fields of the main entity
+        // 首先获取主要实体的字段
         for (String fn : ed.getAllFieldNames()) {
             MNode fieldNode = ed.getFieldNode(fn);
 
@@ -1160,7 +1166,7 @@ public class EntityFacadeImpl implements EntityFacade {
             }});
         }
 
-        // loop through all related entities and get their fields too
+        // 循环遍历所有相关实体并获取其字段
         for (RelationshipInfo relInfo : ed.getRelationshipsInfo(false)) {
             //[type:relNode."@type", title:(relNode."@title"?:""), relatedEntityName:relNode."@related-entity-name",
             //        keyMap:keyMap, targetParameterMap:targetParameterMap, prettyName:prettyName]
@@ -1169,22 +1175,26 @@ public class EntityFacadeImpl implements EntityFacade {
             if (red == null) continue;
 
             EntityValue dbViewEntityMember = null;
-            if (dbViewEntity != null) dbViewEntityMember = find("zkit.entity.view.DbViewEntityMember")
-                    .condition(new HashMap<String,Object>(){{
-                        put("dbViewEntityName",dbViewEntityName);
-                        put("entityName",red.getFullEntityName());
-                    }}).one();
+            if (dbViewEntity != null) {
+                EntityDefinition finalRed = red;
+                dbViewEntityMember = find("zkit.entity.view.DbViewEntityMember")
+                        .condition(new HashMap<String,Object>(){{
+                            put("dbViewEntityName",dbViewEntityName);
+                            put("entityName", finalRed.getFullEntityName());
+                        }}).one();
+            }
 
             for (String fn : red.getAllFieldNames()) {
                 MNode fieldNode = red.getFieldNode(fn);
                 boolean inDbView = false;
                 String functionName = null;
                 if (dbViewEntityMember != null) {
+                    EntityValue finalDbViewEntityMember = dbViewEntityMember;
                     EntityValue aliasVal = find("zkit.entity.view.DbViewEntityAlias")
                             .condition(new HashMap<String,Object>(){{
                                 put("dbViewEntityName",dbViewEntityName);
                                 put("fieldName",fn);
-                                put("entityAlias",dbViewEntityMember.get("entityAlias"));
+                                put("entityAlias", finalDbViewEntityMember.get("entityAlias"));
                             }}).one();
                     if (aliasVal != null) {
                         inDbView = true;
@@ -1276,28 +1286,39 @@ public class EntityFacadeImpl implements EntityFacade {
             }
         }
 
-        return xaDs.getXAConnection(confMap.get("entity_ds_user"), confMap.get("entity_ds_password"));
+        try {
+            return xaDs.getXAConnection(confMap.get("entity_ds_user"), confMap.get("entity_ds_password"));
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
     // used in services
     public int runSqlUpdateConf(CharSequence sql, Map<String, String> confMap) {
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
         AtomicInteger records = new AtomicInteger();
-        Closure test = new Closure() {
-        }
-        ecfi.getTransaction().runRequireNew(30, "Error in DB meta data change", false, true, ()-> {
-                XAConnection xacon = null;
-                Connection con = null;
-                Statement stmt = null;
+        ecfi.getTransaction().runRequireNew(30, "Error in DB meta data change",  ( Boolean it)-> {
+            XAConnection xacon = null;
+            Connection con = null;
+            Statement stmt = null;
+            try {
+                xacon = getConfConnection(confMap);
+                con = xacon.getConnection();
+                stmt = con.createStatement();
+                records.set(stmt.executeUpdate(sql.toString()));
+            } catch (SQLException e) {
+                e.printStackTrace();
+            } finally {
                 try {
-                    xacon = getConfConnection(confMap);
-                    con = xacon.getConnection();
-                    stmt = con.createStatement();
-                    records.set(stmt.executeUpdate(sql.toString()));
-                } finally {
-                    if (stmt != null) stmt.close();
+                    if (stmt != null) { stmt.close(); }
                     if (con != null) con.close();
                     if (xacon != null) xacon.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
                 }
+            }
+            return true;
         });
         return records.get();
     }
@@ -1319,23 +1340,32 @@ public class EntityFacadeImpl implements EntityFacade {
     */
     // used in services
     public long runSqlCountConf(CharSequence from, CharSequence where, Map<String, String> confMap) {
-        StringBuilder sqlSb = new StringBuilder("SELECT COUNT(*) FROM ").append(from).append(" WHERE ").append(where)
-        XAConnection xacon = null
-        Connection con = null
-        Statement stmt = null
-        ResultSet rs = null
+        StringBuilder sqlSb = new StringBuilder("SELECT COUNT(*) FROM ").append(from).append(" WHERE ").append(where);
+        XAConnection xacon = null;
+        Connection con = null;
+        Statement stmt = null;
+        ResultSet rs = null;
         try {
-            xacon = getConfConnection(confMap)
-            con = xacon.getConnection()
-            stmt = con.createStatement()
-            rs = stmt.executeQuery(sqlSb.toString())
-            if (rs.next()) return rs.getLong(1)
-            return 0
+            xacon = getConfConnection(confMap);
+            try {
+                con = xacon.getConnection();
+                stmt = con.createStatement();
+                rs = stmt.executeQuery(sqlSb.toString());
+                if (rs.next()) return rs.getLong(1);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            return 0;
         } finally {
-            if (stmt != null) stmt.close()
-            if (rs != null) rs.close()
-            if (con != null) con.close()
-            if (xacon != null) xacon.close()
+            try {
+                if (stmt != null) { stmt.close();}
+                if (rs != null) rs.close();
+                if (con != null) con.close();
+                if (xacon != null) xacon.close();
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -1345,247 +1375,251 @@ public class EntityFacadeImpl implements EntityFacade {
 
     @Override
     public EntityDatasourceFactory getDatasourceFactory(String groupName) {
-        EntityDatasourceFactory edf = (EntityDatasourceFactory) datasourceFactoryByGroupMap.get(groupName)
-        if (edf == null) edf = (EntityDatasourceFactory) datasourceFactoryByGroupMap.get(defaultGroupName)
-        if (edf == null) throw new EntityException("Could not find EntityDatasourceFactory for entity group ${groupName}")
-        return edf
+        EntityDatasourceFactory edf = datasourceFactoryByGroupMap.get(groupName);
+        if (edf == null) edf = datasourceFactoryByGroupMap.get(defaultGroupName);
+        if (edf == null) throw new EntityException("Could not find EntityDatasourceFactory for entity group ${groupName}");
+        return edf;
     }
     public List<Map<String, Object>> getDataSourcesInfo() {
-        List<Map<String, Object>> dsiList = new LinkedList<>()
-        for (String groupName in datasourceFactoryByGroupMap.keySet()) {
-            EntityDatasourceFactory edf = datasourceFactoryByGroupMap.get(groupName)
+        List<Map<String, Object>> dsiList = new LinkedList<>();
+        for (String groupName : datasourceFactoryByGroupMap.keySet()) {
+            EntityDatasourceFactory edf = datasourceFactoryByGroupMap.get(groupName);
             if (edf instanceof EntityDatasourceFactoryImpl) {
-                EntityDatasourceFactoryImpl edfi = (EntityDatasourceFactoryImpl) edf
-                DatasourceInfo dsi = edfi.dsi
-                dsiList.add([group:groupName, uniqueName:dsi.uniqueName, database:dsi.database.attribute('name'), detail:dsi.dsDetails] as Map<String, Object>)
+                EntityDatasourceFactoryImpl edfi = (EntityDatasourceFactoryImpl) edf;
+                DatasourceInfo dsi = edfi.dsi;
+                dsiList.add(new HashMap<String,Object>(){{
+                    put("group",groupName);
+                    put("uniqueName",dsi.uniqueName);
+                    put("database",dsi.database.attribute("name"));
+                    put("detail",dsi.dsDetails);
+                }});
             } else {
-                dsiList.add([group:groupName] as Map<String, Object>)
+                dsiList.add(Collections.singletonMap("group",groupName));
             }
         }
-        return dsiList
+        return dsiList;
     }
 
     @Override
-    public EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
-    public EntityConditionFactoryImpl getConditionFactoryImpl() { return this.entityConditionFactory }
+    public EntityConditionFactory getConditionFactory() { return this.entityConditionFactory; }
+    public EntityConditionFactoryImpl getConditionFactoryImpl() { return this.entityConditionFactory; }
 
     @Override
     public EntityValue makeValue(String entityName) {
         // don't check entityName empty, getEntityDefinition() does it
-        EntityDefinition ed = getEntityDefinition(entityName)
-        if (ed == null) throw new EntityException("No entity found with name ${entityName}")
-        return ed.makeEntityValue()
+        EntityDefinition ed = getEntityDefinition(entityName);
+        if (ed == null) throw new EntityException("No entity found with name ${entityName}");
+        return ed.makeEntityValue();
     }
 
     @Override
     public EntityFind find(String entityName) {
         // don't check entityName empty, getEntityDefinition() does it
-        EntityDefinition ed = getEntityDefinition(entityName)
-        if (ed == null) throw new EntityException("No entity found with name ${entityName}")
+        EntityDefinition ed = getEntityDefinition(entityName);
+        if (ed == null) throw new EntityException("No entity found with name ${entityName}");
         if (ed.isDynamicView && entityName.startsWith("DataDocument.")) {
             // see if it happens to be a DataDocument and if so make a special find that has its conditions too
             // TODO: consider addition condition methods to EntityDynamicView and handling this lower level instead of here
-            return entityDataDocument.makeDataDocumentFind(entityName.substring(entityName.indexOf(".") + 1))
+            return entityDataDocument.makeDataDocumentFind(entityName.substring(entityName.indexOf(".") + 1));
         }
-        return ed.makeEntityFind()
+        return ed.makeEntityFind();
     }
     @Override
     public EntityFind find(MNode node) {
-        String entityName = node.attribute("entity-name")
-        if (entityName != null && entityName.contains("\${")) entityName = ecfi.resourceFacade.expand(entityName, null)
+        String entityName = node.attribute("entity-name");
+        if (entityName != null && entityName.contains("${")) entityName = ecfi.getResource().expand(entityName, null);
         // don't check entityName empty, getEntityDefinition() does it
-        EntityDefinition ed = getEntityDefinition(entityName)
-        if (ed == null) throw new EntityException("No entity found with name ${entityName}")
-        EntityFind ef
+        EntityDefinition ed = getEntityDefinition(entityName);
+        if (ed == null) throw new EntityException("No entity found with name ${entityName}");
+        EntityFind ef;
         if (ed.isDynamicView && entityName.startsWith("DataDocument.")) {
             // see if it happens to be a DataDocument and if so make a special find that has its conditions too
             // TODO: consider addition condition methods to EntityDynamicView and handling this lower level instead of here
-            ef = entityDataDocument.makeDataDocumentFind(entityName.substring(entityName.indexOf(".") + 1))
+            ef = entityDataDocument.makeDataDocumentFind(entityName.substring(entityName.indexOf(".") + 1));
         } else {
-            ef = ed.makeEntityFind()
+            ef = ed.makeEntityFind();
         }
 
-        String cache = node.attribute("cache")
+        String cache = node.attribute("cache");
         if (cache != null && !cache.isEmpty()) { ef.useCache("true".equals(cache)) }
-        String forUpdate = node.attribute("for-update")
-        if (forUpdate != null && !forUpdate.isEmpty()) ef.forUpdate("true".equals(forUpdate))
-        String distinct = node.attribute("distinct")
-        if (distinct != null && !distinct.isEmpty()) ef.distinct("true".equals(distinct))
-        String offset = node.attribute("offset")
-        if (offset != null && !offset.isEmpty()) ef.offset(Integer.valueOf(offset))
-        String limit = node.attribute("limit")
-        if (limit != null && !limit.isEmpty()) ef.limit(Integer.valueOf(limit))
-        for (MNode sf in node.children("select-field")) ef.selectField(sf.attribute("field-name"))
-        for (MNode ob in node.children("order-by")) ef.orderBy(ob.attribute("field-name"))
+        String forUpdate = node.attribute("for-update");
+        if (forUpdate != null && !forUpdate.isEmpty()) ef.forUpdate("true".equals(forUpdate));
+        String distinct = node.attribute("distinct");
+        if (distinct != null && !distinct.isEmpty()) ef.distinct("true".equals(distinct));
+        String offset = node.attribute("offset");
+        if (offset != null && !offset.isEmpty()) ef.offset(Integer.valueOf(offset));
+        String limit = node.attribute("limit");
+        if (limit != null && !limit.isEmpty()) ef.limit(Integer.valueOf(limit));
+        for (MNode sf : node.children("select-field")) ef.selectField(sf.attribute("field-name"));
+        for (MNode ob : node.children("order-by")) ef.orderBy(ob.attribute("field-name"));
 
         if (node.hasChild("search-form-inputs")) {
-            MNode sfiNode = node.first("search-form-inputs")
-            boolean paginate = !"false".equals(sfiNode.attribute("paginate"))
-            MNode defaultParametersNode = sfiNode.first("default-parameters")
-            String inputFieldsMapName = sfiNode.attribute("input-fields-map")
-            Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ecfi.resourceFacade.expression(inputFieldsMapName, "") : ecfi.getEci().context
-            ef.searchFormMap(inf, defaultParametersNode?.attributes as Map<String, Object>, sfiNode.attribute("skip-fields"), sfiNode.attribute("default-order-by"), paginate)
+            MNode sfiNode = node.first("search-form-inputs");
+            boolean paginate = !"false".equals(sfiNode.attribute("paginate"));
+            MNode defaultParametersNode = sfiNode.first("default-parameters");
+            String inputFieldsMapName = sfiNode.attribute("input-fields-map");
+            Map<String, Object> inf = inputFieldsMapName != null? (Map<String, Object>) ecfi.getResource().expression(inputFieldsMapName, "") : ecfi.getEci().getContext();
+            ef.searchFormMap(inf, defaultParametersNode != null ? defaultParametersNode.getAttributes(), sfiNode.attribute("skip-fields"), sfiNode.attribute("default-order-by"), paginate);
         }
 
         // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
-        EntityCondition mainCond = getConditionFactoryImpl().makeActionConditions(node, ef.shouldCache())
-        if (mainCond != null) ef.condition(mainCond)
+        EntityCondition mainCond = getConditionFactoryImpl().makeActionConditions(node, ef.shouldCache());
+        if (mainCond != null) ef.condition(mainCond);
 
         if (node.hasChild("having-econditions")) {
-            for (MNode havingCond in node.children("having-econditions"))
-            ef.havingCondition(getConditionFactoryImpl().makeActionConditions(havingCond, ef.shouldCache()))
+            for (MNode havingCond : node.children("having-econditions"))
+            ef.havingCondition(getConditionFactoryImpl().makeActionConditions(havingCond, ef.shouldCache()));
         }
 
-        return ef
+        return ef;
     }
 
     /** Simple, fast find by primary key; doesn't filter find based on authz; doesn't use TransactionCache
      * For cached queries this is about 50% faster (6M/s vs 4M/s) for non-cached queries only about 10% faster (500K vs 450K) */
     public EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values) {
-        ExecutionContextImpl ec = ecfi.getEci()
-        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
-        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
+        ExecutionContextImpl ec = ecfi.getEci();
+//        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
+//        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
         try {
-            EntityDefinition ed = getEntityDefinition(entityName)
-            if (ed == null) throw new EntityException("Entity not found with name ${entityName}")
-            EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
-            FieldInfo[] pkFieldInfoArray = entityInfo.pkFieldInfoArray
+            EntityDefinition ed = getEntityDefinition(entityName);
+            if (ed == null) throw new EntityException("Entity not found with name ${entityName}");
+            EntityInfo entityInfo = ed.entityInfo;
+            FieldInfo[] pkFieldInfoArray = entityInfo.pkFieldInfoArray;
 
             if (ed.isViewEntity || !entityInfo.isEntityDatasourceFactoryImpl) {
-                if (logger.infoEnabled) logger.info("fastFindOne used with entity ${entityName} which is view entity (${ed.isViewEntity}) or not from EntityDatasourceFactoryImpl (${entityInfo.isEntityDatasourceFactoryImpl})")
-                EntityFind ef = find(entityName)
-                if (useCache) ef.useCache(true)
-                if (disableAuthz) ef.disableAuthz()
+                if (logger.isInfoEnabled()) logger.info("fastFindOne used with entity ${entityName} which is view entity (${ed.isViewEntity}) or not from EntityDatasourceFactoryImpl (${entityInfo.isEntityDatasourceFactoryImpl})");
+                EntityFind ef = find(entityName);
+                if (useCache) ef.useCache(true);
+                if (disableAuthz) ef.disableAuthz();
                 for (int i = 0; i < pkFieldInfoArray.length; i++) {
-                    FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
-                    Object fieldValue = values[i]
-                    ef.condition(fi.name, fieldValue)
+                    FieldInfo fi = pkFieldInfoArray[i];
+                    Object fieldValue = values[i];
+                    ef.condition(fi.name, fieldValue);
                 }
-                return ef.one()
+                return ef.one();
             }
 
-            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
-            // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
+//            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+//                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
+//            // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
+//            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
 
             try {
-                boolean doCache = useCache != null ? (useCache.booleanValue() ? !entityInfo.neverCache : false) : "true".equals(entityInfo.useCache)
+                boolean doCache = useCache != null ? (useCache.booleanValue() ? !entityInfo.neverCache : false) : "true".equals(entityInfo.useCache);
 
-                boolean hasEmptyPk = false
-                int pkSize = pkFieldInfoArray.length
-                if (values.length != pkSize) throw new EntityException("Cannot do fastFindOne for entity ${entityName} with ${pkSize} primary key fields and ${values.length} values")
-                EntityConditionImplBase whereCondition = (EntityConditionImplBase) null
+                boolean hasEmptyPk = false;
+                int pkSize = pkFieldInfoArray.length;
+                if (values.length != pkSize) throw new EntityException("Cannot do fastFindOne for entity ${entityName} with ${pkSize} primary key fields and ${values.length} values");
+                EntityConditionImplBase whereCondition = (EntityConditionImplBase) null;
                 if (pkSize == 1) {
-                    Object fieldValue = values[0]
-                    if (ObjectUtilities.isEmpty(fieldValue)) {
-                        hasEmptyPk = true
+                    Object fieldValue = values[0];
+                    if (ObjectUtil.isEmpty(fieldValue)) {
+                        hasEmptyPk = true;
                     } else if (doCache) {
-                        FieldInfo fi = (FieldInfo) pkFieldInfoArray[0]
-                        whereCondition = new FieldValueCondition(fi.conditionField, EntityCondition.EQUALS, fieldValue)
+                        FieldInfo fi = (FieldInfo) pkFieldInfoArray[0];
+                        whereCondition = new FieldValueCondition(fi.conditionField, EntityCondition.EQUALS, fieldValue);
                     }
                 } else {
-                    ListCondition listCond = doCache ? new ListCondition(null, EntityCondition.AND) : (ListCondition) null
+                    ListCondition listCond = doCache ? new ListCondition(null, EntityCondition.AND) : (ListCondition) null;
                     for (int i = 0; i < pkSize; i++) {
-                        Object fieldValue = values[i]
-                        if (ObjectUtilities.isEmpty(fieldValue)) {
-                            hasEmptyPk = true
-                            break
+                        Object fieldValue = values[i];
+                        if (ObjectUtil.isEmpty(fieldValue)) {
+                            hasEmptyPk = true;
+                            break;
                         }
                         if (doCache) {
-                            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
-                            listCond.addCondition(new FieldValueCondition(fi.conditionField, EntityCondition.EQUALS, fieldValue))
+                            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i];
+                            listCond.addCondition(new FieldValueCondition(fi.conditionField, EntityCondition.EQUALS, fieldValue));
                         }
                     }
-                    if (doCache) whereCondition = listCond
+                    if (doCache) whereCondition = listCond;
                 }
                 // if any PK fields are null, for whatever reason in calling code, the result is null so no need to send to DB or cache or anything
-                if (hasEmptyPk) return (EntityValue) null
+                if (hasEmptyPk) return (EntityValue) null;
 
                 Cache<EntityCondition, EntityValueBase> entityOneCache = doCache ?
-                        ed.getCacheOne(entityCache) : (Cache<EntityCondition, EntityValueBase>) null
-                EntityValueBase cacheHit = doCache ? (EntityValueBase) entityOneCache.get(whereCondition) : (EntityValueBase) null
+                        ed.getCacheOne(entityCache) : (Cache<EntityCondition, EntityValueBase>) null;
+                EntityValueBase cacheHit = doCache ? (EntityValueBase) entityOneCache.get(whereCondition) : (EntityValueBase) null;
 
-                EntityValueBase newEntityValue
+                EntityValueBase newEntityValue;
                 if (cacheHit != null) {
-                    if (cacheHit instanceof EntityCache.EmptyRecord) newEntityValue = (EntityValueBase) null
-                    else newEntityValue = cacheHit
+                    if (cacheHit instanceof EntityCache.EmptyRecord) newEntityValue = (EntityValueBase) null;
+                    else newEntityValue = cacheHit;
                 } else {
-                    newEntityValue = fastFindOneExtended(ed, values)
+                    newEntityValue = fastFindOneExtended(ed, values);
                     // put it in whether null or not (already know cacheHit is null)
-                    if (doCache) entityCache.putInOneCache(ed, whereCondition, newEntityValue, entityOneCache)
+                    if (doCache) entityCache.putInOneCache(ed, whereCondition, newEntityValue, entityOneCache);
                 }
 
-                return newEntityValue
+                return newEntityValue;
             } finally {
                 // pop the ArtifactExecutionInfo
-                aefi.pop(aei)
+//                aefi.pop(aei)
             }
         } finally {
-            if (enableAuthz) aefi.enableAuthz()
+//            if (enableAuthz) aefi.enableAuthz()
         }
     }
     public EntityValueBase fastFindOneExtended(EntityDefinition ed, Object... values) throws EntityException {
         // table doesn't exist, just return null
-        if (!ed.tableExistsDbMetaOnly()) return null
+        if (!ed.tableExistsDbMetaOnly()) return null;
 
-        FieldInfo[] fieldInfoArray = ed.entityInfo.allFieldInfoArray
-        FieldInfo[] pkFieldInfoArray = ed.entityInfo.pkFieldInfoArray
-        int pkSize = pkFieldInfoArray.length
+        FieldInfo[] fieldInfoArray = ed.entityInfo.allFieldInfoArray;
+        FieldInfo[] pkFieldInfoArray = ed.entityInfo.pkFieldInfoArray;
+        int pkSize = pkFieldInfoArray.length;
 
-        final StringBuilder sqlTopLevel = new StringBuilder(500)
-        sqlTopLevel.append("SELECT ").append(ed.entityInfo.allFieldsSqlSelect)
+        final StringBuilder sqlTopLevel = new StringBuilder(500);
+        sqlTopLevel.append("SELECT ").append(ed.entityInfo.allFieldsSqlSelect);
 
         // FROM Clause
-        sqlTopLevel.append(" FROM ")
-        sqlTopLevel.append(ed.getFullTableName())
+        sqlTopLevel.append(" FROM ");
+        sqlTopLevel.append(ed.getFullTableName());
 
         // WHERE clause; whereCondition will always be FieldValueCondition or ListCondition with FieldValueCondition
-        sqlTopLevel.append(" WHERE ")
+        sqlTopLevel.append(" WHERE ");
         for (int i = 0; i < pkSize; i++) {
-            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
+            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i];
             // Object fieldValue = values[i]
-            if (i > 0) sqlTopLevel.append(" AND ")
-            sqlTopLevel.append(fi.getFullColumnName()).append(" = ?")
+            if (i > 0) sqlTopLevel.append(" AND ");
+            sqlTopLevel.append(fi.getFullColumnName()).append(" = ?");
         }
 
-        String finalSql = sqlTopLevel.toString()
+        String finalSql = sqlTopLevel.toString();
 
         // run the SQL now that it is built
-        EntityValueBase newEntityValue = (EntityValueBase) null
-        Connection connection = (Connection) null
-        PreparedStatement ps = (PreparedStatement) null
-        ResultSet rs = (ResultSet) null
+        EntityValueBase newEntityValue = null;
+        Connection connection = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
         try {
-            connection = getConnection(ed.getEntityGroupName())
-            ps = connection.prepareStatement(finalSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
+            connection = getConnection(ed.getEntityGroupName());
+            ps = connection.prepareStatement(finalSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
             for (int i = 0; i < pkSize; i++) {
-                FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
-                Object fieldValue = values[i]
+                FieldInfo fi = pkFieldInfoArray[i];
+                Object fieldValue = values[i];
                 fi.setPreparedStatementValue(ps, i + 1, fieldValue, ed, this);
             }
 
-            boolean queryStats = getQueryStats()
-            long beforeQuery = queryStats ? System.nanoTime() : 0
-            rs = ps.executeQuery()
-            if (queryStats) saveQueryStats(ed, finalSql, System.nanoTime() - beforeQuery, false)
+            long beforeQuery = this.queryStats ? System.nanoTime() : 0;
+            rs = ps.executeQuery();
+            if (this.queryStats) saveQueryStats(ed, finalSql, System.nanoTime() - beforeQuery, false);
 
             if (rs.next()) {
-                newEntityValue = new EntityValueImpl(ed, this)
-                HashMap<String, Object> valueMap = newEntityValue.getValueMap()
+                newEntityValue = new EntityValueImpl(ed, this);
+                HashMap<String, Object> valueMap = newEntityValue.getValueMap();
                 int size = fieldInfoArray.length;
                 for (int i = 0; i < size; i++) {
                     FieldInfo fi = fieldInfoArray[i];
                     if (fi == null) break;
-                    fi.getResultSetValue(rs, i + 1, valueMap, this)
+                    fi.getResultSetValue(rs, i + 1, valueMap, this);
                 }
             }
         } catch (SQLException e) {
             throw new EntityException("Error finding value", e);
         } finally {
             try {
-                if (ps != null) ps.close()
-                if (rs != null) rs.close()
+                if (ps != null) ps.close();
+                if (rs != null) rs.close();
                 if (connection != null) connection.close();
             } catch (SQLException sqle) { throw new EntityException("Error finding value", sqle); }
         }
@@ -1593,15 +1627,17 @@ public class EntityFacadeImpl implements EntityFacade {
         return newEntityValue;
     }
 
-    public final static Map<String, String> operationByMethod = [get:'find', post:'create', put:'store', patch:'update', delete:'delete']
+    public final static Map<String, String> operationByMethod = new ConcurrentHashMap<String,String>(){{
+
+    }}[get:'find', post:'create', put:'store', patch:'update', delete:'delete']
     @Override
     public Object rest(String operation, List<String> entityPath, Map parameters, boolean masterNameInPath) {
-        if (operation == null || operation.length() == 0) throw new EntityException("Operation (method) must be specified")
-        operation = operationByMethod.get(operation.toLowerCase()) ?: operation
-        if (!(operation in ['find', 'create', 'store', 'update', 'delete']))
-        throw new EntityException("Operation [${operation}] not supported, must be one of: get, post, put, patch, or delete for HTTP request methods or find, create, store, update, or delete for direct entity operations")
+        if (operation == null || operation.length() == 0) throw new EntityException("Operation (method) must be specified");
+        operation = operationByMethod.get(operation.toLowerCase()) != null ? operationByMethod.get(operation.toLowerCase()): operation;
+        if (!(operation : ['find', 'create', 'store', 'update', 'delete']))
+        throw new EntityException("Operation [${operation}] not supported, must be one of: get, post, put, patch, or delete for HTTP request methods or find, create, store, update, or delete for direct entity operations");
 
-        if (entityPath == null || entityPath.size() == 0) throw new EntityException("No entity name or alias specified in path")
+        if (entityPath == null || entityPath.size() == 0) throw new EntityException("No entity name or alias specified in path");
 
         boolean dependents = (parameters.dependents == 'true' || parameters.dependents == 'Y')
         int dependentLevels = (parameters.dependentLevels ?: (dependents ? '2' : '0')) as int
