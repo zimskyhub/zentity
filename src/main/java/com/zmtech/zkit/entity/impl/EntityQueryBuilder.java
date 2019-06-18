@@ -71,7 +71,7 @@ public class EntityQueryBuilder {
     public ResultSet executeQuery() throws SQLException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place");
         boolean isError = false;
-        boolean queryStats = efi.getQueryStats();
+        boolean queryStats = efi.isQueryStats();
         long beforeQuery = queryStats ? System.nanoTime() : 0;
         try {
             final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;
@@ -92,7 +92,7 @@ public class EntityQueryBuilder {
     public int executeUpdate() throws SQLException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place");
         boolean isError = false;
-        boolean queryStats = efi.getQueryStats();
+        boolean queryStats = efi.isQueryStats();
         long beforeQuery = queryStats ? System.nanoTime() : 0;
         try {
             final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;

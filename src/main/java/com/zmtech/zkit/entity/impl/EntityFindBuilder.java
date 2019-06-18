@@ -566,7 +566,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     public void makeWhereClause() {
         if (whereCondition == null) return;
         EntityConditionImplBase condition = whereCondition;
-        if (mainEntityDefinition.hasSubSelectMembers) {
+        if (mainEntityDefinition.isHasSubSelectMembers()) {
             condition = condition.filter(null, mainEntityDefinition);
             if (condition == null) return;
         }
