@@ -37,7 +37,7 @@ public class EntityCache {
     /** 实体缓存无效 Topic */
     private SimpleTopic<EntityCacheInvalidate> entityCacheInvalidateTopic = null;
 
-    EntityCache(EntityFacadeImpl efi) {
+    public EntityCache(EntityFacadeImpl efi) {
         this.efi = efi;
         this.cfi = (CacheFacadeImpl)efi.ecfi.getCache();
 
