@@ -1,5 +1,6 @@
 package com.zmtech.zkit.entity.impl;
 
+import com.google.common.cache.Cache;
 import com.zmtech.zkit.cache.impl.CacheFacadeImpl;
 import com.zmtech.zkit.entity.EntityCondition;
 import com.zmtech.zkit.entity.EntityList;
