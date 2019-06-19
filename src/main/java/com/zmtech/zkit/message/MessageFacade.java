@@ -1,5 +1,7 @@
 package com.zmtech.zkit.message;
 
+import com.zmtech.zkit.message.impl.ValidationError;
+import com.zmtech.zkit.message.NotificationMessage.*;
 import java.io.Serializable;
 import java.util.List;
 

@@ -12,8 +12,7 @@ public class ContextBinding extends Binding {
 
     @Override
     public Object getVariable(String name) {
-        // NOTE: this code is part of the original Groovy groovy.lang.Binding.getVariable() method and leaving it out
-        //     is the reason to override this method:
+        // 注意：此代码是原始Groovy groovy.lang.Binding.getVariable（）方法的一部分，并将其保留为重写此方法的原因：
         //if (result == null && !variables.containsKey(name)) {
         //    throw new MissingPropertyException(name, this.getClass());
         //}
@@ -30,8 +29,7 @@ public class ContextBinding extends Binding {
 
     @Override
     public boolean hasVariable(String name) {
-        // always treat it like the variable exists and is null to change the behavior for variable scope and
-        //     declaration, easier in simple scripts
+        // 总是把它视为变量存在，并且为了改变变量范围和声明的行为，它是null，在简单的脚本中更容易
         return true;
     }
 }
