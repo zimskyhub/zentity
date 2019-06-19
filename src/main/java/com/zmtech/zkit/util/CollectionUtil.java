@@ -133,8 +133,7 @@ public class CollectionUtil {
                 String fieldStr = fieldName.toString();
                 if (fieldStr.contains(",")) {
                     String[] curFieldArray = fieldStr.split(",");
-                    for (int i = 0; i < curFieldArray.length; i++) {
-                        String curField = curFieldArray[i];
+                    for (String curField : curFieldArray) {
                         if (curField == null) continue;
                         fieldArrayList.add(curField.trim());
                     }
