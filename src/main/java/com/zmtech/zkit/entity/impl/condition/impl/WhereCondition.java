@@ -16,8 +16,8 @@ import java.util.Set;
 
 
 public class WhereCondition implements EntityConditionImplBase {
-    private final static Logger logger = LoggerFactory.getLogger(WhereCondition.class);
-    private String sqlWhereClause;
+    protected final static Logger logger = LoggerFactory.getLogger(WhereCondition.class);
+    protected String sqlWhereClause;
 
     public WhereCondition(String sqlWhereClause) {
         this.sqlWhereClause = sqlWhereClause != null ? sqlWhereClause : "";
@@ -30,24 +30,22 @@ public class WhereCondition implements EntityConditionImplBase {
 
     @Override
     public boolean mapMatches(Map<String, Object> map) {
-        // NOTE: always return false unless we eventually implement some sort of SQL parsing, for caching/etc
-        // always consider not matching
-        logger.warn("Where Condition 不支持 mapMatches, 相关sql: ["+this.sqlWhereClause+"]");
+        // 注意：除非我们最终实现某种SQL解析，否则总是返回false，因为缓存/等始终认为不匹配
+        logger.warn("实体条件警告: Where Condition 不支持 mapMatches, 相关sql: ["+this.sqlWhereClause+"]");
         return false;
     }
 
     @Override
     public boolean mapMatchesAny(Map<String, Object> map) {
-        // NOTE: always return true unless we eventually implement some sort of SQL parsing, for caching/etc
-        // always consider matching so cache values are cleared
-        logger.warn("Where Condition 不支持 mapMatches, 相关sql: ["+this.sqlWhereClause+"]");
+        // 注意：除非我们最终实现某种SQL解析，否则总是返回true，因为缓存/等总是考虑匹配，因此清除缓存值
+        logger.warn("实体条件警告: Where Condition 不支持 mapMatches, 相关sql: ["+this.sqlWhereClause+"]");
         return true;
     }
 
     @Override
     public boolean mapKeysNotContained(Map<String, Object> map) {
-        // always consider matching so cache values are cleared
-        logger.warn("Where Condition 不支持 mapMatches, 相关sql: ["+this.sqlWhereClause+"]");
+        // 始终考虑匹配，以便清除缓存值
+        logger.warn("实体条件警告: Where Condition 不支持 mapMatches, 相关sql: ["+this.sqlWhereClause+"]");
         return true;
     }
 
@@ -67,7 +65,7 @@ public class WhereCondition implements EntityConditionImplBase {
 
     @Override
     public EntityCondition ignoreCase() {
-        throw new EntityException("ListCondition 不支持 Ignore Case!");
+        throw new EntityException("实体条件错误: ListCondition 不支持 Ignore Case!");
     }
 
     @Override

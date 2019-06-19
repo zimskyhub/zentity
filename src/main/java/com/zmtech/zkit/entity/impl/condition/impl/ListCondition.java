@@ -14,7 +14,7 @@ import java.util.*;
 
 public class ListCondition implements EntityConditionImplBase {
     private ArrayList<EntityConditionImplBase> conditionList = new ArrayList<>();
-    private JoinOperator operator;
+    protected JoinOperator operator;
     private int conditionListSize = 0;
     private int curHashCode;
     private static final Class thisClass = ListCondition.class;
@@ -111,7 +111,7 @@ public class ListCondition implements EntityConditionImplBase {
             boolean notContained = condition.mapKeysNotContained(map);
             if (!notContained) return false;
         }
-        // 这里代表有一个 OR 不为 true，或者有一个 AND 不为
+        // 这里代表有一个 OR 不为 true，或者有一个 AND 不为 false
         return true;
     }
 
@@ -156,7 +156,7 @@ public class ListCondition implements EntityConditionImplBase {
 
     @Override
     public EntityCondition ignoreCase() {
-        throw new EntityException("ListCondition 不支持 Ignore Case!");
+        throw new EntityException("实体条件错误: ListCondition 不支持 Ignore Case!");
     }
 
     @Override
@@ -184,7 +184,7 @@ public class ListCondition implements EntityConditionImplBase {
     public boolean equals(Object o) {
         if (o == null || o.getClass() != thisClass) return false;
         ListCondition that = (ListCondition) o;
-        // NOTE: for Java Enums the != is WAY faster than the .equals
+        // 注意：对于Java Enums，！=比.equals更快
         return this.operator == that.operator && this.conditionList.equals(that.conditionList);
     }
 

@@ -104,7 +104,7 @@ public class BasicJoinCondition implements EntityConditionImplBase {
 
     @Override
     public EntityCondition ignoreCase() {
-        throw new EntityException("JoinCondition 不支持 Ignore case!");
+        throw new EntityException("实体条件错误: JoinCondition 不支持 Ignore case!");
     }
 
     @Override

@@ -17,9 +17,9 @@ import java.util.Set;
 
 public class DateCondition implements EntityConditionImplBase, Externalizable {
 
-    private String fromFieldName;
-    private String thruFieldName;
-    private Timestamp compareStamp;
+    protected String fromFieldName;
+    protected String thruFieldName;
+    protected Timestamp compareStamp;
     private EntityConditionImplBase conditionInternal;
     private int hashCodeInternal;
 
@@ -70,7 +70,7 @@ public class DateCondition implements EntityConditionImplBase, Externalizable {
 
     @Override
     public EntityCondition ignoreCase() {
-        throw new EntityException("DateCondition 不支持 Ignore case!");
+        throw new EntityException("实体条件错误: DateCondition 不支持 Ignore case!");
     }
 
     @Override

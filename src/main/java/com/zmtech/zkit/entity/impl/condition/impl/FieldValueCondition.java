@@ -28,9 +28,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     protected boolean ignoreCase = false;
     private int curHashCode;
 
-    public FieldValueCondition() {
-    }
-
+    public FieldValueCondition() { }
     public FieldValueCondition(ConditionField field, ComparisonOperator operator, Object value) {
         this.field = field;
         this.value = value;
@@ -71,7 +69,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         EntityDefinition curEd = subMemberEd != null ? subMemberEd : eqb.getMainEd();
         FieldInfo fi = field.getFieldInfo(curEd);
         if (fi == null)
-            throw new EntityException("无法找到字段 字段名: [" + field.fieldName + "] 实体名: [" + curEd.getFullEntityName()+"]!");
+            throw new EntityException("实体条件错误: 无法找到字段 字段名: [" + field.fieldName + "] 实体名: [" + curEd.getFullEntityName()+"]!");
 
         if (value instanceof Collection && ((Collection) value).isEmpty()) {
             if (operator == IN) {

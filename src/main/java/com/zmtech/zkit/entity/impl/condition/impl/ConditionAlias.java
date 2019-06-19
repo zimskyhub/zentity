@@ -14,8 +14,8 @@ import java.io.ObjectOutput;
 public class ConditionAlias extends ConditionField implements Externalizable {
     private static final Class thisClass = ConditionAlias.class;
 
-    private String fieldName;
-    private String entityAlias = null;
+    String fieldName;
+    String entityAlias = null;
     private String aliasEntityName = null;
     private transient EntityDefinition aliasEntityDefTransient = null;
     private int curHashCode;
@@ -24,9 +24,9 @@ public class ConditionAlias extends ConditionField implements Externalizable {
     }
 
     public ConditionAlias(String entityAlias, String fieldName, EntityDefinition aliasEntityDef) {
-        if (fieldName == null) throw new EntityException("字段名称不能为空!");
-        if (entityAlias == null) throw new EntityException("字段别名不能为空!");
-        if (aliasEntityDef == null) throw new EntityException("实体别名不能为空!");
+        if (fieldName == null) throw new EntityException("实体条件错误: 字段名称不能为空!");
+        if (entityAlias == null) throw new EntityException("实体条件错误: 字段别名不能为空!");
+        if (aliasEntityDef == null) throw new EntityException("实体条件错误: 实体别名不能为空!");
         this.fieldName = fieldName.intern();
         this.entityAlias = entityAlias.intern();
 
@@ -97,10 +97,11 @@ public class ConditionAlias extends ConditionField implements Externalizable {
     public boolean equals(Object o) {
         if (o == null || o.getClass() != thisClass) return false;
         ConditionAlias that = (ConditionAlias) o;
-        // both Strings are intern'ed so use != operator for object compare
-        if (!fieldName.equals(that.fieldName)) return false;
-        if (!entityAlias.equals(that.entityAlias)) return false;
-        return aliasEntityName.equals(that.aliasEntityName);
+        // 两个字符串都是实习的，所以使用！=运算符进行对象比较
+        if (fieldName != that.fieldName) return false;
+        if (entityAlias != that.entityAlias) return false;
+        if (aliasEntityName != that.aliasEntityName) return false;
+        return true;
     }
 
     @Override

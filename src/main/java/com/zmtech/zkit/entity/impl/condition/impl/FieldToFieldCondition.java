@@ -16,12 +16,12 @@ import java.util.Set;
 
 public class FieldToFieldCondition implements EntityConditionImplBase {
 
-    private static final Class thisClass = FieldValueCondition.class;
+    protected static final Class thisClass = FieldValueCondition.class;
     protected ConditionField field;
     protected EntityCondition.ComparisonOperator operator;
-    private ConditionField toField;
+    protected ConditionField toField;
     protected boolean ignoreCase = false;
-    private int curHashCode;
+    protected int curHashCode;
 
     public FieldToFieldCondition(ConditionField field, EntityCondition.ComparisonOperator operator, ConditionField toField) {
         this.field = field;
@@ -54,7 +54,7 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
         makeSubSql(subMemberEd, sql, mainEd, toFi, toTypeValue, toField);
     }
 
-    private void makeSubSql(EntityDefinition subMemberEd, StringBuilder sql, EntityDefinition mainEd, FieldInfo fi, int typeValue, ConditionField field) {
+    private StringBuilder makeSubSql(EntityDefinition subMemberEd, StringBuilder sql, EntityDefinition mainEd, FieldInfo fi, int typeValue, ConditionField field) {
         if (subMemberEd != null) {
             MNode aliasNode = fi.fieldNode;
             String aliasField = aliasNode.attribute("field");
@@ -64,6 +64,7 @@ public class FieldToFieldCondition implements EntityConditionImplBase {
             sql.append(field.getColumnName(mainEd));
         }
         if (ignoreCase && typeValue == 1) sql.append(")");
+        return sql;
     }
 
     @Override
