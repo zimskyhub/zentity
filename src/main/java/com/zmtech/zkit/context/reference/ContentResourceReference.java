@@ -13,6 +13,11 @@
  */
 package org.moqui.impl.context.reference
 
+import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zkit.context.reference.BaseResourceReference;
+import com.zmtech.zkit.resource.impl.ResourceFacadeImpl;
+import com.zmtech.zkit.resource.impl.ResourceReference;
+import com.zmtech.zkit.util.ObjectUtil;
 import groovy.transform.CompileStatic
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.util.ObjectUtilities
@@ -36,37 +41,38 @@ import java.util.*;
 
 @CompileStatic
 class ContentResourceReference extends BaseResourceReference {
-    protected final static Logger logger = LoggerFactory.getLogger(ContentResourceReference.class)
-    public final static String locationPrefix = "content://"
+    protected final static Logger logger = LoggerFactory.getLogger(ContentResourceReference.class);
+    public final static String locationPrefix = "content://";
 
-    String location
-    String repositoryName
-    String nodePath
+    String location;
+    String repositoryName;
+    String nodePath;
 
-    protected javax.jcr.Node theNode = null
+    protected javax.jcr.Node theNode = null;
 
     ContentResourceReference() { }
 
-    @Override ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
-        this.ecf = ecf
+    @Override
+    ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
+        this.ecf = ecf;
 
-        this.location = location
+        this.location = location;
         // TODO: change to not rely on URI, or to encode properly
-        URI locationUri = new URI(location)
-        repositoryName = locationUri.host
-        nodePath = locationUri.path
+        URI locationUri = new URI(location);
+        repositoryName = locationUri.getHost();
+        nodePath = locationUri.getPath();
 
-        return this
+        return this;
     }
 
     ResourceReference init(String repositoryName, javax.jcr.Node node, ExecutionContextFactoryImpl ecf) {
-        this.ecf = ecf
+        this.ecf = ecf;
 
-        this.repositoryName = repositoryName
-        this.nodePath = node.path
-        this.location = "${locationPrefix}${repositoryName}${nodePath}"
-        this.theNode = node
-        return this
+        this.repositoryName = repositoryName;
+        this.nodePath = node.getPath();
+        this.location = "${locationPrefix}${repositoryName}${nodePath}";
+        this.theNode = node;
+        return this;
     }
 
     @Override ResourceReference createNew(String location) {
@@ -74,17 +80,17 @@ class ContentResourceReference extends BaseResourceReference {
         resRef.init(location, ecf);
         return resRef;
     }
-    @Override String getLocation() { location }
+    @Override String getLocation() { return this.location; }
 
     @Override
     InputStream openStream() {
-        javax.jcr.Node node = getNode()
-        if (node == null) return null
-        javax.jcr.Node contentNode = node.getNode("jcr:content")
-        if (contentNode == null) throw new IllegalArgumentException("Cannot get stream for content at [${repositoryName}][${nodePath}], has no jcr:content child node")
-        Property dataProperty = contentNode.getProperty("jcr:data")
-        if (dataProperty == null) throw new IllegalArgumentException("Cannot get stream for content at [${repositoryName}][${nodePath}], has no jcr:content.jcr:data property")
-        return dataProperty.binary.stream
+        javax.jcr.Node node = getNode();
+        if (node == null) return null;
+        javax.jcr.Node contentNode = node.getNode("jcr:content");
+        if (contentNode == null) throw new IllegalArgumentException("Cannot get stream for content at [${repositoryName}][${nodePath}], has no jcr:content child node");
+        Property dataProperty = contentNode.getProperty("jcr:data");
+        if (dataProperty == null) throw new IllegalArgumentException("Cannot get stream for content at [${repositoryName}][${nodePath}], has no jcr:content.jcr:data property");
+        return dataProperty.getBinary().stream;
     }
 
     @Override
@@ -92,80 +98,80 @@ class ContentResourceReference extends BaseResourceReference {
         throw new UnsupportedOperationException("The getOutputStream method is not supported for JCR, use putStream() instead")
     }
 
-    @Override String getText() { return ObjectUtilities.getStreamText(openStream()) }
+    @Override String getText() { return ObjectUtil.getStreamText(openStream()); }
 
-    @Override boolean supportsAll() { true }
+    @Override boolean supportsAll() { true; }
 
-    @Override boolean supportsUrl() { false }
+    @Override boolean supportsUrl() { false; }
     @Override
-    URL getUrl() { return null }
+    URL getUrl() { return null; }
 
-    @Override boolean supportsDirectory() { true }
+    @Override boolean supportsDirectory() { true; }
     @Override boolean isFile() {
-        javax.jcr.Node node = getNode()
-        if (node == null) return false
-        return node.isNodeType("nt:file")
+        javax.jcr.Node node = getNode();
+        if (node == null) return false;
+        return node.isNodeType("nt:file");
     }
     @Override boolean isDirectory() {
-        javax.jcr.Node node = getNode()
-        if (node == null) return false
-        return node.isNodeType("nt:folder")
+        javax.jcr.Node node = getNode();
+        if (node == null) return false;
+        return node.isNodeType("nt:folder");
     }
     @Override
     List<ResourceReference> getDirectoryEntries() {
-        List<ResourceReference> dirEntries = new LinkedList()
-        javax.jcr.Node node = getNode()
-        if (node == null) return dirEntries
+        List<ResourceReference> dirEntries = new LinkedList();
+        javax.jcr.Node node = getNode();
+        if (node == null) return dirEntries;
 
-        NodeIterator childNodes = node.getNodes()
+        NodeIterator childNodes = node.getNodes();
         while (childNodes.hasNext()) {
-            javax.jcr.Node childNode = childNodes.nextNode()
-            dirEntries.add(new ContentResourceReference().init(repositoryName, childNode, ecf))
+            javax.jcr.Node childNode = childNodes.nextNode();
+            dirEntries.add(new ContentResourceReference().init(repositoryName, childNode, ecf));
         }
-        return dirEntries
+        return dirEntries;
     }
     // TODO: consider overriding findChildFile() to let the JCR impl do the query
     // ResourceReference findChildFile(String relativePath)
 
-    @Override boolean supportsExists() { true }
+    @Override boolean supportsExists() { return true; }
     @Override boolean getExists() {
-        if (theNode != null) return true
-        Session session = ((ResourceFacadeImpl) ecf.resource).getContentRepositorySession(repositoryName)
-        return session.nodeExists(nodePath)
+        if (theNode != null) return true;
+        Session session = ((ResourceFacadeImpl) ecf.getResource()).getContentRepositorySession(repositoryName);
+        return session.nodeExists(nodePath);
     }
 
-    @Override boolean supportsLastModified() { true }
+    @Override boolean supportsLastModified() { return true; }
     @Override long getLastModified() {
         try {
-            return getNode()?.getProperty("jcr:lastModified")?.getDate()?.getTimeInMillis()
+            return getNode() != null?getNode().getProperty("jcr:lastModified") !=null?getNode().getProperty("jcr:lastModified").getDate() != null?getNode().getProperty("jcr:lastModified").getDate().getTimeInMillis():null:null:null;
         } catch (PathNotFoundException e) {
-            return System.currentTimeMillis()
+            return System.currentTimeMillis();
         }
     }
 
-    @Override boolean supportsSize() { true }
+    @Override boolean supportsSize() { true; }
     @Override long getSize() {
         try {
-            return getNode()?.getProperty("jcr:content/jcr:data")?.getLength()
+            return getNode()!=null?getNode().getProperty("jcr:content/jcr:data")!= null? getNode().getProperty("jcr:content/jcr:data").getLength() : null:null;
         } catch (PathNotFoundException e) {
-            return 0
+            return 0;
         }
     }
 
-    @Override boolean supportsWrite() { true }
+    @Override boolean supportsWrite() { return true; }
 
-    @Override void putText(String text) { putObject(text) }
-    @Override void putStream(InputStream stream) { putObject(stream) }
+    @Override void putText(String text) { putObject(text); }
+    @Override void putStream(InputStream stream) { putObject(stream); }
     protected void putObject(Object obj) {
         if (obj == null) {
-            logger.warn("Data was null, not saving to resource [${getLocation()}]")
-            return
+            logger.warn("Data was null, not saving to resource [${getLocation()}]");
+            return;
         }
-        Session session = ((ResourceFacadeImpl) ecf.resource).getContentRepositorySession(repositoryName)
-        javax.jcr.Node fileNode = getNode()
-        javax.jcr.Node fileContent
+        Session session = ((ResourceFacadeImpl) ecf.getResource()).getContentRepositorySession(repositoryName);
+        javax.jcr.Node fileNode = getNode();
+        javax.jcr.Node fileContent;
         if (fileNode != null) {
-            fileContent = fileNode.getNode("jcr:content")
+            fileContent = fileNode.getNode("jcr:content");
         } else {
             // first make sure the directory exists that this is in
             List<String> nodePathList = new ArrayList<>(Arrays.asList(nodePath.split('/')))
