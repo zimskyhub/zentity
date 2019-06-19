@@ -4,6 +4,8 @@ import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zkit.entity.EntityCondition;
 import com.zmtech.zkit.entity.EntityList;
 import com.zmtech.zkit.entity.EntityValue;
+import com.zmtech.zkit.exception.EntityException;
+import com.zmtech.zkit.util.CollectionUtil;
 import groovy.lang.Closure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -276,7 +278,7 @@ public class EntityListImpl implements EntityList {
 
     @Override public EntityList orderByFields(List<String> fieldNames) {
         if (fromCache) return this.cloneList().orderByFields(fieldNames);
-        if (fieldNames != null && fieldNames.size() > 0) valueList.sort(new CollectionUtilities.MapOrderByComparator(fieldNames));
+        if (fieldNames != null && fieldNames.size() > 0) valueList.sort(new CollectionUtil.MapOrderByComparator(fieldNames));
         return this;
     }
     @Override public void sort(Comparator<? super EntityValue> comparator) { valueList.sort(comparator); }
@@ -354,7 +356,7 @@ public class EntityListImpl implements EntityList {
         for (int i = 0; i < elSize; i++) {
             EntityValue ev = valueList.get(i);
             Map<String, Object> evMap = ev.getMap();
-            CollectionUtilities.removeNullsFromMap(evMap);
+            CollectionUtil.removeNullsFromMap(evMap);
             al.add(evMap);
         }
         return al;
