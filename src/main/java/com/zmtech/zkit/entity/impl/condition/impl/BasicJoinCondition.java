@@ -109,7 +109,7 @@ public class BasicJoinCondition implements EntityConditionImplBase {
 
     @Override
     public String toString() {
-        // general SQL where clause style text with values included
+        // 包含值的SQL where子句样式文本
         return "(" + lhsInternal.toString() + ") " + EntityConditionFactoryImpl.getJoinOperatorString(this.operator) + " (" + rhsInternal.toString() + ")";
     }
 

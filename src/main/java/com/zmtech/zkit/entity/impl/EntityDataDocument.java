@@ -1,5 +1,6 @@
 package com.zmtech.zkit.entity.impl;
 
+import com.google.common.collect.Lists;
 import com.zmtech.zkit.context.impl.ExecutionContextImpl;
 import com.zmtech.zkit.entity.*;
 import com.zmtech.zkit.entity.impl.condition.impl.ConditionAlias;
@@ -10,6 +11,7 @@ import com.zmtech.zkit.l10n.impl.L10nFacadeImpl;
 import com.zmtech.zkit.util.CollectionUtil;
 import com.zmtech.zkit.util.EntityJavaUtil;
 import com.zmtech.zkit.util.MNode;
+import org.apache.groovy.util.Maps;
 import groovy.json.JsonOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,16 +51,10 @@ public class EntityDataDocument {
             int valuesWritten = writeDocumentsToWriter(pw, dataDocumentIds, condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint);
             pw.write("{}\n]\n");
             pw.close();
-            efi.ecfi.getEci().getMessage().addMessage(efi.ecfi.getResource().expand("文件写入成功: 已写入 ${valuesWritten} 文档到文件 ${filename} 中!","",new HashMap<String,Object>(){{
-                put("valuesWritten",valuesWritten);
-                put("filename",filename);
-            }}));
+            efi.ecfi.getEci().getMessage().addMessage(efi.ecfi.getResource().expand("文件写入成功: 已写入 ${valuesWritten} 文档到文件 ${filename} 中!","", Maps.of("valuesWritten",valuesWritten,"filename",filename)));
             return valuesWritten;
         } catch (IOException e) {
-            efi.ecfi.getEci().getMessage().addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","",new HashMap<String,Object>(){{
-                put("filename",filename);
-                put("error",e.toString());
-            }}));
+            efi.ecfi.getEci().getMessage().addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","", Maps.of("filename",filename,"error",e.toString())));
             return 0;
         }
     }
@@ -68,7 +64,7 @@ public class EntityDataDocument {
         File outDir = new File(dirname);
         if (!outDir.exists()) outDir.mkdir();
         if (!outDir.isDirectory()) {
-            efi.ecfi.getEci().getMessage().addError(efi.ecfi.getResource().expand("文件夹写入错误: 路径 ${dirname} 并不是文件夹.","",new HashMap<String,Object>(){{
+            efi.ecfi.getEci().getMessage().addError(efi.ecfi.getResource().expand("文件夹写入错误: 路径 ${dirname} 并不是文件夹.","",Maps.of()new HashMap<String,Object>(){{
                 put("dirname",dirname);
             }}));
             return 0;
@@ -160,7 +156,7 @@ public class EntityDataDocument {
 
             dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId);
             if (dataDocument == null) throw new EntityException("文档查询错误: 没有找到ID为 [${dataDocumentId}] 的文档");
-            dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, ['sequenceNum', 'fieldPath'], true, false)
+            dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, Lists.newArrayList("sequenceNum", "fieldPath"), true, false)
 
             primaryEntityName = (String) dataDocument.getNoCheckSimple("primaryEntityName");
             primaryEd = efi.getEntityDefinition(primaryEntityName);
@@ -520,7 +516,7 @@ public class EntityDataDocument {
                             }
                             if (allMatch) {
                                 relatedEntityDocMap = candidateMap;
-                                break;
+                                break
                             }
                         }
                     }
@@ -588,7 +584,7 @@ public class EntityDataDocument {
                 addDataDocRelatedEntity(dynamicView, entityAlias, fieldTreeChild, incrementer, ddfByAlias);
             } else if (entryValue instanceof ArrayList) {
                 // add alias for field
-                String entityAlias = fieldTreeCurrent.get("_ALIAS");
+                String entityAlias = fieldTreeCurrent.get("_ALIAS")
                 ArrayList<String> fieldAliasList = (ArrayList<String>) entryValue;
                 for (int i = 0; i < fieldAliasList.size(); i++) {
                     String fieldAlias = fieldAliasList.get(i);
