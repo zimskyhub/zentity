@@ -39,9 +39,7 @@ public class EntityDataDocument {
         File outFile = new File(filename);
 
         if(outFile.exists()){
-            efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件写入错误: 文件 [${filename}] 已经存在!","",new HashMap<String,Object>(){{
-                put("filename",filename);
-            }}));
+            efi.ecfi.getEci().getMessage().addError(efi.ecfi.getResource().expand("文件写入错误: 文件 [${filename}] 已经存在!","",Collections.singletonMap("filename",filename)));
             return 0;
         }
         try {
@@ -51,19 +49,18 @@ public class EntityDataDocument {
             int valuesWritten = writeDocumentsToWriter(pw, dataDocumentIds, condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint);
             pw.write("{}\n]\n");
             pw.close();
-            efi.ecfi.getEci().message.addMessage(efi.ecfi.getResource().expand("文件写入成功: 已写入 ${valuesWritten} 文档到文件 ${filename} 中!","",new HashMap<String,Object>(){{
+            efi.ecfi.getEci().getMessage().addMessage(efi.ecfi.getResource().expand("文件写入成功: 已写入 ${valuesWritten} 文档到文件 ${filename} 中!","",new HashMap<String,Object>(){{
                 put("valuesWritten",valuesWritten);
                 put("filename",filename);
             }}));
             return valuesWritten;
         } catch (IOException e) {
-            efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","",new HashMap<String,Object>(){{
+            efi.ecfi.getEci().getMessage().addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","",new HashMap<String,Object>(){{
                 put("filename",filename);
                 put("error",e.toString());
             }}));
             return 0;
         }
-        return 0;
     }
 
     public int writeDocumentsToDirectory(String dirname, List<String> dataDocumentIds, EntityCondition condition,
@@ -71,7 +68,7 @@ public class EntityDataDocument {
         File outDir = new File(dirname);
         if (!outDir.exists()) outDir.mkdir();
         if (!outDir.isDirectory()) {
-            efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件夹写入错误: 路径 ${dirname} 并不是文件夹.","",new HashMap<String,Object>(){{
+            efi.ecfi.getEci().getMessage().addError(efi.ecfi.getResource().expand("文件夹写入错误: 路径 ${dirname} 并不是文件夹.","",new HashMap<String,Object>(){{
                 put("dirname",dirname);
             }}));
             return 0;
@@ -80,12 +77,11 @@ public class EntityDataDocument {
         int valuesWritten = 0;
 
         for (String dataDocumentId : dataDocumentIds) {
+            String filename = dirname+"/"+dataDocumentId+".json";
             try {
-                String filename = dirname+"/"+dataDocumentId+".json";
-
                 File outFile = new File(filename);
                 if (outFile.exists()) {
-                    efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件写入错误: 文件 ${filename} 已经存储, 文档 ${dataDocumentId} 跳过存储.","",new HashMap<String,Object>(){{
+                    efi.ecfi.getEci().getMessage().addError(efi.ecfi.getResource().expand("文件写入错误: 文件 ${filename} 已经存储, 文档 ${dataDocumentId} 跳过存储.","",new HashMap<String,Object>(){{
                         put("filename",filename);
                         put("dataDocumentId",dataDocumentId);
                     }}));
@@ -101,12 +97,12 @@ public class EntityDataDocument {
                 pw.close();
 
                 int finalValuesWritten = valuesWritten;
-                efi.ecfi.getEci().message.addMessage(efi.ecfi.getResource().expand("已写入 ${valuesWritten} 条记录到文件 ${filename} 中","",new HashMap<String,Object>(){{
+                efi.ecfi.getEci().getMessage().addMessage(efi.ecfi.getResource().expand("已写入 ${valuesWritten} 条记录到文件 ${filename} 中","",new HashMap<String,Object>(){{
                     put("valuesWritten", finalValuesWritten);
                     put("filename",filename);
                 }}));
             } catch (IOException e) {
-                efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","",new HashMap<String,Object>(){{
+                efi.ecfi.getEci().getMessage().addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","",new HashMap<String,Object>(){{
                     put("filename",filename);
                     put("error",e.toString());
                 }}));
@@ -122,7 +118,7 @@ public class EntityDataDocument {
 
         try {
             for (String dataDocumentId : dataDocumentIds) {
-                ArrayList<Map> documentList = getDataDocuments(dataDocumentId, condition, fromUpdateStamp, thruUpdatedStamp);
+                ArrayList<Map<String,Object>> documentList = getDataDocuments(dataDocumentId, condition, fromUpdateStamp, thruUpdatedStamp);
                 int docListSize = documentList.size();
                 for (int i = 0; i < docListSize; i++) {
                     if (valuesWritten > 0) pw.write(",\n");
@@ -138,7 +134,7 @@ public class EntityDataDocument {
             }
             if (valuesWritten > 0) pw.write("\n");
         } catch (IOException e) {
-            efi.ecfi.getEci().message.addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","",new HashMap<String,Object>(){{
+            efi.ecfi.getEci().getMessage().addError(efi.ecfi.getResource().expand("文件写入错误: 文件无法 ${filename} 无法创建.错误 ${error}","",new HashMap<String,Object>(){{
                 put("filename",filename);
                 put("error",e.toString());
             }}));
@@ -279,7 +275,7 @@ public class EntityDataDocument {
         Map<String, Map<String, Object>> documentMapMap = hasAllPrimaryPks ? new LinkedHashMap<>() : null;
         ArrayList<Map<String, Object>> documentMapList = hasAllPrimaryPks ? null : new ArrayList<>();
         try {
-            EntityValue ev
+            EntityValue ev;
             while ((ev = (EntityValue) mainEli.next()) != null) {
                 // logger.warn("=========== DataDocument query result for ${dataDocumentId}: ${ev}")
 
@@ -379,7 +375,7 @@ public class EntityDataDocument {
                 }
                 if (dataDocumentCondition.getNoCheckSimple("fieldValue") == null) { allPassed = false; break; }
                 Object fieldValueObj = dataDocumentCondition.getNoCheckSimple("fieldValue").asType(valueSet.first().class)
-                if (!(fieldValueObj in valueSet)) { allPassed = false; break; }
+                if (!(valueSet.contains(fieldValueObj))) { allPassed = false; break; }
             }
 
             if (allPassed) { i++; } else { documentMapList.remove(i); }
@@ -442,10 +438,10 @@ public class EntityDataDocument {
             Object fieldEntryValue = fieldTreeEntry.getValue();
             if (fieldEntryValue instanceof Map) {
                 String relationshipName = fieldEntryKey;
-                Map<String, Object> fieldTreeChild = (Map<String, Object>) fieldEntryValue;
+                Map<String, Object> fieldTreeChild = (Map) fieldEntryValue;
 
                 EntityJavaUtil.RelationshipInfo relationshipInfo = parentEd.getRelationshipInfo(relationshipName);
-                String relDocumentAlias = relationshipAliasMap.get(relationshipName) ?: relationshipInfo.shortAlias ?: relationshipName;
+                String relDocumentAlias = relationshipAliasMap.get(relationshipName) != null ? (String)relationshipAliasMap.get(relationshipName): relationshipInfo.shortAlias != null? relationshipInfo.shortAlias: relationshipName;
                 EntityDefinition relatedEd = relationshipInfo.relatedEd;
                 boolean isOneRelationship = relationshipInfo.isTypeOne;
 
@@ -524,7 +520,7 @@ public class EntityDataDocument {
                             }
                             if (allMatch) {
                                 relatedEntityDocMap = candidateMap;
-                                break
+                                break;
                             }
                         }
                     }
@@ -592,7 +588,7 @@ public class EntityDataDocument {
                 addDataDocRelatedEntity(dynamicView, entityAlias, fieldTreeChild, incrementer, ddfByAlias);
             } else if (entryValue instanceof ArrayList) {
                 // add alias for field
-                String entityAlias = fieldTreeCurrent.get("_ALIAS")
+                String entityAlias = fieldTreeCurrent.get("_ALIAS");
                 ArrayList<String> fieldAliasList = (ArrayList<String>) entryValue;
                 for (int i = 0; i < fieldAliasList.size(); i++) {
                     String fieldAlias = fieldAliasList.get(i);

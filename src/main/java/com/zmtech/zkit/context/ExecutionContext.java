@@ -17,6 +17,7 @@ import com.zmtech.zkit.cache.CacheFacade;
 import com.zmtech.zkit.entity.EntityFacade;
 import com.zmtech.zkit.l10n.L10nFacade;
 import com.zmtech.zkit.logger.LoggerFacade;
+import com.zmtech.zkit.message.MessageFacade;
 import com.zmtech.zkit.resource.ResourceFacade;
 import com.zmtech.zkit.transaction.TransactionFacade;
 import com.zmtech.zkit.util.ContextBinding;
@@ -63,6 +64,11 @@ public interface ExecutionContext {
     /** For interactions with a relational database. */
     @Nonnull
     EntityFacade getEntity();
+    /** For user messages including general feedback, errors, and field-specific validation errors. */
+    @Nonnull
+    MessageFacade getMessage();
+    /** For trace, error, etc logging to the console, files, etc. */
+    @Nonnull LoggerFacade getLogger();
 
 
     /** Get an instance object from the named ToolFactory instance (loaded by configuration). Some tools return a
@@ -81,17 +87,12 @@ public interface ExecutionContext {
 //    @Nonnull
 //    UserFacade getUser();
 //
-//    /** For user messages including general feedback, errors, and field-specific validation errors. */
-//    @Nonnull
-//    MessageFacade getMessage();
+
 //    /** For information about artifacts as they are being executed. */
 //    @Nonnull
 //    ArtifactExecutionFacade getArtifactExecution();
 //
 //
-    /** For trace, error, etc logging to the console, files, etc. */
-    @Nonnull LoggerFacade getLogger();
-
     /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and uses
      * the current ExecutionContext in the separate thread (retaining user, authz context, etc). */
     void runAsync(@Nonnull Closure closure);

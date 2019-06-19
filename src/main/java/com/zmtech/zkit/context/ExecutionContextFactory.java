@@ -27,7 +27,7 @@ public interface ExecutionContextFactory {
 
     /** Get the path of the runtime directory */
     @Nonnull String getRuntimePath();
-    @Nonnull String getZEntityVersion();
+    @Nonnull String getZKitVersion();
 
     /** For managing and accessing caches. */
     @Nonnull CacheFacade getCache();

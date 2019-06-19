@@ -10,6 +10,8 @@ import com.zmtech.zkit.l10n.L10nFacade;
 import com.zmtech.zkit.l10n.impl.L10nFacadeImpl;
 import com.zmtech.zkit.logger.LoggerFacade;
 import com.zmtech.zkit.logger.impl.LoggerFacadeImpl;
+import com.zmtech.zkit.message.MessageFacade;
+import com.zmtech.zkit.message.impl.MessageFacadeImpl;
 import com.zmtech.zkit.resource.ResourceFacade;
 import com.zmtech.zkit.resource.impl.ResourceFacadeImpl;
 import com.zmtech.zkit.transaction.TransactionFacade;
@@ -42,6 +44,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     private final ResourceFacadeImpl resourceFacade;
     private final L10nFacadeImpl l10nFacade;
     private final LoggerFacadeImpl loggerFacade;
+    private final MessageFacadeImpl messageFacade;
 
     private Boolean skipStats = null;
     private Cache<String, String> l10nMessageCache;
@@ -66,8 +69,8 @@ public class ExecutionContextImpl implements ExecutionContext {
         transactionFacade = (TransactionFacadeImpl)ecfi.getTransaction();
         resourceFacade = (ResourceFacadeImpl)ecfi.getResource();
         loggerFacade = (LoggerFacadeImpl)ecfi.getLogger();
+        messageFacade = new MessageFacadeImpl();
 //        userFacade = new UserFacadeImpl(this);
-//        messageFacade = new MessageFacadeImpl();
 //        artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this);
 
 
@@ -120,7 +123,8 @@ public class ExecutionContextImpl implements ExecutionContext {
 
 //    public @Nullable WebFacadeImpl getWebImpl() { return webFacadeImpl; }
 //    @Override public @Nonnull UserFacade getUser() { return userFacade; }
-//    @Override public @Nonnull MessageFacade getMessage() { return messageFacade; }
+    @Override public @Nonnull
+    MessageFacade getMessage() { return messageFacade; }
 //    @Override public @Nonnull ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
 
 
