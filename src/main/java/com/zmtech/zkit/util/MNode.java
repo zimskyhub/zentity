@@ -21,7 +21,6 @@ import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -32,11 +31,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
 
+    private static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
+
     public static void clearParsedNodeCache() {
         parsedNodeCache.clear();
     }
 
-    private static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
+
 
     /* ========== XML 解析 ========== */
     public static MNode parse(ResourceReference rr) throws BaseException {
@@ -128,7 +129,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             reader.parse(isrc);
             return xmlHandler.getRootNode();
         } catch (Exception e) {
-            throw new BaseException("解析XML文件错误,文件位置: " + location, e);
+            throw new BaseException("XML解析错误: 文件位置: " + location, e);
         }
     }
 
@@ -226,7 +227,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     /**
      * 取节点全部属性值
      */
-    public Map<String, String> getAttributes() {
+    public Map<String, String> attributes() {
         return attributeMap;
     }
 
@@ -279,7 +280,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public ArrayList<MNode> children(String name, String... attrNamesValues) {
         int attrNvLength = attrNamesValues.length;
         if (attrNvLength % 2 != 0)
-            throw new IllegalArgumentException("Must pass an even number of attribute name/value strings");
+            throw new IllegalArgumentException("XML解析错误: 必须传递偶数个属性名称/值字符串");
         ArrayList<MNode> fullList = children(name);
         ArrayList<MNode> filteredList = new ArrayList<>();
         int fullListSize = fullList.size();
@@ -305,12 +306,12 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         return filteredList;
     }
 
-    public ArrayList<MNode> children(Function<MNode, Boolean> condition) {
+    public ArrayList<MNode> children(Closure<Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         if (childList == null) return curList;
         int childListSize = childList.size();
         for (MNode curChild : childList) {
-            if (condition == null || condition.apply(curChild)) curList.add(curChild);
+            if (condition == null || condition.call(curChild)) curList.add(curChild);
         }
         return curList;
     }
@@ -331,7 +332,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     }
 
     /**
-     * Get child at index, will throw an exception if index out of bounds
+     * 获取索引处的子项，如果索引超出范围，将抛出异常
      */
     public MNode child(int index) {
         return childList.get(index);
@@ -371,8 +372,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     }
 
     /**
-     * Search all descendants for nodes matching any of the names, return a Map with a List for each name with nodes
-     * found or empty List if no nodes found
+     * 搜索所有后代以查找与任何名称匹配的节点，返回带有列表的Map，其中每个名称都包含找到的节点，如果没有找到节点则返回空List
      */
     public Map<String, ArrayList<MNode>> descendants(Set<String> names) {
         Map<String, ArrayList<MNode>> nodes = new HashMap<>();
@@ -412,48 +412,48 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         }
     }
 
-    public ArrayList<MNode> depthFirst(Function<MNode, Boolean> condition) {
+    public ArrayList<MNode> depthFirst(Closure<Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         depthFirstInternal(condition, curList);
         return curList;
     }
 
-    private void depthFirstInternal(Function<MNode, Boolean> condition, ArrayList<MNode> curList) {
+    private void depthFirstInternal(Closure<Boolean> condition, ArrayList<MNode> curList) {
         if (childList == null) return;
 
         int childListSize = childList.size();
-        // all grand-children first
+        // 所有的孙子节点都是第一位的
         for (MNode curChild : childList) {
             curChild.depthFirstInternal(condition, curList);
         }
-        // then children
+        // 那么孩子们
         for (MNode curChild : childList) {
-            if (condition == null || condition.apply(curChild)) curList.add(curChild);
+            if (condition == null || condition.call(curChild)) curList.add(curChild);
         }
     }
 
-    public ArrayList<MNode> breadthFirst(Function<MNode, Boolean> condition) {
+    public ArrayList<MNode> breadthFirst(Closure<Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         breadthFirstInternal(condition, curList);
         return curList;
     }
 
-    private void breadthFirstInternal(Function<MNode, Boolean> condition, ArrayList<MNode> curList) {
+    private void breadthFirstInternal(Closure<Boolean> condition, ArrayList<MNode> curList) {
         if (childList == null) return;
 
         int childListSize = childList.size();
-        // direct children first
+        // 先是直接子节点
         for (MNode curChild : childList) {
-            if (condition == null || condition.apply(curChild)) curList.add(curChild);
+            if (condition == null || condition.call(curChild)) curList.add(curChild);
         }
-        // then grand-children
+        // 之后孙子节点
         for (MNode curChild : childList) {
             curChild.breadthFirstInternal(condition, curList);
         }
     }
 
     /**
-     * Get the first child node
+     * 获取第一个子节点
      */
     public MNode first() {
         if (childList == null) return null;
@@ -461,7 +461,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     }
 
     /**
-     * Get the first child node with the given name
+     * 获取具有给定名称的第一个子节点
      */
     public MNode first(String name) {
         if (childList == null) return null;
@@ -490,12 +490,12 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         return null;
     }
 
-    public MNode first(Function<MNode, Boolean> condition) {
+    public MNode first(Closure<Boolean> condition) {
         if (childList == null) return null;
         if (condition == null) return first();
         int childListSize = childList.size();
         for (MNode curChild : childList) {
-            if (condition.apply(curChild)) return curChild;
+            if (condition.call(curChild)) return curChild;
         }
         return null;
     }
@@ -511,13 +511,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         return -1;
     }
 
-    public int firstIndex(Function<MNode, Boolean> condition) {
+    public int firstIndex(Closure<Boolean> condition) {
         if (childList == null) return -1;
         if (condition == null) return childList.size() - 1;
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
-            if (condition.apply(curChild)) return i;
+            if (condition.call(curChild)) return i;
         }
         return -1;
     }
@@ -542,7 +542,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         return newNode;
     }
 
-    /* ========== Child Modify Methods ========== */
+    /* ========== 子节点修改方法 ========== */
 
     public void append(MNode child) {
         if (childrenByName != null) childrenByName.remove(child.nodeName);
@@ -579,13 +579,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     public MNode replace(int index, MNode child) {
         if (childList == null || childList.size() < index)
-            throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
+            throw new IllegalArgumentException("XML解析错误: 索引 [" + index + "] 无效, 子节点数量为: " + (childList == null ? 0 : childList.size()));
         return childList.set(index, child);
     }
 
     public MNode replace(int index, String name, Map<String, String> attributes) {
         if (childList == null || childList.size() < index)
-            throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
+            throw new IllegalArgumentException("XML解析错误: 索引 [" + index + "] 无效, 子节点数量为: " + (childList == null ? 0 : childList.size()));
         MNode newNode = new MNode(name, attributes, this, null, null);
         childList.set(index, newNode);
         return newNode;
@@ -593,7 +593,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     public void remove(int index) {
         if (childList == null || childList.size() < index)
-            throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
+            throw new IllegalArgumentException("XML解析错误: 索引 [" + index + "] 无效, 子节点数量为: " + (childList == null ? 0 : childList.size()));
         childList.remove(index);
     }
 
@@ -613,12 +613,12 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         return removed;
     }
 
-    public boolean remove(Function<MNode, Boolean> condition) {
+    public boolean remove(Closure<Boolean> condition) {
         if (childList == null) return false;
         boolean removed = false;
         for (int i = 0; i < childList.size(); ) {
             MNode curChild = childList.get(i);
-            if (condition.apply(curChild)) {
+            if (condition.call(curChild)) {
                 if (childrenByName != null) childrenByName.remove(curChild.nodeName);
                 childList.remove(i);
                 removed = true;
@@ -630,31 +630,20 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     }
 
     /**
-     * Merge a single child node with the given name from overrideNode if it has a child with that name.
-     * <p>
-     * If this node has a child with the same name copies/overwrites attributes from the overrideNode's child and if
-     * overrideNode's child has children the children of this node's child will be replaced by them.
-     * <p>
-     * Otherwise appends a copy of the override child as a child of the current node.
+     * 如果具有该名称的子项，则使用overrideNode合并具有给定名称的单个子节点。
+     * 如果此节点具有相同名称的子节点，则从overrideNode的子节点复制/覆盖属性，并且如果overrideNode的子节点具有子节点，则此节点的子节点的子节点将被它们替换。
+     * 否则，将override子项的副本作为当前节点的子项附加。
      */
     public void mergeSingleChild(MNode overrideNode, String childNodeName) {
         MNode childOverrideNode = overrideNode.first(childNodeName);
         if (childOverrideNode == null) return;
-
         MNode childBaseNode = first(childNodeName);
         if (childBaseNode != null) {
             childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
             if (childOverrideNode.childList != null && childOverrideNode.childList.size() > 0) {
-                if (childBaseNode.childList != null) {
-                    if (childBaseNode.childrenByName != null) childBaseNode.childrenByName.clear();
-                    childBaseNode.childList.clear();
-                } else {
-                    childBaseNode.childList = new ArrayList<>();
-                }
-                ArrayList<MNode> conChildList = childOverrideNode.childList;
+                ArrayList<MNode> conChildList =mergeNode(childOverrideNode, childBaseNode);
                 int conChildListSize = conChildList.size();
-                for (int i = 0; i < conChildListSize; i++) {
-                    MNode grandchild = conChildList.get(i);
+                for (MNode grandchild : conChildList) {
                     childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
                 }
             }
@@ -679,18 +668,16 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     }
 
     /**
-     * Merge attributes and child nodes from overrideNode into this node, matching on childNodesName and optionally the value of the
-     * attribute in each named by keyAttributeName.
-     * <p>
-     * Always copies/overwrites attributes from override child node, and merges their child nodes using childMerger or
-     * if null the default merge of removing all children under the child of this node and appending copies of the
-     * children of the override child node.
+     * 将来自overrideNode的属性和子节点合并到此节点中，匹配childNodesName，
+     * 并可选地匹配keyAttributeName指定的每个属性的值。
+     * 始终从覆盖子节点复制/覆盖属性，并使用childMerger合并其子节点，
+     * 如果为null，则删除此节点子节点下的所有子节点的默认合并，并附加覆盖子节点的子节点的副本。
      */
     public void mergeNodeWithChildKey(MNode overrideNode, String childNodesName, String keyAttributeName, Closure childMerger) {
-        if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeNodeWithChildKey");
-        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeNodeWithChildKey");
+        if (overrideNode == null) throw new IllegalArgumentException("XML解析错误: 在调用 mergeNodeWithChildKey 方法时未指定 overrideNode (覆盖节点)");
+        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("XML解析错误: 在调用mergeNodeWithChildKey 方法时未指定childNodesName(子节点名称)");
 
-        // override attributes for this node
+        // 覆盖此节点的属性
         attributeMap.putAll(overrideNode.attributeMap);
 
         mergeChildrenByKey(overrideNode, childNodesName, keyAttributeName, childMerger);
@@ -705,68 +692,73 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     }
 
     public void mergeChildrenByKeys(MNode overrideNode, String childNodesName, Closure childMerger, String... keyAttributeNames) {
-        if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeChildrenByKey");
-        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeChildrenByKey");
+        if (overrideNode == null) throw new IllegalArgumentException("XML解析错误: 在调用 mergeNodeWithChildKey 方法时未指定 overrideNode (覆盖节点)");
+        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("XML解析错误: 在调用mergeNodeWithChildKey 方法时未指定childNodesName(子节点名称)");
 
         if (childList == null) childList = new ArrayList<>();
         ArrayList<MNode> overrideChildren = overrideNode.children(childNodesName);
-        int overrideChildrenSize = overrideChildren.size();
-        for (int curOc = 0; curOc < overrideChildrenSize; curOc++) {
-            MNode childOverrideNode = overrideChildren.get(curOc);
-
+        for (MNode childOverrideNode : overrideChildren) {
             String[] keyAttributeValues = null;
             if (keyAttributeNames != null && keyAttributeNames.length > 0) {
                 keyAttributeValues = new String[keyAttributeNames.length];
                 boolean skipChild = false;
                 for (int ai = 0; ai < keyAttributeNames.length; ai++) {
                     String keyValue = childOverrideNode.attribute(keyAttributeNames[ai]);
-                    // if we have a keyAttributeName but no keyValue for this child node, skip it
-                    if (keyValue == null || keyValue.length() == 0) { skipChild = true; continue; }
+                    // 如果我们有一个键属性名但没有该子节点的键值，跳过它
+                    if (keyValue == null || keyValue.length() == 0) {
+                        skipChild = true;
+                        continue;
+                    }
                     keyAttributeValues[ai] = keyValue;
                 }
                 if (skipChild) continue;
             }
 
             MNode childBaseNode = null;
-            int childListSize = childList.size();
-            for (int i = 0; i < childListSize; i++) {
-                MNode curChild = childList.get(i);
+            for (MNode curChild : childList) {
                 if (!curChild.getName().equals(childNodesName)) continue;
-                if (keyAttributeNames == null || keyAttributeNames.length == 0) { childBaseNode = curChild; break; }
+                if (keyAttributeNames == null || keyAttributeNames.length == 0) {
+                    childBaseNode = curChild;
+                    break;
+                }
                 boolean allMatch = true;
                 for (int ai = 0; ai < keyAttributeNames.length; ai++) {
                     String keyValue = keyAttributeValues[ai];
                     if (!keyValue.equals(curChild.attribute(keyAttributeNames[ai]))) allMatch = false;
                 }
-                if (allMatch) { childBaseNode = curChild; break; }
+                if (allMatch) {
+                    childBaseNode = curChild;
+                    break;
+                }
             }
 
             if (childBaseNode != null) {
-                // merge the node attributes
+                // 合并节点属性
                 childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
 
                 if (childMerger != null) {
                     childMerger.call(childBaseNode, childOverrideNode);
                 } else {
-                    // do the default child merge: remove current nodes children and replace with a copy of the override node's children
-                    if (childBaseNode.childList != null) {
-                        if (childBaseNode.childrenByName != null) childBaseNode.childrenByName.clear();
-                        childBaseNode.childList.clear();
-                    } else {
-                        childBaseNode.childList = new ArrayList<>();
-                    }
-                    ArrayList<MNode> conChildList = childOverrideNode.childList;
-                    int conChildListSize = conChildList != null ? conChildList.size() : 0;
-                    for (int i = 0; i < conChildListSize; i++) {
-                        MNode grandchild = conChildList.get(i);
+                    // 执行默认子项合并：删除当前节点子项并替换为覆盖节点的子项的副本
+                    ArrayList<MNode> conChildList = mergeNode(childOverrideNode, childBaseNode);
+                    if (conChildList != null) for (MNode grandchild : conChildList)
                         childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
-                    }
                 }
             } else {
-                // no matching child base node, so add a new one
+                // 没有匹配的子基节点，所以添加一个新节点
                 append(childOverrideNode.deepCopy(this));
             }
         }
+    }
+
+    private ArrayList<MNode> mergeNode(MNode childOverrideNode, MNode childBaseNode) {
+        if (childBaseNode.childList != null) {
+            if (childBaseNode.childrenByName != null) childBaseNode.childrenByName.clear();
+            childBaseNode.childList.clear();
+        } else {
+            childBaseNode.childList = new ArrayList<>();
+        }
+        return childOverrideNode.childList;
     }
 
     /* ========== String Methods ========== */
@@ -928,7 +920,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
                 return localAttrAndChildren.get("@@text");
                 // TODO: handle other special hashes? (see http://www.freemarker.org/docs/xgui_imperative_formal.html)
             } else {
-                String attrName = s.substring(1, s.length());
+                String attrName = s.substring(1);
                 String attrValue = attributeMap.get(attrName);
                 if (attrValue == null) {
                     if (knownNullAttributes == null) knownNullAttributes = new ConcurrentHashMap<>();
