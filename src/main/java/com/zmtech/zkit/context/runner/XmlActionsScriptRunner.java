@@ -66,10 +66,10 @@ public class XmlActionsScriptRunner implements ScriptRunner {
             newTemplate = new Template(templateLocation, templateReader,
                     ecfi.getResource().ftlTemplateRenderer.getFtlConfiguration());
         } catch (Exception e) {
-            logger.error("Error while initializing XMLActions template at [${templateLocation}]", e)
+            logger.error("Error while initializing XMLActions template at [${templateLocation}]", e);
         } finally {
-            if (templateReader != null) templateReader.close()
+            if (templateReader != null) templateReader.close();
         }
-        xmlActionsTemplate = newTemplate
+        xmlActionsTemplate = newTemplate;
     }
 }

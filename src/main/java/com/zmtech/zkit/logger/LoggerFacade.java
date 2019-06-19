@@ -1,7 +1,9 @@
 package com.zmtech.zkit.logger;
 
-/** For trace, error, etc logging to the console, files, etc. */
-public interface LoggerFacade {
+/**
+ * 用于跟踪，错误等记录到控制台，文件等。
+ */
+public interface {
     /** Log level copied from org.apache.logging.log4j.spi.StandardLevel to avoid requiring that on the classpath. */
     int	OFF_INT = 0;
     int	FATAL_INT = 100;

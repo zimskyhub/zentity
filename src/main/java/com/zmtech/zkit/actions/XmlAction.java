@@ -54,7 +54,7 @@ public class XmlAction {
         try {
             return script.run();
         } catch (Throwable t) {
-            // NOTE: not logging full stack trace, only needed when lots of threads are running to pin down error (always logged later)
+            // 注意：不记录完整堆栈跟踪，仅在运行大量线程以确定错误时才需要（总是稍后记录）
             String tString = t.toString();
             if (!tString.contains("org.eclipse.jetty.io.EofException"))
                 logger.error("运行groovy脚本时出错: (" + t.toString() + "): \n" + writeGroovyWithLines() + "\n");
@@ -96,7 +96,7 @@ public class XmlAction {
     }
 
     private String getGroovyString() {
-        // transform XML to groovy
+        // 将XML转换为groovy
         String groovyString;
         try {
             Map<String, Object> root = new HashMap<>(1);

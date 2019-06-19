@@ -1,8 +1,11 @@
 package com.zmtech.zkit.util;
 
 import com.zmtech.zkit.exception.BaseException;
-import com.zmtech.zkit.exception.EntityException;
 import com.zmtech.zkit.resource.impl.ResourceReference;
+import freemarker.ext.beans.BeansWrapper;
+import freemarker.ext.beans.BeansWrapperBuilder;
+import freemarker.template.*;
+import groovy.lang.Closure;
 import groovy.util.Node;
 import groovy.util.NodeList;
 import org.slf4j.Logger;
@@ -23,7 +26,7 @@ import java.util.function.Function;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @SuppressWarnings("unused")
-public class MNode {
+public class MNode implements TemplateNodeModel, TemplateSequenceModel, TemplateHashModelEx, AdapterTemplateModel, TemplateScalarModel{
 
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
 
@@ -32,6 +35,8 @@ public class MNode {
     public static void clearParsedNodeCache() {
         parsedNodeCache.clear();
     }
+
+    private static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
 
     /* ========== XML 解析 ========== */
     public static MNode parse(ResourceReference rr) throws BaseException {
@@ -49,7 +54,7 @@ public class MNode {
     /**
      * 从输入流解析并关闭流
      */
-    public static MNode parse(String location, InputStream is) throws EntityException {
+    public static MNode parse(String location, InputStream is) throws BaseException {
         if (is == null) return null;
         try {
             return parse(location, new InputSource(is));
@@ -57,12 +62,12 @@ public class MNode {
             try {
                 is.close();
             } catch (IOException e) {
-                logger.error("关闭XML输入流错误,文件位置: " + location, e);
+                logger.error("XML解析错误: 关闭XML输入流错误,文件位置: " + location, e);
             }
         }
     }
 
-    public static MNode parse(File fl) throws EntityException {
+    public static MNode parse(File fl) throws BaseException {
         if (fl == null || !fl.exists()) return null;
 
         String location = fl.getPath();
@@ -77,17 +82,17 @@ public class MNode {
             if (node.lastModified > 0) parsedNodeCache.put(location, node);
             return node;
         } catch (Exception e) {
-            throw new EntityException("解析XML文件错误,文件位置: " + fl.getPath(), e);
+            throw new BaseException("XML解析错误: 解析XML文件错误,文件位置: " + fl.getPath(), e);
         } finally {
             try {
                 if (fr != null) fr.close();
             } catch (IOException e) {
-                logger.error("关闭XML输入流错误,文件位置: " + fl.getPath(), e);
+                logger.error("XML解析错误: 关闭XML输入流错误,文件位置: " + fl.getPath(), e);
             }
         }
     }
 
-    public static MNode parseText(String location, String text) throws EntityException {
+    public static MNode parseText(String location, String text) throws BaseException {
         if (text == null || text.length() == 0) return null;
         return parse(location, new InputSource(new StringReader(text)));
     }
@@ -100,22 +105,21 @@ public class MNode {
             reader.parse(isrc);
             return xmlHandler.getRootNode();
         } catch (Exception e) {
-            throw new EntityException("解析XML文件错误,文件位置: " + location, e);
+            throw new BaseException("XML解析错误: 解析XML文件错误,文件位置: " + location, e);
         }
     }
 
-    //    public static MNode parseRootOnly(ResourceReference rr) {
-//        InputStream is = rr.openStream();
-//        if (is == null) return null;
-//        try {
-//            return parseRootOnly(rr.getLocation(), new InputSource(is));
-//        } finally {
-//            if (is != null) {
-//                try { is.close(); }
-//                catch (IOException e) { logger.error("Error closing XML stream from " + rr.getLocation(), e); }
-//            }
-//        }
-//    }
+    public static MNode parseRootOnly(ResourceReference rr) {
+        InputStream is = rr.openStream();
+        if (is == null) return null;
+        try {
+            return parseRootOnly(rr.getLocation(), new InputSource(is));
+        } finally {
+            try { is.close(); }
+            catch (IOException e) { logger.error("XML解析错误: 错误关闭XML流文件 " + rr.getLocation(), e); }
+        }
+    }
+
     public static MNode parseRootOnly(String location, InputSource isrc) {
         try {
             MNodeXmlHandler xmlHandler = new MNodeXmlHandler(true);
@@ -124,7 +128,7 @@ public class MNode {
             reader.parse(isrc);
             return xmlHandler.getRootNode();
         } catch (Exception e) {
-            throw new EntityException("解析XML文件错误,文件位置: " + location, e);
+            throw new BaseException("解析XML文件错误,文件位置: " + location, e);
         }
     }
 
@@ -233,7 +237,7 @@ public class MNode {
         String attrValue = attributeMap.get(attrName);
         if (systemExpandAttributes && attrValue != null && attrValue.contains("${")) {
             attrValue = SystemBinding.expand(attrValue);
-            // system properties and environment variables don't generally change once initial init is done, so save expanded value
+            // 初始init完成后，系统属性和环境变量通常不会更改，因此保存扩展值
             attributeMap.put(attrName, attrValue);
         }
         if (attrValue != null && attrValue.isEmpty()) { attrValue = null; }
@@ -265,8 +269,7 @@ public class MNode {
 
         curList = new ArrayList<>();
         int childListSize = childList.size();
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             if (name.equals(curChild.nodeName)) curList.add(curChild);
         }
         childrenByName.put(name, curList);
@@ -280,8 +283,7 @@ public class MNode {
         ArrayList<MNode> fullList = children(name);
         ArrayList<MNode> filteredList = new ArrayList<>();
         int fullListSize = fullList.size();
-        for (int i = 0; i < fullListSize; i++) {
-            MNode node = fullList.get(i);
+        for (MNode node : fullList) {
             boolean allEqual = true;
             for (int j = 0; j < attrNvLength; j += 2) {
                 String attrValue = node.attribute(attrNamesValues[j]);
@@ -307,8 +309,7 @@ public class MNode {
         ArrayList<MNode> curList = new ArrayList<>();
         if (childList == null) return curList;
         int childListSize = childList.size();
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             if (condition == null || condition.apply(curChild)) curList.add(curChild);
         }
         return curList;
@@ -323,8 +324,7 @@ public class MNode {
         }
 
         int childListSize = childList.size();
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             if (name.equals(curChild.nodeName)) return true;
         }
         return false;
@@ -345,8 +345,7 @@ public class MNode {
         if (childrenByName == null) childrenByName = new HashMap<>();
 
         ArrayList<String> newChildNames = new ArrayList<>();
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             String name = curChild.nodeName;
             ArrayList<MNode> existingList = childrenByName.get(name);
             if (existingList != null) {
@@ -364,8 +363,7 @@ public class MNode {
         }
         // since we got all children by name save them for future use
         int newChildNamesSize = newChildNames.size();
-        for (int i = 0; i < newChildNamesSize; i++) {
-            String newChildName = newChildNames.get(i);
+        for (String newChildName : newChildNames) {
             childrenByName.put(newChildName, allByName.get(newChildName));
         }
         childrenByName.putAll(allByName);
@@ -387,8 +385,7 @@ public class MNode {
         if (childList == null) return;
 
         int childListSize = childList.size();
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             if (names == null || names.contains(curChild.nodeName)) {
                 ArrayList<MNode> curList = nodes.get(curChild.nodeName);
                 curList.add(curChild);
@@ -407,8 +404,7 @@ public class MNode {
         if (childList == null) return;
 
         int childListSize = childList.size();
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             if (name == null || name.equals(curChild.nodeName)) {
                 nodes.add(curChild);
             }
@@ -427,13 +423,11 @@ public class MNode {
 
         int childListSize = childList.size();
         // all grand-children first
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             curChild.depthFirstInternal(condition, curList);
         }
         // then children
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             if (condition == null || condition.apply(curChild)) curList.add(curChild);
         }
     }
@@ -449,13 +443,11 @@ public class MNode {
 
         int childListSize = childList.size();
         // direct children first
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             if (condition == null || condition.apply(curChild)) curList.add(curChild);
         }
         // then grand-children
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             curChild.breadthFirstInternal(condition, curList);
         }
     }
@@ -502,8 +494,7 @@ public class MNode {
         if (childList == null) return null;
         if (condition == null) return first();
         int childListSize = childList.size();
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
+        for (MNode curChild : childList) {
             if (condition.apply(curChild)) return curChild;
         }
         return null;
@@ -655,6 +646,7 @@ public class MNode {
             childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
             if (childOverrideNode.childList != null && childOverrideNode.childList.size() > 0) {
                 if (childBaseNode.childList != null) {
+                    if (childBaseNode.childrenByName != null) childBaseNode.childrenByName.clear();
                     childBaseNode.childList.clear();
                 } else {
                     childBaseNode.childList = new ArrayList<>();
@@ -667,18 +659,20 @@ public class MNode {
                 }
             }
         } else {
+            if (childrenByName != null) childrenByName.remove(childOverrideNode.nodeName);
             if (childList == null) childList = new ArrayList<>();
             childList.add(childOverrideNode.deepCopy(this));
         }
     }
 
-    public void mergeChildWithChildKey(MNode overrideNode, String childName, String grandchildName, String keyAttributeName, Function<Map<String, MNode>, MNode> grandchildMerger) {
+    public void mergeChildWithChildKey(MNode overrideNode, String childName, String grandchildName, String keyAttributeName, Closure grandchildMerger) {
         MNode overrideChildNode = overrideNode.first(childName);
         if (overrideChildNode == null) return;
         MNode baseChildNode = first(childName);
         if (baseChildNode != null) {
             baseChildNode.mergeNodeWithChildKey(overrideChildNode, grandchildName, keyAttributeName, grandchildMerger);
         } else {
+            if (childrenByName != null) childrenByName.remove(overrideChildNode.nodeName);
             if (childList == null) childList = new ArrayList<>();
             childList.add(overrideChildNode.deepCopy(this));
         }
@@ -692,11 +686,9 @@ public class MNode {
      * if null the default merge of removing all children under the child of this node and appending copies of the
      * children of the override child node.
      */
-    public void mergeNodeWithChildKey(MNode overrideNode, String childNodesName, String keyAttributeName, Function<Map<String, MNode>, MNode> childMerger) {
-        if (overrideNode == null)
-            throw new IllegalArgumentException("No overrideNode specified in call to mergeNodeWithChildKey");
-        if (childNodesName == null || childNodesName.length() == 0)
-            throw new IllegalArgumentException("No childNodesName specified in call to mergeNodeWithChildKey");
+    public void mergeNodeWithChildKey(MNode overrideNode, String childNodesName, String keyAttributeName, Closure childMerger) {
+        if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeNodeWithChildKey");
+        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeNodeWithChildKey");
 
         // override attributes for this node
         attributeMap.putAll(overrideNode.attributeMap);
@@ -704,28 +696,49 @@ public class MNode {
         mergeChildrenByKey(overrideNode, childNodesName, keyAttributeName, childMerger);
     }
 
-    public void mergeChildrenByKey(MNode overrideNode, String childNodesName, String keyAttributeName, Function<Map<String, MNode>, MNode> childMerger) {
-        if (overrideNode == null)
-            throw new IllegalArgumentException("No overrideNode specified in call to mergeChildrenByKey");
-        if (childNodesName == null || childNodesName.length() == 0)
-            throw new IllegalArgumentException("No childNodesName specified in call to mergeChildrenByKey");
+    public void mergeChildrenByKey(MNode overrideNode, String childNodesName, String keyAttributeName, Closure childMerger) {
+        if (keyAttributeName == null || keyAttributeName.isEmpty()) {
+            mergeChildrenByKeys(overrideNode, childNodesName, childMerger);
+        } else {
+            mergeChildrenByKeys(overrideNode, childNodesName, childMerger, keyAttributeName);
+        }
+    }
+
+    public void mergeChildrenByKeys(MNode overrideNode, String childNodesName, Closure childMerger, String... keyAttributeNames) {
+        if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeChildrenByKey");
+        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeChildrenByKey");
 
         if (childList == null) childList = new ArrayList<>();
         ArrayList<MNode> overrideChildren = overrideNode.children(childNodesName);
         int overrideChildrenSize = overrideChildren.size();
         for (int curOc = 0; curOc < overrideChildrenSize; curOc++) {
             MNode childOverrideNode = overrideChildren.get(curOc);
-            boolean skipKeyValue = keyAttributeName == null || keyAttributeName.length() == 0;
-            String keyValue = skipKeyValue ? null : childOverrideNode.attribute(keyAttributeName);
-            // if we have a keyAttributeName but no keyValue for this child node, skip it
-            if ((keyValue == null || keyValue.length() == 0) && !skipKeyValue) continue;
+
+            String[] keyAttributeValues = null;
+            if (keyAttributeNames != null && keyAttributeNames.length > 0) {
+                keyAttributeValues = new String[keyAttributeNames.length];
+                boolean skipChild = false;
+                for (int ai = 0; ai < keyAttributeNames.length; ai++) {
+                    String keyValue = childOverrideNode.attribute(keyAttributeNames[ai]);
+                    // if we have a keyAttributeName but no keyValue for this child node, skip it
+                    if (keyValue == null || keyValue.length() == 0) { skipChild = true; continue; }
+                    keyAttributeValues[ai] = keyValue;
+                }
+                if (skipChild) continue;
+            }
 
             MNode childBaseNode = null;
             int childListSize = childList.size();
             for (int i = 0; i < childListSize; i++) {
                 MNode curChild = childList.get(i);
-                if (curChild.getName().equals(childNodesName) && (skipKeyValue || keyValue.equals(curChild.attribute(keyAttributeName))))
-                    childBaseNode = curChild;
+                if (!curChild.getName().equals(childNodesName)) continue;
+                if (keyAttributeNames == null || keyAttributeNames.length == 0) { childBaseNode = curChild; break; }
+                boolean allMatch = true;
+                for (int ai = 0; ai < keyAttributeNames.length; ai++) {
+                    String keyValue = keyAttributeValues[ai];
+                    if (!keyValue.equals(curChild.attribute(keyAttributeNames[ai]))) allMatch = false;
+                }
+                if (allMatch) { childBaseNode = curChild; break; }
             }
 
             if (childBaseNode != null) {
@@ -733,14 +746,11 @@ public class MNode {
                 childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
 
                 if (childMerger != null) {
-                    MNode finalChildBaseNode = childBaseNode;
-                    childMerger.apply(new ConcurrentHashMap<String, MNode>() {{
-                        put("baseNode", finalChildBaseNode);
-                        put("overrideNode", childOverrideNode);
-                    }});
+                    childMerger.call(childBaseNode, childOverrideNode);
                 } else {
                     // do the default child merge: remove current nodes children and replace with a copy of the override node's children
                     if (childBaseNode.childList != null) {
+                        if (childBaseNode.childrenByName != null) childBaseNode.childrenByName.clear();
                         childBaseNode.childList.clear();
                     } else {
                         childBaseNode.childList = new ArrayList<>();
@@ -781,8 +791,10 @@ public class MNode {
                     sb.append('\n');
                     child.addToSb(sb, level + 1);
                 }
-                sb.append("\n");
-                for (int i = 0; i < level; i++) sb.append("    ");
+                if (childList.size() > 1) {
+                    sb.append("\n");
+                    for (int i = 0; i < level; i++) sb.append("    ");
+                }
             }
 
             sb.append("</").append(nodeName).append('>');
@@ -873,8 +885,7 @@ public class MNode {
         public void endElement(String ns, String localName, String qName) {
             if (stopParse) return;
 
-            if (!qName.equals(curNode.nodeName))
-                throw new IllegalStateException("Invalid close element " + qName + ", was expecting " + curNode.nodeName);
+            if (!qName.equals(curNode.nodeName)) throw new IllegalStateException("Invalid close element " + qName + ", was expecting " + curNode.nodeName);
             if (curText != null) {
                 String curString = curText.toString().trim();
                 if (curString.length() > 0) curNode.childText = curString;
@@ -884,8 +895,181 @@ public class MNode {
         }
 
         @Override
-        public void setDocumentLocator(Locator locator) {
-            this.locator = locator;
+        public void setDocumentLocator(Locator locator) { this.locator = locator; }
+    }
+
+    /* ============================================================== */
+    /* ========== FreeMarker (FTL) Fields Methods, Classes ========== */
+    /* ============================================================== */
+
+    private static final BeansWrapper wrapper = new BeansWrapperBuilder(FTL_VERSION).build();
+    private static final FtlNodeListWrapper emptyNodeListWrapper = new FtlNodeListWrapper(new ArrayList<>(), null);
+    private FtlNodeListWrapper allChildren = null;
+    private ConcurrentHashMap<String, TemplateModel> ftlAttrAndChildren = null;
+    private ConcurrentHashMap<String, Boolean> knownNullAttributes = null;
+
+    public Object getAdaptedObject(Class aClass) { return this; }
+
+    // TemplateHashModel methods
+    @Override public TemplateModel get(String s) {
+        if (s == null) return null;
+        // first try the attribute and children caches, then if not found in either pick it apart and create what is needed
+        ConcurrentHashMap<String, TemplateModel> localAttrAndChildren = ftlAttrAndChildren != null ? ftlAttrAndChildren : makeAttrAndChildrenByName();
+        TemplateModel attrOrChildWrapper = localAttrAndChildren.get(s);
+        if (attrOrChildWrapper != null) return attrOrChildWrapper;
+        if (knownNullAttributes != null && knownNullAttributes.containsKey(s)) return null;
+
+        // at this point we got a null value but attributes and child nodes were pre-loaded so return null or empty list
+        if (s.startsWith("@")) {
+            if ("@@text".equals(s)) {
+                // if we got this once will get it again so add @@text always, always want wrapper though may be null
+                FtlTextWrapper textWrapper = new FtlTextWrapper(childText, this);
+                localAttrAndChildren.putIfAbsent("@@text", textWrapper);
+                return localAttrAndChildren.get("@@text");
+                // TODO: handle other special hashes? (see http://www.freemarker.org/docs/xgui_imperative_formal.html)
+            } else {
+                String attrName = s.substring(1, s.length());
+                String attrValue = attributeMap.get(attrName);
+                if (attrValue == null) {
+                    if (knownNullAttributes == null) knownNullAttributes = new ConcurrentHashMap<>();
+                    knownNullAttributes.put(s, Boolean.TRUE);
+                    return null;
+                } else {
+                    FtlAttributeWrapper attrWrapper = new FtlAttributeWrapper(attrName, attrValue, this);
+                    TemplateModel existingAttr = localAttrAndChildren.putIfAbsent(s, attrWrapper);
+                    if (existingAttr != null) return existingAttr;
+                    return attrWrapper;
+                }
+            }
+        } else {
+            if (hasChild(s)) {
+                FtlNodeListWrapper nodeListWrapper = new FtlNodeListWrapper(children(s), this);
+                TemplateModel existingNodeList = localAttrAndChildren.putIfAbsent(s, nodeListWrapper);
+                if (existingNodeList != null) return existingNodeList;
+                return nodeListWrapper;
+            } else {
+                return emptyNodeListWrapper;
+            }
         }
+    }
+    private synchronized ConcurrentHashMap<String, TemplateModel> makeAttrAndChildrenByName() {
+        if (ftlAttrAndChildren == null) ftlAttrAndChildren = new ConcurrentHashMap<>();
+        return ftlAttrAndChildren;
+    }
+    @Override public boolean isEmpty() {
+        return attributeMap.isEmpty() && (childList == null || childList.isEmpty()) && (childText == null || childText.length() == 0);
+    }
+
+    // TemplateHashModelEx methods
+    @Override public TemplateCollectionModel keys() throws TemplateModelException { return new SimpleCollection(attributeMap.keySet(), wrapper); }
+    @Override public TemplateCollectionModel values() throws TemplateModelException { return new SimpleCollection(attributeMap.values(), wrapper); }
+
+    // TemplateNodeModel methods
+    @Override public TemplateNodeModel getParentNode() { return parentNode; }
+    @Override public TemplateSequenceModel getChildNodes() { return this; }
+    @Override public String getNodeName() { return getName(); }
+    @Override public String getNodeType() { return "element"; }
+    @Override public String getNodeNamespace() { return null; } /* Namespace not supported for now. */
+
+    // TemplateSequenceModel methods
+    @Override public TemplateModel get(int i) {
+        if (allChildren == null) return getSequenceList().get(i);
+        return allChildren.get(i);
+    }
+    @Override public int size() {
+        if (allChildren == null) return getSequenceList().size();
+        return allChildren.size();
+    }
+    private FtlNodeListWrapper getSequenceList() {
+        // Looks like attributes should NOT go in the FTL children list, so just use the node.children()
+        if (allChildren == null) allChildren = (childText != null && childText.length() > 0) ?
+                new FtlNodeListWrapper(childText, this) : new FtlNodeListWrapper(childList, this);
+        return allChildren;
+    }
+
+    // TemplateScalarModel methods
+    @Override public String getAsString() { return childText != null ? childText : ""; }
+
+    private static class FtlAttributeWrapper implements TemplateNodeModel, TemplateSequenceModel, AdapterTemplateModel,
+            TemplateScalarModel {
+        protected String key;
+        protected String value;
+        MNode parentNode;
+        FtlAttributeWrapper(String key, String value, MNode parentNode) {
+            this.key = key;
+            this.value = value;
+            this.parentNode = parentNode;
+        }
+
+        @Override public Object getAdaptedObject(Class aClass) { return value; }
+
+        // TemplateNodeModel methods
+        @Override public TemplateNodeModel getParentNode() { return parentNode; }
+        @Override public TemplateSequenceModel getChildNodes() { return this; }
+        @Override public String getNodeName() { return key; }
+        @Override public String getNodeType() { return "attribute"; }
+        @Override public String getNodeNamespace() { return null; } /* Namespace not supported for now. */
+
+        // TemplateSequenceModel methods
+        @Override public TemplateModel get(int i) {
+            if (i == 0) try {
+                return wrapper.wrap(value);
+            } catch (TemplateModelException e) {
+                throw new BaseException("Error wrapping object for FreeMarker", e);
+            }
+            throw new IndexOutOfBoundsException("Attribute node only has 1 value. Tried to get index [${i}] for attribute [${key}]");
+        }
+        @Override public int size() { return 1; }
+
+        // TemplateScalarModel methods
+        @Override public String getAsString() { return value; }
+        @Override public String toString() { return value; }
+    }
+
+    private static class FtlTextWrapper implements TemplateNodeModel, TemplateSequenceModel, AdapterTemplateModel, TemplateScalarModel {
+        protected String text;
+        MNode parentNode;
+        FtlTextWrapper(String text, MNode parentNode) {
+            this.text = text;
+            this.parentNode = parentNode;
+        }
+
+        @Override public Object getAdaptedObject(Class aClass) { return text; }
+
+        // TemplateNodeModel methods
+        @Override public TemplateNodeModel getParentNode() { return parentNode; }
+        @Override public TemplateSequenceModel getChildNodes() { return this; }
+        @Override public String getNodeName() { return "@text"; }
+        @Override public String getNodeType() { return "text"; }
+        @Override public String getNodeNamespace() { return null; } /* Namespace not supported for now. */
+
+        // TemplateSequenceModel methods
+        @Override public TemplateModel get(int i) {
+            if (i == 0) try {
+                return wrapper.wrap(getAsString());
+            } catch (TemplateModelException e) {
+                throw new BaseException("Error wrapping object for FreeMarker", e);
+            }
+            throw new IndexOutOfBoundsException("Text node only has 1 value. Tried to get index [${i}]");
+        }
+        @Override public int size() { return 1; }
+
+        // TemplateScalarModel methods
+        @Override public String getAsString() { return text != null ? text : ""; }
+        @Override public String toString() { return getAsString(); }
+    }
+
+    private static class FtlNodeListWrapper implements TemplateSequenceModel {
+        ArrayList<TemplateModel> nodeList = new ArrayList<>();
+        FtlNodeListWrapper(ArrayList<MNode> mnodeList, MNode parentNode) {
+            if (mnodeList != null) nodeList.addAll(mnodeList);
+        }
+        FtlNodeListWrapper(String text, MNode parentNode) {
+            nodeList.add(new FtlTextWrapper(text, parentNode));
+        }
+
+        @Override public TemplateModel get(int i) { return nodeList.get(i); }
+        @Override public int size() { return nodeList.size(); }
+        @Override public String toString() { return nodeList.toString(); }
     }
 }
