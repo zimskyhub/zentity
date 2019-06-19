@@ -1,4 +1,3 @@
-
 package com.zmtech.zkit.util;
 
 import groovy.util.Node;
@@ -12,8 +11,7 @@ import java.sql.Timestamp;
 import java.util.*;
 
 /**
- * These are utilities that should exist elsewhere, but I can't find a good simple library for them, and they are
- * stupid but necessary for certain things.
+ * 这些实用程序应该在别的地方有，但我找不到一个好的简单库，它们都太蠢了，但这东西还很必要。
  */
 @SuppressWarnings("unused")
 public class CollectionUtil {
@@ -34,7 +32,7 @@ public class CollectionUtil {
     }
 
     /**
-     * Filter theList (of Map) using fieldValues; if exclude=true remove matching items, else keep only matching items
+     * 使用字段值过滤列表（地图）; if exclude = true删除匹配项，否则只保留匹配项
      */
     public static void filterMapList(List<Map> theList, Map<String, Object> fieldValues, boolean exclude) {
         if (theList == null || fieldValues == null) return;
@@ -64,11 +62,7 @@ public class CollectionUtil {
                 }
             }
         } else {
-            Iterator<Map> theIterator = theList.iterator();
-            while (theIterator.hasNext()) {
-                Map curMap = theIterator.next();
-                if (checkRemove(curMap, fieldNameArray, fieldValueArray, numFields, exclude)) theIterator.remove();
-            }
+            theList.removeIf(curMap -> checkRemove(curMap, fieldNameArray, fieldValueArray, numFields, exclude));
         }
     }
 
@@ -98,7 +92,7 @@ public class CollectionUtil {
 
         if (fromDateName == null || fromDateName.isEmpty()) fromDateName = "fromDate";
         if (thruDateName == null || thruDateName.isEmpty()) thruDateName = "thruDate";
-        // no access to ec.user here, so this should always be passed in, but just in case
+        // 这里不能访问访问ec.user，所以应该总是传入，但以防万一
         if (compareStamp == null) compareStamp = new Timestamp(System.currentTimeMillis());
 
         Iterator<Map> theIterator = theList.iterator();
@@ -121,11 +115,11 @@ public class CollectionUtil {
     }
 
     /**
-     * Order list elements in place (modifies the list passed in), returns the list for convenience
+     * 适当的订单列表元素（修改传入的列表），为方便起见返回列表
      */
     public static List<Map<String, Object>> orderMapList(List<Map<String, Object>> theList, List<? extends CharSequence> fieldNames) {
         if (fieldNames == null)
-            throw new IllegalArgumentException("Cannot order List of Maps with null order by field list");
+            throw new IllegalArgumentException("无法按字段列表的顺序排序Map列表!");
         if (theList != null && fieldNames.size() > 0) theList.sort(new MapOrderByComparator(fieldNames));
         return theList;
     }
@@ -157,8 +151,8 @@ public class CollectionUtil {
         public int compare(Map map1, Map map2) {
             if (map1 == null) return -1;
             if (map2 == null) return 1;
-            for (int i = 0; i < fieldNameArray.length; i++) {
-                String fieldName = fieldNameArray[i];
+            for (String s : fieldNameArray) {
+                String fieldName = s;
                 boolean ascending = true;
                 boolean ignoreCase = false;
                 if (fieldName.charAt(0) == '-') {
@@ -173,7 +167,7 @@ public class CollectionUtil {
                 }
                 Comparable value1 = (Comparable) map1.get(fieldName);
                 Comparable value2 = (Comparable) map2.get(fieldName);
-                // NOTE: nulls go earlier in the list for ascending, later in the list for !ascending
+                // 注意：空值在列表中较早的位置用于升序，稍后在列表中用于升序
                 if (value1 == null) {
                     if (value2 != null) return ascending ? 1 : -1;
                 } else {
@@ -189,7 +183,7 @@ public class CollectionUtil {
                                     value1 = new BigDecimal(value1.toString());
                                     value2 = new BigDecimal(value2.toString());
                                 }
-                                // NOTE: any other type normalization to avoid compareTo() casting exceptions?
+                                // 注意：任何其他类型规范化以避免compareTo（）转换异常？
                             }
                             int comp = value1.compareTo(value2);
                             if (comp != 0) return ascending ? comp : -comp;
@@ -197,7 +191,7 @@ public class CollectionUtil {
                     }
                 }
             }
-            // all evaluated to 0, so is the same, so return 0
+            // all结果为0，所以是相同的，所以返回0
             return 0;
         }
 
@@ -213,9 +207,8 @@ public class CollectionUtil {
     }
 
     /**
-     * For a list of Map find the entry that best matches the fieldsByPriority Ordered Map; null field values in a Map
-     * in mapList match against any value but do not contribute to maximal match score, otherwise value for each field
-     * in fieldsByPriority must match for it to be a candidate.
+     * 对于Map列表，找到与fieldsByPriority Ordered Map最匹配的条目;
+     * mapList中Map中的空字段值与任何值匹配，但不会对最大匹配分数有所贡献，否则fieldsByPriority中每个字段的值必须匹配才能成为候选。
      */
     public static Map<String, Object> findMaximalMatch(List<Map<String, Object>> mapList, LinkedHashMap<String, Object> fieldsByPriority) {
         int numFields = fieldsByPriority.size();
@@ -236,7 +229,7 @@ public class CollectionUtil {
             for (int i = 0; i < numFields; i++) {
                 String curField = fieldNames[i];
                 Object compareValue = fieldValues[i];
-                // if curMap value is null skip field (null value in Map means allow any match value
+                // 如果curMap值为null跳过字段（Map中的空值表示允许任何匹配值
                 Object curValue = curMap.get(curField);
                 if (curValue == null) continue;
                 // if not equal skip Map
@@ -244,12 +237,12 @@ public class CollectionUtil {
                     skipMap = true;
                     break;
                 }
-                // add to score based on index (lower index higher score), also add numFields so more fields matched weights higher
+                // 添加到基于索引的分数（较低的索引较高分数），也添加numFields，以便更多的字段匹配权重更高
                 curScore += (numFields - i) + numFields;
             }
 
             if (skipMap) continue;
-            // have a higher score?
+            // 有更高的？
             if (curScore > highScore) {
                 highScore = curScore;
                 highMap = curMap;
@@ -329,8 +322,9 @@ public class CollectionUtil {
     }
 
     /**
-     * Returns Map with total, squaredTotal, count, average, stdDev, maximum; fieldName field in Maps must have type BigDecimal;
-     * if count of non-null fields is less than 2 returns null as cannot calculate a standard deviation
+     * 返回带有total，squaredTotal，count，average，stdDev，maximum的Map;
+     * Maps中的fieldName字段必须具有BigDecimal类型;
+     * 如果非空字段的计数小于2，则返回null，因为无法计算标准差
      */
     public static Map<String, BigDecimal> stdDevMaxFromMapField(List<Map<String, Object>> dataList, String fieldName, BigDecimal stdDevMultiplier) {
         BigDecimal total = BigDecimal.ZERO;
@@ -364,7 +358,7 @@ public class CollectionUtil {
     }
 
     /**
-     * Find a field value in a nested Map containing fields, Maps, and Collections of Maps (Lists, etc)
+     * 在包含字段，地图和地图集合（列表等）的嵌套地图中查找字段值
      */
     public static Object findFieldNestedMap(String key, Map theMap) {
         if (theMap.containsKey(key)) return theMap.get(key);
@@ -386,7 +380,7 @@ public class CollectionUtil {
     }
 
     /**
-     * Find all values of a named field in a nested Map containing fields, Maps, and Collections of Maps (Lists, etc)
+     * 在包含字段，地图和地图集合（列表等）的嵌套地图中查找命名字段的所有值
      */
     public static void findAllFieldsNestedMap(String key, Map theMap, Set<Object> valueSet) {
         Object localValue = theMap.get(key);
@@ -404,7 +398,7 @@ public class CollectionUtil {
     }
 
     /**
-     * Creates a single Map with fields from the passed in Map and all nested Maps (for Map and Collection of Map entry values)
+     * 在包含字段，地图和地图集合（列表等）的嵌套地图中查找命名字段的所有值
      */
     @SuppressWarnings("unchecked")
     public static Map flattenNestedMap(Map theMap) {
@@ -476,7 +470,7 @@ public class CollectionUtil {
     }
 
     /**
-     * Removes entries with a null value from the Map, returns the passed in Map for convenience (does not clone before removes!).
+     * 从Map中删除具有空值的条目，为方便起见返回传入的Map（在删除之前不进行克隆！）。
      */
     @SuppressWarnings("unchecked")
     public static Map removeNullsFromMap(Map theMap) {

@@ -79,8 +79,7 @@ public class AggregationUtil {
         this.aggregateFields = aggregateFields;
         this.groupFields = groupFields;
         this.rowActions = rowActions;
-        for (int i = 0; i < aggregateFields.length; i++) {
-            AggregateField aggField = aggregateFields[i];
+        for (AggregateField aggField : aggregateFields) {
             if (aggField.fromExpr != null) hasFromExpr = true;
             if (aggField.subList && aggField.showTotal != null) hasSubListTotals = true;
         }
@@ -138,9 +137,7 @@ public class AggregationUtil {
         }
 
         if (hasSubListTotals) {
-            int resultSize = resultList.size();
-            for (int i = 0; i < resultSize; i++) {
-                Map<String, Object> resultMap = resultList.get(i);
+            for (Map<String, Object> resultMap : resultList) {
                 ArrayList aggregateSubList = (ArrayList) resultMap.get("aggregateSubList");
                 if (aggregateSubList != null) {
                     Map aggregateSubListTotals = (Map) resultMap.get("aggregateSubListTotals");
@@ -151,7 +148,7 @@ public class AggregationUtil {
         if (totalsMap.size() > 0) resultList.add(new HashMap<>(totalsMap));
 
         if (logger.isTraceEnabled())
-            logger.trace("Processed list " + listName + ", from " + originalCount + " items to " + resultList.size() + " items, in " + (System.currentTimeMillis() - startTime) + "ms");
+            logger.trace("工具跟踪信息: 处理列表 [" + listName + "], 从 [" + originalCount + "] 项到 [" + resultList.size() + "] 项, 用时: [" + (System.currentTimeMillis() - startTime) + "] 毫秒");
         // for (Map<String, Object> result : resultList) logger.warn("Aggregate Result: " + result.toString());
 
         return resultList;
@@ -193,8 +190,7 @@ public class AggregationUtil {
             if (rowActions != null) rowActions.run(eci);
 
             // if any fields have a fromExpr get the value from that
-            for (int i = 0; i < aggregateFields.length; i++) {
-                AggregateField aggField = aggregateFields[i];
+            for (AggregateField aggField : aggregateFields) {
                 if (aggField.fromExpr != null) {
                     Script script = InvokerHelper.createScript(aggField.fromExpr, eci.contextBindingInternal);
                     Object newValue = script.run();
@@ -207,8 +203,7 @@ public class AggregationUtil {
         Map<String, Object> groupByMap = null;
         if (makeSubList) {
             groupByMap = new HashMap<>();
-            for (int i = 0; i < groupFields.length; i++) {
-                String groupBy = groupFields[i];
+            for (String groupBy : groupFields) {
                 if (!includeFields.contains(groupBy)) continue;
                 groupByMap.put(groupBy, getField(groupBy, context, curObject, curIsMap));
             }
@@ -219,8 +214,7 @@ public class AggregationUtil {
             resultMap = contextTopMap;
             Map<String, Object> subListMap = null;
             Map<String, Object> subListTotalsMap = null;
-            for (int i = 0; i < aggregateFields.length; i++) {
-                AggregateField aggField = aggregateFields[i];
+            for (AggregateField aggField : aggregateFields) {
                 String fieldName = aggField.fieldName;
                 Object fieldValue = getField(fieldName, context, curObject, curIsMap);
                 // don't want to put null values, a waste of time/space; if count aggregate continue so it isn't counted
@@ -262,8 +256,7 @@ public class AggregationUtil {
             // NOTE: if makeSubList == false this will never run
             Map<String, Object> subListMap = null;
             Map<String, Object> subListTotalsMap = (Map<String, Object>) resultMap.get("aggregateSubListTotals");
-            for (int i = 0; i < aggregateFields.length; i++) {
-                AggregateField aggField = aggregateFields[i];
+            for (AggregateField aggField : aggregateFields) {
                 String fieldName = aggField.fieldName;
                 Object fieldValue = getField(fieldName, context, curObject, curIsMap);
                 // don't want to put null values, a waste of time/space; if count aggregate continue so it isn't counted
@@ -308,7 +301,7 @@ public class AggregationUtil {
             } catch (MissingPropertyException e) {
                 // ignore exception, we know this may not be a real property of the object
                 if (isTraceEnabled)
-                    logger.trace("Field " + fieldName + " is not a property of list-entry " + listEntryName + " in list " + listName + ": " + e.toString());
+                    logger.trace("工具跟踪信息: 字段 [" + fieldName + "] 不是list-entry [" + listEntryName + "] 中的属性,列表名为: [" + listName + "] 错误信息: " + e.toString());
             }
         }
         return value;
