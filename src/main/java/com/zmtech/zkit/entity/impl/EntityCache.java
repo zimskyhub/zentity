@@ -1,6 +1,6 @@
 package com.zmtech.zkit.entity.impl;
 
-import com.google.common.cache.Cache;
+
 import com.zmtech.zkit.cache.impl.CacheFacadeImpl;
 import com.zmtech.zkit.entity.EntityCondition;
 import com.zmtech.zkit.entity.EntityList;
@@ -10,7 +10,7 @@ import com.zmtech.zkit.util.SimpleTopic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.cache.Cache;
+
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
