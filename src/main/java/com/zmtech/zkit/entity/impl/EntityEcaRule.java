@@ -130,7 +130,7 @@ public class EntityEcaRule {
                         ArrayList<String> fieldNames = ed.getNonPkFieldNames();
                         int fieldNamesSize = fieldNames.size();
                         for (int i = 0; i < fieldNamesSize; i++) {
-                            String fieldName = (String) fieldNames.get(i);
+                            String fieldName = fieldNames.get(i);
                             if (resultMap.containsKey(fieldName)) fieldValues.put(fieldName, resultMap.get(fieldName));
                         }
                     }

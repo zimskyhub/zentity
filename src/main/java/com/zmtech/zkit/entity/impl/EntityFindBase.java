@@ -38,7 +38,7 @@ public abstract class EntityFindBase implements EntityFind {
     public final TransactionCache txCache;
 
     protected String entityName;
-    protected EntityDefinition entityDef = (EntityDefinition) null;
+    protected EntityDefinition entityDef = null;
     protected EntityDynamicViewImpl dynamicView = (EntityDynamicViewImpl) null;
 
     protected String singleCondField = (String) null;

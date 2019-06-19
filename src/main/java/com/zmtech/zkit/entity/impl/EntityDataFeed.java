@@ -25,10 +25,10 @@ public class EntityDataFeed {
 
     protected final EntityFacadeImpl efi;
 
-    protected final Cache<String, ArrayList<DocumentEntityInfo>> dataFeedEntityInfo;
-    Set<String> entitiesWithDataFeed = null;
+    private final Cache<String, ArrayList<DocumentEntityInfo>> dataFeedEntityInfo;
+    private Set<String> entitiesWithDataFeed = null;
 
-    public EntityDataFeed(EntityFacadeImpl efi) {
+    EntityDataFeed(EntityFacadeImpl efi) {
         this.efi = efi;
         dataFeedEntityInfo = efi.ecfi.getCache().getCache("entity.data.feed.info");
     }

@@ -52,14 +52,14 @@ public class EntityDefinition {
 
 
 
-    // these are used for every list find, so keep them here
+    // 这些用于每个列表查找，所以请保留它们
     public final MNode entityConditionNode;
     public final MNode entityHavingEconditions;
 
     private boolean tableExistVerified = false;
 
     private List<MNode> expandedRelationshipList = null;
-    // this is kept separately for quick access to relationships by name or short-alias
+    // 这是单独保存的，以便通过名称或短名称快速访问关系
     private Map<String, RelationshipInfo> relationshipInfoMap = null;
     private ArrayList<RelationshipInfo> relationshipInfoList = null;
     private boolean hasReverseRelationships = false;
@@ -67,10 +67,10 @@ public class EntityDefinition {
 
     public EntityDefinition(EntityFacadeImpl efi, MNode entityNode) {
         this.efi = efi;
-        // copy the entityNode because we may be modifying it
+        // 复制entityNode，因为我们可能正在修改它
         internalEntityNode = entityNode.deepCopy(null);
 
-        // prepare a few things needed by initFields() before calling it
+        // 在调用之前准备initFields（）所需的一些东西
 
         String packageName = internalEntityNode.attribute("package");
         if (packageName == null || packageName.isEmpty()) packageName = internalEntityNode.attribute("package-name");
@@ -80,7 +80,7 @@ public class EntityDefinition {
         isDynamicView = "true".equals(internalEntityNode.attribute("is-dynamic-view"));
 
         if (isDynamicView) {
-            // use the group of the primary member-entity
+            // 使用主要成员实体的组
             String memberEntityName = null;
             ArrayList<MNode> meList = internalEntityNode.children("member-entity");
             for (MNode meNode : meList) {
@@ -102,7 +102,7 @@ public class EntityDefinition {
             groupName = groupAttr;
         }
 
-        // now initFields() and create EntityInfo
+        // 现在initFields（）并创建EntityInfo
         boolean neverCache = false;
         if (isViewEntity) {
             memberEntityFieldAliases = new ConcurrentHashMap<>();
@@ -121,12 +121,12 @@ public class EntityDefinition {
                     if (jfed == null)
                         throw new EntityException("实体定义错误: 没有找到实体 [" + fullEntityName + "] 的关联别名为 [" + jfme.attribute("entity-alias") + "] 所指向的成员实体 [" + fromEntityName + "] 的定义! ");
 
-                    // can't use getRelationshipInfo as not all entities loaded: RelationshipInfo relInfo = jfed.getRelationshipInfo(relName)
+                    // 不能使用getRelationshipInfo而不是所有加载的实体：RelationshipInfo relInfo = jfed.getRelationshipInfo（relName）
                     MNode relNode = jfed.internalEntityNode.first(it -> "relationship".equals(it.getName()) && (relName.equals(it.attribute("short-alias")) || relName.equals(it.attribute("related")) || relName.equals(it.attribute("related") + '#' + it.attribute("related"))));
                     if (relNode == null)
                         throw new EntityException("实体定义错误: 无法找到实体 ["+fullEntityName+"] 的关联别名为 ["+memberRel.attribute("entity-alias") +"]  关系 ["+relName+"] 所指向的成员实体 ["+joinFromAlias+"]");
 
-                    // mutate the current MNode
+                    // 改变当前的MNode
                     memberRel.setName("member-entity");
                     memberRel.getAttributes().put("entity-name", relNode.attribute("related"));
                     ArrayList<MNode> kmList = relNode.children("key-map");
@@ -151,7 +151,7 @@ public class EntityDefinition {
             if (internalEntityNode.hasChild("member-relationship"))
                 logger.warn("view-entity " + fullEntityName + " members: " + internalEntityNode.children("member-entity"));
 
-            // get group, etc from member-entity
+            // 从成员实体获取组等
             Set<String> allGroupNames = new TreeSet<>();
             for (MNode memberEntity : internalEntityNode.children("member-entity")) {
 
@@ -201,7 +201,7 @@ public class EntityDefinition {
                     aliasNode.getAttributes().put("enable-localization", "true");
                 if ("true".equals(fieldNode.attribute("encrypt"))) aliasNode.getAttributes().put("encrypt", "true");
 
-                // add to aliases by field name by entity name
+                // 按实体名称按字段名称添加别名
                 if (!memberEntityFieldAliases.containsKey(memberEd.getFullEntityName()))
                     memberEntityFieldAliases.put(memberEd.getFullEntityName(), new ConcurrentHashMap<>());
                 Map<String, ArrayList<MNode>> fieldInfoByEntity = memberEntityFieldAliases.get(memberEd.getFullEntityName());
@@ -219,7 +219,7 @@ public class EntityDefinition {
             else entityHavingEconditions = null;
         } else {
             if (internalEntityNode.attribute("no-update-stamp") != "true") {
-                // automatically add the lastUpdatedStamp field
+                // 自动添加lastUpdatedStamp字段
                 Map<String, String> fieldMap = new ConcurrentHashMap<>();
                 fieldMap.put("name", "lastUpdatedStamp");
                 fieldMap.put("type", "date-time");
@@ -235,7 +235,7 @@ public class EntityDefinition {
             entityHavingEconditions = null;
         }
 
-        // finally create the EntityInfo object
+        // 最后创建EntityInfo对象
         entityInfo = new EntityInfo(this, neverCache);
     }
 
@@ -260,7 +260,7 @@ public class EntityDefinition {
         if (fieldInfo == null)
             throw new EntityException("实体定义错误: 实体 ["+memberEd.getFullEntityName()+"] 的字段 ["+fieldName+"] 名称错误!");
         if ("true".equals(memberEntity.attribute("sub-select"))) {
-            // sub-select uses alias field name changed to underscored
+            // sub-select使用别名字段名称更改为下划线
             return EntityJavaUtil.camelCaseToUnderscored(fieldInfo.name);
         } else {
             return fieldInfo.getFullColumnName();
@@ -335,7 +335,7 @@ public class EntityDefinition {
         } else if (complexAliasNode != null) {
             buildComplexAliasName(complexAliasNode, colNameBuilder, !hasFunction, includeEntityAlias);
         } else {
-            // column name for view-entity (prefix with "${entity-alias}.")
+            // view-entity的列名（前缀为“$ {entity-alias}。”）
             if (includeEntityAlias) colNameBuilder.append(entityAlias).append('.');
             colNameBuilder.append(getBasicFieldColName(entityAlias, memberFieldName));
         }
@@ -401,7 +401,7 @@ public class EntityDefinition {
     }
 
     protected static String getFunctionPrefix(String function) {
-        return (function == "count-distinct") ? "COUNT(DISTINCT " : function.toUpperCase() + '(';
+        return function.equals("count-distinct") ? "COUNT(DISTINCT " : function.toUpperCase() + '(';
     }
 
     private void expandAliasAlls() {
@@ -413,7 +413,6 @@ public class EntityDefinition {
         }
         ArrayList<MNode> aliasAllList = internalEntityNode.children("alias-all");
         ArrayList<MNode> memberEntityList = internalEntityNode.children("member-entity");
-        int memberEntityListSize = memberEntityList.size();
         for (MNode mNode : aliasAllList) {
             String aliasAllEntityAlias = (mNode).attribute("entity-alias");
             MNode memberEntity = memberEntityAliasMap.get(aliasAllEntityAlias);
@@ -464,7 +463,7 @@ public class EntityDefinition {
                         if (viewMeNode.attribute("entity-alias").equals(aliasAllEntityAlias)) {
                             isRel = true;
                         } else if (!viewMeNode.attribute("join-from-alias").equals(aliasAllEntityAlias)) {
-                            // not the rel-entity-alias or the entity-alias, so move along
+                            // 不是rel-entity-alias或entity-alias，所以继续
                             continue;
                         }
                         for (MNode keyMap : viewMeNode.children("key-map")) {
@@ -544,7 +543,7 @@ public class EntityDefinition {
     }
 
     /**
-     * Returns the table name, ie table-name or converted entity-name
+     * 返回表名，即table-name或转换的entity-name
      */
     public String getTableName() {
         return entityInfo.tableName;
@@ -561,7 +560,7 @@ public class EntityDefinition {
     public String getColumnName(String fieldName) {
         FieldInfo fieldInfo = getFieldInfo(fieldName);
         if (fieldInfo == null)
-            throw new EntityException("Invalid field name ${fieldName} for entity ${this.getFullEntityName()}");
+            throw new EntityException("实体定义错误: 实体 ["+this.getFullEntityName()+"] 中的字段 ["+fieldName+"] 无效!");
         return fieldInfo.getFullColumnName();
     }
 
@@ -940,12 +939,12 @@ public class EntityDefinition {
             prettyName.deleteCharAt(prettyName.length() - 1);
             if (addParens) prettyName.append(")");
         }
-        // make sure pretty name isn't empty, happens when baseName is a superset of entity name
+        // 确保相同的名称不为空，当baseName是实体名称的超集时发生
         if (prettyName.length() == 0) return StringUtil.camelCaseToPretty(entityInfo.internalEntityName);
         return prettyName.toString();
     }
 
-    // used in EntityCache for view entities
+    // 在EntityCache中用于视图实体
     public Map<String, String> getMePkFieldToAliasNameMap(String entityAlias) {
         if (mePkFieldToAliasNameMapMap == null) mePkFieldToAliasNameMapMap = new ConcurrentHashMap<>();
         Map<String, String> mePkFieldToAliasNameMap = mePkFieldToAliasNameMapMap.get(entityAlias);
@@ -954,7 +953,7 @@ public class EntityDefinition {
 
         mePkFieldToAliasNameMap = new HashMap<>();
 
-        // do a reverse map on member-entity pk fields to view-entity aliases
+        // 在成员实体pk字段上执行反向映射以查看实体别名
         MNode memberEntityNode = memberEntityAliasMap.get(entityAlias);
         EntityDefinition med = this.efi.getEntityDefinition(memberEntityNode.attribute("entity-name"));
         ArrayList<String> pkFieldNames = med.getPkFieldNames();
@@ -976,7 +975,7 @@ public class EntityDefinition {
 
             // 没有别名,试着用 join key-maps 查找其他别名字段
 
-            // first try the current member-entity
+            // 首先尝试当前的成员实体
             if (memberEntityNode.attribute("join-from-alias") != null && memberEntityNode.hasChild("key-map")) {
                 boolean foundOne = false;
                 ArrayList<MNode> keyMapList = memberEntityNode.children("key-map");
@@ -1008,7 +1007,7 @@ public class EntityDefinition {
                 if (foundOne) continue;
             }
 
-            // then go through all other member-entity that might relate back to this one
+            // 然后浏览可能与此相关的所有其他成员实体
             for (MNode relatedMeNode : getEntityNode().children("member-entity")) {
                 if (relatedMeNode.attribute("join-from-alias").equals(entityAlias) && relatedMeNode.hasChild("key-map")) {
                     boolean foundOne = false;
@@ -1082,7 +1081,7 @@ public class EntityDefinition {
         ExecutionContextImpl eci = efi.ecfi.getEci();
         List<EntityCondition> condList = new ArrayList<>();
         for (MNode dateFilter : conditionsParent.children("date-filter")) {
-            // NOTE: this doesn't do context expansion of the valid-date as it doesn't make sense for an entity def to depend on something being in the context
+            //注意：这不会对有效日期进行上下文扩展，因为实体def依赖于上下文中的内容是没有意义的
             condList.add(this.efi.getConditionFactory().makeConditionDate(
                     dateFilter.attribute("from-field-name"), dateFilter.attribute("thru-field-name"),
                     dateFilter.attribute("valid-date") != null ? Timestamp.valueOf(efi.ecfi.getResource().expand(dateFilter.attribute("valid-date"), "")) : null));
@@ -1202,7 +1201,7 @@ public class EntityDefinition {
         return tableExistVerified;
     }
 
-    // these methods used by EntityFacadeImpl to avoid redundant lookups of entity info
+    // EntityFacadeImpl使用这些方法来避免实体信息的冗余查找
     public EntityFind makeEntityFind() {
         if (entityInfo.isEntityDatasourceFactoryImpl) {
             return new EntityFindImpl(efi, this);
