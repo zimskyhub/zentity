@@ -16,11 +16,10 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** This is a per-transaction cache that basically pretends to be the database for the scope of the transaction.
- * Test your code well when using this as it doesn't support everything.
- *
- * See notes on limitations in the JavaDoc for ServiceCallSync.useTransactionCache()
- *
+/**
+ * 这是事务高速缓存，基本功能是伪装成数据库的事务范围。
+ * 使用它时测试代码很好，因为它不支持所有功能。
+ * 请参阅JavaDoc for ServiceCallSync.useTransactionCache（）中的限制说明
  */
 public class TransactionCache implements Synchronization {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionCache.class);
@@ -32,9 +31,9 @@ public class TransactionCache implements Synchronization {
     private Set<Map> knownLocked = new HashSet<>();
     private Map<String, Map<EntityCondition, EntityListImpl>> readListCache = new ConcurrentHashMap<>();
 
-    private Map<Map, EntityWriteInfo> firstWriteInfoMap = new HashMap<Map, EntityWriteInfo>();
-    private Map<Map, EntityWriteInfo> lastWriteInfoMap = new HashMap<Map, EntityWriteInfo>();
-    private ArrayList<EntityWriteInfo> writeInfoList = new ArrayList<EntityWriteInfo>(50);
+    private Map<Map, EntityWriteInfo> firstWriteInfoMap = new HashMap<>();
+    private Map<Map, EntityWriteInfo> lastWriteInfoMap = new HashMap<>();
+    private ArrayList<EntityWriteInfo> writeInfoList = new ArrayList<>(50);
     private LinkedHashMap<String, LinkedHashMap<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<>();
 
     public TransactionCache(ExecutionContextFactoryImpl ecfi, boolean readOnly) {
@@ -55,12 +54,7 @@ public class TransactionCache implements Synchronization {
     public void makeWriteThrough() { readOnly = false;}
 
     public LinkedHashMap<Map, EntityValueBase> getCreateByEntityMap(String entityName) {
-        LinkedHashMap<Map, EntityValueBase> createMap = createByEntityRef.get(entityName);
-        if (createMap == null) {
-            createMap = new LinkedHashMap<>();
-            createByEntityRef.put(entityName, createMap);
-        }
-        return createMap;
+        return createByEntityRef.computeIfAbsent(entityName, k -> new LinkedHashMap<>());
     }
 
     public static Map<String, Object> makeKey(EntityValueBase evb) {
@@ -70,10 +64,10 @@ public class TransactionCache implements Synchronization {
         key.put("_entityName", evb.getEntityName());
         return key;
     }
-    public static Map makeKeyFind(EntityFindBase efb) {
-        // NOTE: this should never come in null (EntityFindBase.one() => oneGet() => this is only call path)
+    public static Map<String,Object> makeKeyFind(EntityFindBase efb) {
+        // 注意：这应该永远不会为null（EntityFindBase.one（）=> oneGet（）=>这只是调用路径）
         if (efb == null) return null;
-        Map key = efb.getSimpleMapPrimaryKeys();
+        Map<String,Object> key = efb.getSimpleMapPrimaryKeys();
         if (key == null) return null;
         key.put("_entityName", efb.getEntityDef().getFullEntityName());
         return key;
@@ -84,18 +78,17 @@ public class TransactionCache implements Synchronization {
         lastWriteInfoMap.put(key, newEwi);
     }
 
-    /** Returns true if create handled, false if not; if false caller should handle the operation */
+    /** 如果创建处理器则返回true，否则返回false; 如果false调用者应该处理该操作 */
     public boolean create(EntityValueBase evb) {
         Map<String, Object> key = makeKey(evb);
         if (key == null) return false;
 
         if (!readOnly) {
-            // if create info already exists blow up
             EntityWriteInfo currentEwi = lastWriteInfoMap.get(key);
             if (readOneCache.get(key) != null)
-                throw new EntityException("Tried to create a value that already exists in database, entity ${evb.getEntityName()}, PK ${evb.getPrimaryKeys()}");
+                throw new EntityException("事务缓存错误: 不能创建数据库已经存在的值, 实体 ["+evb.getEntityName()+"], 主键 ["+evb.getPrimaryKeys()+"]");
             if (currentEwi != null && currentEwi.writeMode != WriteMode.DELETE)
-                throw new EntityException("Tried to create a value that already exists in write cache, entity ${evb.getEntityName()}, PK ${evb.getPrimaryKeys()}");
+                throw new EntityException("事务缓存错误: 不能创建缓存中已经存在的值 实体 ["+evb.getEntityName()+"] 主键 ["+evb.getPrimaryKeys()+"]");
 
             EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.CREATE);
             addWriteInfo(key, newEwi);
@@ -104,9 +97,9 @@ public class TransactionCache implements Synchronization {
             }
         }
 
-        // add to readCache after so we don't think it already exists
+        // 添加到readCache后我们也认为它不存在
         readOneCache.put(key, evb);
-        // add to any matching list cache entries
+        // 添加到任何匹配列表缓存入口
         Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName());
         if (entityListCache != null) {
             for (Map.Entry<EntityCondition, EntityListImpl> entry : entityListCache.entrySet()) {
@@ -114,7 +107,7 @@ public class TransactionCache implements Synchronization {
             }
         }
 
-        // consider created records locked to avoid forUpdate queries
+        // 考虑锁定创建的记录以避免forUpdate查询
         knownLocked.add(key);
 
         return !readOnly;
@@ -124,7 +117,7 @@ public class TransactionCache implements Synchronization {
         if (key == null) return false;
 
         if (!readOnly) {
-            // with writeInfoList as plain list approach no need to look for existing create or update, just add to the list
+            // 使用writeInfoList作为普通列表方法无需查找现有的创建或更新，只需添加到列表中即可
             if (!evb.getIsFromDb()) {
                 EntityValueBase cacheEvb = readOneCache.get(key);
                 if (cacheEvb != null) {
@@ -134,7 +127,7 @@ public class TransactionCache implements Synchronization {
                     EntityValueBase dbEvb = (EntityValueBase) evb.cloneValue();
                     dbEvb.refresh();
                     dbEvb.setFields(evb, true, null, false);
-                    logger.warn("====== tx cache update not from db\nevb: "+evb+"\ndbEvb: "+dbEvb);
+                    logger.warn("事务缓存警告: ====== 没有事务缓存更新: db\nevb: "+evb+"\ndbEvb: "+dbEvb);
                     evb = dbEvb;
                 }
             }
@@ -143,38 +136,37 @@ public class TransactionCache implements Synchronization {
             addWriteInfo(key, newEwi);
         }
 
-        // add to readCache
+        // 添加到readCache
         if (evb.getIsFromDb()) {
             readOneCache.put(key, evb);
         } else {
-            // not from DB, may have partial values so find existing and put all from valueMap
+            // 可能有部分值不是来自DB，所以找到现有的并从valueMap中放入所有值
             EntityValueBase existingEv = readOneCache.get(key);
             if (existingEv != null) {
                 existingEv.putAll(evb);
             } else {
-                // NOTE: should put a not from DB value if not read only? if read only definitely no
+                // 注意：如果不是只读，应该放一个不是DB值？ 如果只阅读肯定没有
                 if (!readOnly) readOneCache.put(key, evb);
             }
         }
 
-        // NOTE: issue here if the evb is partial, not full from DB/cache, and doesn't have field value that would match; solve higher up by getting full value?
-        // update any matching list cache entries, add to list cache if not there (though generally should be, depending on the condition)
+        // 注意：如果是局部evb，没有从DB /缓存中填满，并且没有匹配的字段值，则在此处发出问题; 获得全部价值来解决更高的问题？ 更新任何匹配列表缓存条目，如果不存在则添加到列表缓存（尽管通常应该是，具体取决于条件）
         Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName());
         if (entityListCache != null) {
             for (Map.Entry<EntityCondition, EntityListImpl> entry : entityListCache.entrySet()) {
                 if (entry.getKey().mapMatches(evb)) {
-                    // find an existing entry and update it
+                    // 找到现有入口并进行更新
                     boolean foundEntry = false;
                     EntityListImpl eli = entry.getValue();
-                    int eliSize = eli.size();
-                    for (int i = 0; i < eliSize; i++) {
-                        EntityValueBase existingEv = (EntityValueBase) eli.get(i);
+
+                    for (EntityValue entityValue : eli) {
+                        EntityValueBase existingEv = (EntityValueBase) entityValue;
                         if (evb.primaryKeyMatches(existingEv)) {
                             existingEv.putAll(evb);
                             foundEntry = true;
                         }
                     }
-                    // if no existing entry found add this
+                    // 如果没有现有条目添加此项
                     if (!foundEntry) entry.getValue().add(evb);
                 }
             }
@@ -182,6 +174,7 @@ public class TransactionCache implements Synchronization {
 
         return !readOnly;
     }
+
     public boolean delete(EntityValueBase evb) {
         Map<String, Object> key = makeKey(evb);
         if (key == null) return false;
@@ -190,11 +183,11 @@ public class TransactionCache implements Synchronization {
         if (!readOnly) {
             EntityWriteInfo currentEwi = firstWriteInfoMap.get(key);
             if (currentEwi != null && currentEwi.writeMode == WriteMode.CREATE) {
-                // if was created in TX cache but never written to DB just clear all changes
+                // 如果是在TX缓存中创建但从未写入DB只清除所有更改
                 firstWriteInfoMap.remove(key);
                 lastWriteInfoMap.remove(key);
                 for (int i = 0; i < writeInfoList.size(); ) {
-                    EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i);
+                    EntityWriteInfo ewi = writeInfoList.get(i);
                     if (key.equals(makeKey(ewi.evb))) { writeInfoList.remove(i); }
                     else { i++; }
                 }
@@ -205,9 +198,9 @@ public class TransactionCache implements Synchronization {
             }
         }
 
-        // remove from readCache if needed
+        // 如果需要，从readCache中删除
         readOneCache.remove(key);
-        // remove any matching list cache entries
+        // 删除所有匹配列表缓存条目
         Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName());
         if (entityListCache != null) {
             for (Map.Entry<EntityCondition, EntityListImpl> entry : entityListCache.entrySet()) {
@@ -229,9 +222,7 @@ public class TransactionCache implements Synchronization {
         EntityValueBase curEvb = readOneCache.get(key);
         if (curEvb != null) {
             ArrayList<String> nonPkFieldList = evb.getEntityDefinition().getNonPkFieldNames();
-            int nonPkSize = nonPkFieldList.size();
-            for (int j = 0; j < nonPkSize; j++) {
-                String fieldName = nonPkFieldList.get(j);
+            for (String fieldName : nonPkFieldList) {
                 evb.getValueMap().put(fieldName, curEvb.getValueMap().get(fieldName));
             }
             evb.setSyncedWithDb();
@@ -261,28 +252,27 @@ public class TransactionCache implements Synchronization {
         return knownLocked.contains(key);
     }
     public EntityValueBase oneGet(EntityFindBase efb) {
-        // NOTE: do nothing here on forUpdate, handled by caller
+        // 注意：此处不执行forUpdate，由调用者处理
         Map<String, Object> key = makeKeyFind(efb);
         if (key == null) return null;
 
         if (!readOnly) {
-            // if this has been deleted return a DeletedEntityValue instance so caller knows it was deleted and doesn't look in the DB for another record
+            // 如果已删除它，则返回DeletedEntityValue实例，以便调用者知道它已被删除，并且不会在数据库中查找另一条记录
             EntityWriteInfo currentEwi = (EntityWriteInfo) lastWriteInfoMap.get(key);
             if (currentEwi != null && currentEwi.writeMode == WriteMode.DELETE)
                 return new EntityValueBase.DeletedEntityValue(efb.getEntityDef(), (EntityFacadeImpl) ecfi.getEntity());
         }
 
-        // cloneValue() so that updates aren't in the read cache until an update is done
-        EntityValueBase evb = readOneCache.get(key) != null ? (EntityValueBase) readOneCache.get(key).cloneValue():null;
-        return evb;
+        // cloneValue（），以便在更新完成之前更新不在读取缓存中
+        return readOneCache.get(key) != null ? (EntityValueBase) readOneCache.get(key).cloneValue():null;
     }
     public void onePut(EntityValueBase evb, boolean forUpdate) {
         Map<String, Object> key = makeKey(evb);
         if (key == null) return;
         EntityWriteInfo currentEwi = lastWriteInfoMap.get(key);
-        // if this has been deleted we don't want to add it, but in general if we have a ewi then it's already in the
-        //     cache and we don't want to update from this (generally from DB and may be older than value already there)
-        // clone the value before putting it into the cache so that the caller can't change it later with an update call
+        // 如果这已被删除，我们不想添加它，但一般情况下，如果我们有一个ewi，
+        // 那么它已经在缓存中，我们不想从此更新（通常来自数据库，可能比已经存在的值更旧）
+        // 在将值放入缓存之前克隆该值，以便调用者以后不能使用更新调用更改它
         if (currentEwi == null || currentEwi.writeMode != WriteMode.DELETE) readOneCache.put(key, (EntityValueBase) evb.cloneValue());
 
         // if (evb.getEntityDefinition().getEntityName() == "Asset") logger.warn("=========== onePut of Asset ${evb.get('assetId')}", new Exception("Location"))
@@ -292,25 +282,22 @@ public class TransactionCache implements Synchronization {
 
     public EntityListImpl listGet(EntityDefinition ed, EntityCondition whereCondition, List<String> orderByExpanded) {
         Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(ed.getFullEntityName());
-        // always clone this so that filters/sorts/etc by callers won't change this
+        // 总是克隆，以便调用者的过滤器/排序/等不会改变它
         EntityListImpl cacheList = entityListCache != null ? entityListCache.get(whereCondition) !=null?entityListCache.get(whereCondition).deepCloneList():null : null;
 
-        // if we are searching by a field that is a PK on a related entity to the one being searched it can only exist
-        //     in the read cache so find here and don't bother with a DB query
+        // 如果我们通过相关实体上的PK字段搜索正在搜索的字段，它只能存在于读缓存中，所以在这里找到并且不要打扰数据库查询
         if (cacheList == null) {
-            // if the condition depends on a record that was created in this tx cache, then build the list from here
-            //     instead of letting it drop to the DB, finding nothing, then being expanded from the txCache
+            // 如果条件依赖于在此tx缓存中创建的记录，则从此处构建列表而不是让它放到数据库中，如果找不到任何内容，txCache扩展
             Map<String, Object> condMap = new ConcurrentHashMap<>();
             if (whereCondition != null && whereCondition.populateMap(condMap)) {
                 boolean foundCreatedDependent = false;
 
                 for (RelationshipInfo relInfo : ed.getRelationshipsInfo(false)) {
-                    if (relInfo.type != "one") continue;
-                            // would be nice to skip this, but related-entity-name may not be full entity name
+                    if (relInfo.type.equals("one")) continue;
+                    // 跳过也行，但是相关实体名称可能不是完整的实体名称
                     EntityDefinition relEd = relInfo.relatedEd;
                     String relEntityName = relEd.getFullEntityName();
-                    // first see if there is a create Map for this, then do the more expensive operation of getting the
-                    //     expanded key Map and the related entity's PK Map
+                    // 首先看看是否有一个创建Map，然后进行更昂贵的操作，获取扩展键Map和相关实体的PK Map
                     Map relCreateMap = getCreateByEntityMap(relEntityName);
                     if (relCreateMap != null && relCreateMap.size() > 0) {
                         Map<String, String> relKeyMap = relInfo.keyMap;
@@ -361,31 +348,31 @@ public class TransactionCache implements Synchronization {
     public void listPut(EntityDefinition ed, EntityCondition whereCondition, EntityListImpl eli) {
         if (eli.isFromCache()) return;
         Map<EntityCondition, EntityListImpl> entityListCache = getEntityListCache(ed.getFullEntityName());
-        // don't need to do much else here; list will already have values created/updated/deleted in this TX Cache
+        // 这里不需要做太多其他事情; list中已经有事务缓存的创建/更新/删除的值了
         entityListCache.put(whereCondition, (EntityListImpl) eli.cloneList());
     }
 
-    // NOTE: no need to filter EntityList or EntityListIterator, they do it internally by calling this method
+    // 注意：不需要过滤EntityList或EntityListIterator，它们通过调用此方法在内部执行
     public WriteMode checkUpdateValue(EntityValueBase evb, FindAugmentInfo fai) {
         Map<String, Object> key = makeKey(evb);
         if (key == null) return null;
         EntityWriteInfo firstEwi = firstWriteInfoMap.get(key);
         EntityWriteInfo currentEwi = lastWriteInfoMap.get(key);
         if (currentEwi == null) {
-            // add to readCache for future reference
+            // 添加到readCache以供其他引用使用
             onePut(evb, false);
             return null;
         }
         if (WriteMode.CREATE.equals(firstEwi.writeMode)) {
-            throw new EntityException("Found value from database that matches a value created in the write-through transaction cache, throwing error now instead of waiting to fail on commit");
+            throw new EntityException("事务缓存错误: 从数据库中找到与在直写事务高速缓存中创建的值匹配的值,抛出异常避免事务提交失败!");
         }
         if (WriteMode.UPDATE.equals(currentEwi.writeMode)) {
             if (fai != null && ((fai.econd != null && !fai.econd.mapMatches(currentEwi.evb)) || fai.foundUpdated.contains(currentEwi.evb.getPrimaryKeys()))) {
-                // current value no longer matches, tell ELII to skip it (same as DELETE)
+                // 当前值不再匹配，告诉ELII跳过它（与DELETE相同
                 return WriteMode.DELETE;
             }
             evb.setFields(currentEwi.evb, true, null, false);
-            // add to readCache
+            // 添加到readCache
             onePut(evb, false);
         }
         return currentEwi.writeMode;
@@ -393,13 +380,13 @@ public class TransactionCache implements Synchronization {
     public FindAugmentInfo getFindAugmentInfo(String entityName, EntityCondition econd) {
         ArrayList<EntityValueBase> valueList = new ArrayList<>();
 
-        // also get values that have been updated so that they should now be included in the list
+        // 还获取已更新的值，以便它们现在应包含在列表中
         Set<Map<String, Object>> foundUpdated = new HashSet<>();
         if (econd != null) {
             int writeInfoListSize = writeInfoList.size();
-            // go through backwards to get the most recent only
+            // 通过倒退来获得最新的
             for (int i = (writeInfoListSize - 1); i >= 0 ; i--) {
-                EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i);
+                EntityWriteInfo ewi = writeInfoList.get(i);
                 if (WriteMode.UPDATE.equals(ewi.writeMode) && entityName.equals(ewi.evb.getEntityName()) && econd.mapMatches(ewi.evb)) {
                     Map<String, Object> pkMap = ewi.evb.getPrimaryKeys();
                     if (!foundUpdated.contains(pkMap)) {
@@ -411,7 +398,7 @@ public class TransactionCache implements Synchronization {
         }
 
         Map<Map, EntityValueBase> createMap = getCreateByEntityMap(entityName);
-        if (createMap.size() > 0) for (EntityValueBase evb : createMap.values()) {
+        if (createMap != null && createMap.size() > 0 && econd != null) for (EntityValueBase evb : createMap.values()) {
             if (econd.mapMatches(evb) && (foundUpdated.size() == 0 || !foundUpdated.contains(evb.getPrimaryKeys())))
                 valueList.add(evb);
         }
@@ -432,28 +419,27 @@ public class TransactionCache implements Synchronization {
                 int updateCount = 0;
                 int deleteCount = 0;
                 // for (EntityWriteInfo ewi in writeInfoList) logger.warn("===== TX Cache value to ${ewi.writeMode} ${ewi.evb.getEntityName()}: \n${ewi.evb}")
-                if (readOnly && writeInfoListSize > 0) logger.warn("Read only TX cache has "+writeInfoListSize+" values to write");
-                for (int i = 0; i < writeInfoListSize; i++) {
-                    EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i);
-                    String groupName = ewi.evb.getEntityDefinition().getEntityGroupName();
+                if (readOnly) logger.warn("事务缓存警告: 只读书屋缓存中有 ["+writeInfoListSize+"] 条记录需要写入!");
+                for (EntityWriteInfo entityWriteInfo : writeInfoList) {
+                    String groupName = (entityWriteInfo).evb.getEntityDefinition().getEntityGroupName();
                     Connection con = connectionByGroup.get(groupName);
                     if (con == null) {
                         con = efi.getConnection(groupName);
                         connectionByGroup.put(groupName, con);
                     }
 
-                    if (ewi.writeMode.equals(WriteMode.CREATE)) {
-                        ewi.evb.basicCreate(con);
+                    if ((entityWriteInfo).writeMode.equals(WriteMode.CREATE)) {
+                        (entityWriteInfo).evb.basicCreate(con);
                         createCount++;
-                    } else if (ewi.writeMode.equals(WriteMode.DELETE)) {
-                        ewi.evb.deleteExtended(con);
+                    } else if ((entityWriteInfo).writeMode.equals(WriteMode.DELETE)) {
+                        (entityWriteInfo).evb.deleteExtended(con);
                         deleteCount++;
                     } else {
-                        ewi.evb.basicUpdate(con);
+                        (entityWriteInfo).evb.basicUpdate(con);
                         updateCount++;
                     }
                 }
-                if (logger.isDebugEnabled()) logger.debug("Flushed TransactionCache in "+(System.currentTimeMillis() - startTime)+"ms: "+createCount+" creates, "+updateCount+" updates, "+deleteCount+" deletes, "+readOneCache.size()+" read entries, "+readListCache.size()+" entities with list cache");
+                if (logger.isDebugEnabled()) logger.debug("事务缓存调试: 已刷新事务缓存, 用时 ["+(System.currentTimeMillis() - startTime)+"] 毫秒,已创建 ["+createCount+"] ,已更新 ["+updateCount+"],已删除["+deleteCount+"],可读 ["+readOneCache.size()+"] ,实体数量 ["+readListCache.size()+"]");
             }
 
             writeInfoList.clear();
@@ -467,15 +453,15 @@ public class TransactionCache implements Synchronization {
                 readOnly = true;
             }
         } catch (Throwable t) {
-            logger.error("Error writing values from TransactionCache: "+t.toString(), t);
-            throw new XAException("Error writing values from TransactionCache:"+t.toString());
+            logger.error("事务缓存错误: 无法从事务缓存中写值: "+t.toString(), t);
+            throw new XAException("事务缓存错误: 无法从事务缓存中写值:"+t.toString());
         } finally {
             // now close connections
             for (Connection con : connectionByGroup.values()){
                 try {
                     con.close();
                 } catch (SQLException e) {
-                    throw new XAException("Error close Connection from TransactionCache:");
+                    throw new XAException("事务缓存错误: 无法关闭事务缓存连接:"+e.toString());
                 }
             }
         }

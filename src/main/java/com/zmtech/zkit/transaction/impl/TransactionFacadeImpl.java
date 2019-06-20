@@ -41,8 +41,8 @@ public class TransactionFacadeImpl implements TransactionFacade {
     protected boolean useTransactionCache = true;
     protected boolean useConnectionStash = true;
 
-    private ThreadLocal<TxStackInfo> txStackInfoCurThread = new ThreadLocal<TxStackInfo>();
-    private ThreadLocal<LinkedList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<LinkedList<TxStackInfo>>();
+    private ThreadLocal<TxStackInfo> txStackInfoCurThread = new ThreadLocal<>();
+    private ThreadLocal<LinkedList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<>();
 
     public TransactionFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi;
@@ -58,14 +58,14 @@ public class TransactionFacadeImpl implements TransactionFacade {
                 transactionInternal = (TransactionInternal) Thread.currentThread().getContextClassLoader()
                         .loadClass(tiClassName).newInstance();
             } catch (Exception e) {
-                throw new IllegalArgumentException("todo 错误");
+                throw new IllegalArgumentException("事务操作错误: 无法加载内部事务类 ["+tiClassName+"]!");
             }
             transactionInternal.init(ecfi);
 
             ut = transactionInternal.getUserTransaction();
             tm = transactionInternal.getTransactionManager();
         } else {
-            throw new IllegalArgumentException("No transaction-jndi or transaction-internal elements found in Moqui Conf XML file");
+            throw new IllegalArgumentException("事务操作错误: 配置中没有 jndi 事务或者 内部事务!");
         }
 
         if (transactionFacadeNode.attribute("use-transaction-cache").equals("false")) useTransactionCache = false;
@@ -73,23 +73,24 @@ public class TransactionFacadeImpl implements TransactionFacade {
     }
 
     public void destroy() {
-        // set to null first to avoid additional operations
+        // 首先设置为null以避免其他操作
         this.tm = null;
         this.ut = null;
 
-        // destroy internal if applicable; nothing for JNDI
+        // 如果适用，销毁内部; JNDI不需要
         if (transactionInternal != null) transactionInternal.destroy();
 
         txStackInfoCurThread.remove();
         txStackInfoListThread.remove();
     }
 
-    /** This is called to make sure all transactions, etc are closed for the thread.
-     * It commits any active transactions, clears out internal data for the thread, etc.
+    /**
+     * 调用此方法以确保线程中所有事务关闭。
+     * 提交任何活动事务，清除线程的内部数据等。
      */
     public void destroyAllInThread() {
         if (isTransactionInPlace()) {
-            logger.warn("Thread ending with a transaction in place. Trying to commit.");
+            logger.warn("事务操作警告: 线程内含有未提交事务, 试图提交。");
             commit();
         }
 
@@ -104,7 +105,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
                     numSuspended++;
                 }
             }
-            if (numSuspended > 0) logger.warn("Cleaned up [" + numSuspended + "] suspended transactions.");
+            if (numSuspended > 0) logger.warn("事务操作警告: 清空 [" + numSuspended + "] 个挂起事务.");
         }
 
         txStackInfoCurThread.remove();
@@ -119,15 +120,15 @@ public class TransactionFacadeImpl implements TransactionFacade {
     public UserTransaction getUserTransaction() { return ut; }
     public Long getCurrentTransactionStartTime() {
         TxStackInfo txStackInfo = getTxStackInfo();
-        Long time = txStackInfo != null ? (Long) txStackInfo.transactionBeginStartTime : (Long) null;
-        if (time == null && isTraceEnabled) logger.trace("No transaction begin start time, transaction in place? [${this.isTransactionInPlace()}]", new EntityException("Empty transactionBeginStackList location"));
+        Long time = txStackInfo != null ? txStackInfo.transactionBeginStartTime : (Long) null;
+        if (time == null && isTraceEnabled) logger.trace("事务操作跟踪: 没有事务开始时间, 事务是否就位? ["+this.isTransactionInPlace()+"]", new EntityException("空事务起始堆栈列表"));
         return time;
     }
 
     protected LinkedList<TxStackInfo> getTxStackInfoList() {
         LinkedList<TxStackInfo> list = txStackInfoListThread.get();
         if (list == null) {
-            list = new LinkedList<TxStackInfo>();
+            list = new LinkedList<>();
             txStackInfoListThread.set(list);
             TxStackInfo txStackInfo = new TxStackInfo();
             list.add(txStackInfo);
@@ -136,7 +137,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
         return list;
     }
     protected TxStackInfo getTxStackInfo() {
-        TxStackInfo txStackInfo = (TxStackInfo) txStackInfoCurThread.get();
+        TxStackInfo txStackInfo = txStackInfoCurThread.get();
         if (txStackInfo == null) {
             LinkedList<TxStackInfo> list = getTxStackInfoList();
             txStackInfo = list.getFirst();
@@ -211,7 +212,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
                     }
                     if (txThread.getState() != Thread.State.TERMINATED) {
                         // TODO: do more than this?
-                        logger.warn("New transaction thread not terminated, in state ${txThread.state}");
+                        logger.warn("事务操作警告: 新的事务线程没有终止, 线程状态 ["+txThread.getState()+"]");
                     }
                 }
             }
@@ -263,7 +264,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
         try {
             return ut.getStatus();
         } catch (SystemException e) {
-            throw new TransactionException("System error, could not get transaction status", e);
+            throw new TransactionException("事务操作错误: 系统错误, 无法获得事务状态", e);
         }
     }
 
@@ -285,27 +286,27 @@ public class TransactionFacadeImpl implements TransactionFacade {
          */
         switch (statusInt) {
             case Status.STATUS_ACTIVE:
-                return "Active (${statusInt})";
+                return "活动中 ("+statusInt+")";
             case Status.STATUS_COMMITTED:
-                return "Committed (${statusInt})";
+                return "已提交 ("+statusInt+")";
             case Status.STATUS_COMMITTING:
-                return "Committing (${statusInt})";
+                return "提交中 ("+statusInt+")";
             case Status.STATUS_MARKED_ROLLBACK:
-                return "Marked Rollback-Only (${statusInt})";
+                return "标记回滚 ("+statusInt+")";
             case Status.STATUS_NO_TRANSACTION:
-                return "No Transaction (${statusInt})";
+                return "没有事务 ("+statusInt+")";
             case Status.STATUS_PREPARED:
-                return "Prepared (${statusInt})";
+                return "已准备 ("+statusInt+")";
             case Status.STATUS_PREPARING:
-                return "Preparing (${statusInt})";
+                return "准备中 ("+statusInt+")";
             case Status.STATUS_ROLLEDBACK:
-                return "Rolledback (${statusInt})";
+                return "已回滚 ("+statusInt+")";
             case Status.STATUS_ROLLING_BACK:
-                return "Rolling Back (${statusInt})";
+                return "回滚中 ("+statusInt+")";
             case Status.STATUS_UNKNOWN:
-                return "Status Unknown (${statusInt})";
+                return "未知状态 ("+statusInt+")";
             default:
-                return "Not a valid status code (${statusInt})";
+                return "状态码无效 ("+statusInt+")";
         }
     }
 
@@ -324,41 +325,40 @@ public class TransactionFacadeImpl implements TransactionFacade {
         try {
             currentStatus = ut.getStatus();
         } catch (SystemException e) {
-            logger.error("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ");
-            throw new TransactionException( "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: ");
+            logger.error("事务操作错误: 无法获取事务状态!");
         }
         // logger.warn("================ begin TX, currentStatus=${currentStatus}", new BaseException("beginning transaction at"))
 
         if (currentStatus == Status.STATUS_ACTIVE) {
-            // don't begin, and return false so caller knows we didn't
+            // 不开始事务，并返回false，让调用者知道我们没有开始事务
             return false;
         } else if (currentStatus == Status.STATUS_MARKED_ROLLBACK) {
             TxStackInfo txStackInfo = getTxStackInfo();
             if (txStackInfo.transactionBegin != null) {
-                logger.warn("Current transaction marked for rollback, so no transaction begun. This stack trace shows where the transaction began: ", txStackInfo.transactionBegin);
+                logger.warn("事务操作警告: 当前事务已经标记为回滚,没有事务启动. 堆栈跟踪显示事务开始的位置: ", txStackInfo.transactionBegin);
             } else {
-                logger.warn("Current transaction marked for rollback, so no transaction begun (NOTE: No stack trace to show where transaction began).");
+                logger.warn("事务操作警告: 当前事务已经标记为回滚,没有事务启动 （注意：没有堆栈跟踪来显示事务开始的位置）.");
             }
             if (txStackInfo.rollbackOnlyInfo != null) {
-                logger.warn("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation);
-                throw new TransactionException( "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable);
+                logger.warn("事务操作警告: 当前事务已经标记为回滚,没有新事务启动. 事务回滚未知: ", txStackInfo.rollbackOnlyInfo.rollbackLocation);
+                throw new TransactionException( "事务操作错误: 当前事务已经标记为回滚, 没有事务启动. 事务回滚原因: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable);
             } else {
                 return false;
             }
         }
 
         try {
-            // NOTE: Since JTA 1.1 setTransactionTimeout() is local to the thread, so this doesn't need to be synchronized.
+            // 注意：由于JTA 1.1 setTransactionTimeout（）是本地线程，因此不需要同步。
             if (timeout != null) ut.setTransactionTimeout(timeout);
             ut.begin();
 
             TxStackInfo txStackInfo = getTxStackInfo();
-            txStackInfo.transactionBegin = new Exception("Tx Begin Placeholder");
+            txStackInfo.transactionBegin = new Exception("事务操作错误: 事务开始占位符");
             txStackInfo.transactionBeginStartTime = System.currentTimeMillis();
             // logger.warn("================ begin TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
 
-            if (txStackInfo.txCache != null) logger.warn("Begin TX, tx cache is not null!");
-            /* FUTURE: this is an interesting possibility, always use tx cache in read only mode, but currently causes issues (needs more work with cache clear, etc)
+            if (txStackInfo.txCache != null) logger.warn("事务操作浸膏: 想要开始事务, 事务缓存不能为 Null!");
+            /* 未来：这是一个有趣的可能性，总是在只读模式下使用tx缓存，但目前会导致问题（需要更多工作缓存清除等）
             if (useTransactionCache) {
                 txStackInfo.txCache = new TransactionCache(ecfi, true)
                 registerSynchronization(txStackInfo.txCache)
@@ -367,11 +367,11 @@ public class TransactionFacadeImpl implements TransactionFacade {
 
             return true;
         } catch (NotSupportedException e) {
-            throw new TransactionException("Could not begin transaction (could be a nesting problem)", e);
+            throw new TransactionException("事务操作错误: 无法开启事务 (可能是事务嵌套问题):", e);
         } catch (SystemException e) {
-            throw new TransactionException("Could not begin transaction", e);
+            throw new TransactionException("事务操作错误: C无法开启事务:", e);
         } finally {
-            // make sure the timeout always gets reset to the default
+            // 确保超时始终重置为默认值
             if (timeout != null) {
                 try {
                     ut.setTransactionTimeout(0);
@@ -395,34 +395,32 @@ public class TransactionFacadeImpl implements TransactionFacade {
             txStackInfo.closeTxConnections();
             if (status == Status.STATUS_MARKED_ROLLBACK) {
                 if (txStackInfo.rollbackOnlyInfo != null) {
-                    logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; rollback-only was set here:", txStackInfo.rollbackOnlyInfo.rollbackLocation);
+                    logger.warn("事务操作警告: 不能提交事务, 当前事务被标记为仅回滚状态, 执行回滚操作, 事务仅回滚设置位置:", txStackInfo.rollbackOnlyInfo.rollbackLocation);
                 } else {
-                    logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; no rollback-only info, current location:", new BaseException("Rollback instead of commit location"));
+                    logger.warn("事务操作警告: 不能提交事务, 当前被标记为仅回滚状态, 执行回滚操作,没有仅回滚信息, 当前位置:", new BaseException("事务操作错误: 回滚替代提交位置"));
                 }
                 ut.rollback();
             } else if (status != Status.STATUS_NO_TRANSACTION && status != Status.STATUS_COMMITTING &&
                     status != Status.STATUS_COMMITTED && status != Status.STATUS_ROLLING_BACK &&
                     status != Status.STATUS_ROLLEDBACK) {
-                ut.commit();
+                try {
+                    ut.commit();
+                } catch (HeuristicMixedException | HeuristicRollbackException e) {
+                    throw new TransactionException("事务操作错误: 无法提交事务:", e);
+                }
             } else {
                 if (status != Status.STATUS_NO_TRANSACTION)
-                    logger.warn("Not committing transaction because status is " + getStatusString(), new Exception("Bad TX status location"));
+                    logger.warn("事务操作警告: 不能提交事务,因为当前事务状态为 [" + getStatusString()+"]", new Exception("事务操作错误: 事务状态错误!"));
             }
         } catch (RollbackException e) {
             if (txStackInfo.rollbackOnlyInfo != null) {
-                logger.warn("Could not commit transaction, was marked rollback-only. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation);
-                throw new TransactionException("Could not commit transaction, was marked rollback-only. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable);
+                logger.warn("事务操作警告: 不能提交事务, 当前被标记为仅回滚状态. 事务仅回滚设置位置: ", txStackInfo.rollbackOnlyInfo.rollbackLocation);
+                throw new TransactionException("事务操作错误: 不能提交事务, 当前被标记为仅回滚状态. 引起回滚原因: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable);
             } else {
-                throw new TransactionException("Could not commit transaction, was rolled back instead (and we don't have a rollback-only cause)", e);
+                throw new TransactionException("事务操作错误: 不能提交事务, 事务替换成回滚 (不知道导致回滚的原因):", e);
             }
-        } catch (IllegalStateException e) {
-            throw new TransactionException("Could not commit transaction", e);
-        } catch (HeuristicMixedException e) {
-            throw new TransactionException("Could not commit transaction", e);
-        } catch (HeuristicRollbackException e) {
-            throw new TransactionException("Could not commit transaction", e);
         } catch (SystemException e) {
-            throw new TransactionException("Could not commit transaction", e);
+            throw new TransactionException("事务操作错误: 无法获取事务状态!", e);
         } finally {
             // there shouldn't be a TX around now, but if there is the commit may have failed so rollback to clean things up
             int status = 0;
@@ -434,7 +432,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
             if (status != Status.STATUS_NO_TRANSACTION && status != Status.STATUS_COMMITTING &&
                     status != Status.STATUS_COMMITTED && status != Status.STATUS_ROLLING_BACK &&
                     status != Status.STATUS_ROLLEDBACK) {
-                rollback("Commit failed, rolling back to clean up", null);
+                rollback("事务提交失败, 正在回滚...", null);
             }
 
             txStackInfo.clearCurrent();
@@ -458,31 +456,29 @@ public class TransactionFacadeImpl implements TransactionFacade {
 
             // logger.warn("================ rollback TX, currentStatus=${getStatus()}")
             if (getStatus() == Status.STATUS_NO_TRANSACTION) {
-                logger.warn("Transaction not rolled back, status is STATUS_NO_TRANSACTION");
+                logger.warn("事务操作警告: 事务未回滚, 当前状态为: STATUS_NO_TRANSACTION");
                 return;
             }
 
             if (causeThrowable != null) {
                 String causeString = causeThrowable.toString();
                 if (causeString.contains("org.eclipse.jetty.io.EofException")) {
-                    logger.warn("Transaction rollback. The rollback was originally caused by: ${causeMessage}\n${causeString}");
+                    logger.warn("事务操作警告: 事务已回滚. 回滚原因为: ["+causeMessage+"] \n ["+causeString+"]");
                 } else {
-                    logger.warn("Transaction rollback. The rollback was originally caused by: ${causeMessage}", causeThrowable);
-                    logger.warn("Transaction rollback for [${causeMessage}]. Here is the current location: ", new EntityException("Rollback location"));
+                    logger.warn("事务操作警告: 事务已回滚. 回滚原因为: ["+causeMessage+"]", causeThrowable);
+                    logger.warn("事务操作警告: 事务回滚原因 ["+causeMessage+"]. 当前位置为: ", new EntityException("实体事务错误: 回滚位置"));
                 }
             } else {
-                logger.warn("Transaction rollback for [${causeMessage}]. Here is the current location: ", new EntityException("Rollback location"));
+                logger.warn("事务操作警告: 事务回滚原因 ["+causeMessage+"]. 当前位置为: ", new EntityException("实体事务错误: 回滚位置"));
             }
 
             ut.rollback();
-        } catch (IllegalStateException e) {
-            throw new TransactionException("Could not rollback transaction", e);
-        } catch (SystemException e) {
-            throw new TransactionException("Could not rollback transaction", e);
+        } catch (Throwable t) {
+            throw new TransactionException("事务操作错误: 无法回滚事务:", t);
         } finally {
-            // NOTE: should this really be in finally? maybe we only want to do this if there is a successful rollback
-            // to avoid removing things that should still be there, or maybe here in finally it will match up the adds
-            // and removes better
+            // 注意：这真的应该在最后吗？
+            // 也许我们只想成功回滚，以避免删除应该仍然存在的东西，
+            // 或者最后它可能会匹配添加并更好地删除
             txStackInfo.clearCurrent();
         }
     }
@@ -493,18 +489,18 @@ public class TransactionFacadeImpl implements TransactionFacade {
             int status = getStatus();
             if (status != Status.STATUS_NO_TRANSACTION) {
                 if (status != Status.STATUS_MARKED_ROLLBACK) {
-                    Exception rbLocation = new EntityException("Set rollback only location");
+                    Exception rbLocation = new EntityException("实体事务错误: 设置仅回滚位置");
 
                     if (causeThrowable != null) {
                         String causeString = causeThrowable.toString();
                         if (causeString.contains("org.eclipse.jetty.io.EofException")) {
-                            logger.warn("Transaction rollback. The rollback was originally caused by: ${causeMessage}\n${causeString}");
+                            logger.warn("事务操作警告: 事务已回滚. 回滚原因为: ["+causeMessage+"]\n["+causeString+"]");
                         } else {
-                            logger.warn("Transaction set rollback only. The rollback was originally caused by: ${causeMessage}", causeThrowable);
-                            logger.warn("Transaction set rollback only for [${causeMessage}]. Here is the current location: ", rbLocation);
+                            logger.warn("事务操作警告: 事务已设置为仅回滚, 原因为: ["+causeMessage+"]", causeThrowable);
+                            logger.warn("事务操作警告: 事务已设置为仅回滚, 原因为: ["+causeMessage+"]. 当前位置: ", rbLocation);
                         }
                     } else {
-                        logger.warn("Transaction rollback for [${causeMessage}]. Here is the current location: ", rbLocation);
+                        logger.warn("事务操作警告: 事务回滚原因 ["+causeMessage+"]. 当前位置: ", rbLocation);
                     }
 
                     ut.setRollbackOnly();
@@ -512,12 +508,10 @@ public class TransactionFacadeImpl implements TransactionFacade {
                     getTxStackInfo().rollbackOnlyInfo = new RollbackInfo(causeMessage, causeThrowable, rbLocation);
                 }
             } else {
-                logger.warn("Rollback only not set on current transaction, status is STATUS_NO_TRANSACTION");
+                logger.warn("事务操作警告: 当前事务未设置成仅回滚, 当前状态为 STATUS_NO_TRANSACTION");
             }
-        } catch (IllegalStateException e) {
-            throw new TransactionException("Could not set rollback only on current transaction", e);
-        } catch (SystemException e) {
-            throw new TransactionException("Could not set rollback only on current transaction", e);
+        } catch (IllegalStateException | SystemException e) {
+            throw new TransactionException("事务操作错误: 无法设置事务状态为仅回滚:", e);
         }
     }
 
@@ -525,7 +519,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
     public boolean suspend() {
         try {
             if (getStatus() == Status.STATUS_NO_TRANSACTION) {
-                logger.warn("No transaction in place so not suspending");
+                logger.warn("事务操作警告: 没有事务,无法挂起");
                 return false;
             }
 
@@ -535,18 +529,18 @@ public class TransactionFacadeImpl implements TransactionFacade {
 
             Transaction tx = tm.suspend();
             // only do these after successful suspend
-            pushTxStackInfo(tx, new Exception("Transaction Suspend Location"));
+            pushTxStackInfo(tx, new Exception("事务操作错误: 事务挂起位置:"));
 
             return true;
         } catch (SystemException e) {
-            throw new TransactionException("Could not suspend transaction", e);
+            throw new TransactionException("事务操作错误: 无法挂起事务:", e);
         }
     }
 
     @Override
     public void resume() {
         if (isTransactionInPlace()) {
-            logger.warn("Resume with transaction in place, trying commit to close");
+            logger.warn("事务操作警告: 恢复事务完毕，尝试提交");
             commit();
         }
 
@@ -557,12 +551,10 @@ public class TransactionFacadeImpl implements TransactionFacade {
                 // only do this after successful resume
                 popTxStackInfo();
             } else {
-                logger.warn("No transaction suspended, so not resuming");
+                logger.warn("事务操作警告: 没有事务被挂起, 无法恢复");
             }
-        } catch (InvalidTransactionException e) {
-            throw new TransactionException("Could not resume transaction", e);
-        } catch (SystemException e) {
-            throw new TransactionException("Could not resume transaction", e);
+        } catch (InvalidTransactionException | SystemException e) {
+            throw new TransactionException("事务操作错误: 无法恢复事务:", e);
         }
     }
 
@@ -574,7 +566,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
             this.enlistResource(resource);
             return con.getConnection();
         } catch (SQLException e) {
-            throw new TransactionException("Could not enlist connection in transaction", e);
+            throw new TransactionException("事务操作错误: 无法登记事务连接", e);
         }
     }
 
@@ -582,7 +574,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
     public void enlistResource(XAResource resource) {
         if (resource == null) return;
         if (getStatus() != Status.STATUS_ACTIVE) {
-            logger.warn("Not enlisting XAResource: transaction not ACTIVE", new Exception("Warning Location"));
+            logger.warn("事务操作警告: 无法登记 XAResource : 事务状态不是 ACTIVE", new Exception("警告位置:"));
             return;
         }
         try {
@@ -590,24 +582,23 @@ public class TransactionFacadeImpl implements TransactionFacade {
             if (tx != null) {
                 tx.enlistResource(resource);
             } else {
-                logger.warn("Not enlisting XAResource: transaction was null", new Exception("Warning Location"));
+                logger.warn("事务操作警告: 无法登记 XAResource: 事务为空", new Exception("警告位置:"));
             }
-        } catch (RollbackException e) {
-            throw new TransactionException("Could not enlist XAResource in transaction", e);
-        } catch (SystemException e) {
+        } catch (RollbackException | SystemException e) {
             // This is deprecated, hopefully errors are adequate without, but leaving here for future reference
             // if (e instanceof ExtendedSystemException) {
             //     for (Throwable se in e.errors) logger.error("Extended Atomikos error: ${se.toString()}", se)
             // }
-            throw new TransactionException("Could not enlist XAResource in transaction", e);
+            throw new TransactionException("事务操作错误: 无法登记事务 XAResource:", e);
         }
+
     }
 
     @Override
     public void registerSynchronization(Synchronization sync) {
         if (sync == null) return;
         if (getStatus() != Status.STATUS_ACTIVE) {
-            logger.warn("Not registering Synchronization: transaction not ACTIVE", new Exception("Warning Location"));
+            logger.warn("事务操作警告: 无法注册同步: 事务状态不是 ACTIVE", new Exception("警告位置:"));
             return;
         }
         try {
@@ -615,12 +606,10 @@ public class TransactionFacadeImpl implements TransactionFacade {
             if (tx != null) {
                 tx.registerSynchronization(sync);
             } else {
-                logger.warn("Not registering Synchronization: transaction was null", new Exception("Warning Location"));
+                logger.warn("事务操作警告: 无法注册同步: 事务为空", new Exception("警告位置"));
             }
-        } catch (RollbackException e) {
-            throw new TransactionException("Could not register Synchronization in transaction", e);
-        } catch (SystemException e) {
-            throw new TransactionException("Could not register Synchronization in transaction", e);
+        } catch (RollbackException | SystemException e) {
+            throw new TransactionException("事务操作错误: 事务无法注册同步:", e);
         }
     }
 
@@ -632,7 +621,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
         if (txStackInfo.txCache == null) {
             if (isTraceEnabled) {
                 StringBuilder infoString = new StringBuilder();
-                infoString.append("Initializing TX cache at:");
+                infoString.append("初始化事务缓存:");
 //                for (infoAei : ecfi.getEci().artifactExecutionFacade.getStack()) infoString.append(infoAei.getName());
                 logger.trace(infoString.toString());
                 // } else if (logger.isInfoEnabled()) {
@@ -642,8 +631,9 @@ public class TransactionFacadeImpl implements TransactionFacade {
             try {
                 if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active");
             } catch (SystemException e) {
-                e.printStackTrace();
+                logger.error("事务操作错误: 无法获取事务状态");
             } catch (XAException e) {
+                logger.error("事务操作错误: 无法登记,没有 active(活动的) 事务或者事务管理器!");
                 e.printStackTrace();
             }
 
@@ -651,7 +641,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
             txStackInfo.txCache = txCache;
             registerSynchronization(txCache);
         } else if (txStackInfo.txCache.isReadOnly()) {
-            if (isTraceEnabled) logger.trace("Making TX cache write through in ${ecfi.getEci().artifactExecutionFacade.peek()?.getName()}");
+//            if (isTraceEnabled) logger.trace("事务操作跟踪: 标记事务缓存可写,来自 ["+ecfi.getEci().artifactExecutionFacade.peek()!=null?ecfi.getEci().artifactExecutionFacade.peek().getName():null+"]");
             txStackInfo.txCache.makeWriteThrough();
             // doing on read only init: registerSynchronization(txStackInfo.txCache)
         }
@@ -677,15 +667,14 @@ public class TransactionFacadeImpl implements TransactionFacade {
     public Connection getTxConnection(String groupName) {
         if (!useConnectionStash) return null;
 
-        String conKey = groupName;
         TxStackInfo txStackInfo = getTxStackInfo();
-        ConnectionWrapper con = txStackInfo.txConByGroup.get(conKey);
+        ConnectionWrapper con = txStackInfo.txConByGroup.get(groupName);
         if (con == null) return null;
 
         try {
             if (con.isClosed()) {
-                txStackInfo.txConByGroup.remove(conKey);
-                logger.info("Stashed connection closed elsewhere for group ${groupName}: ${con.toString()}");
+                txStackInfo.txConByGroup.remove(groupName);
+                logger.info("事务操作信息: 隐藏连接已关闭 组 ["+groupName+"] 连接 ["+con.toString()+"]");
                 return null;
             }
         } catch (SQLException e) {
@@ -697,8 +686,8 @@ public class TransactionFacadeImpl implements TransactionFacade {
             } catch (SQLException e) {
                 e.printStackTrace();
             }
-            txStackInfo.txConByGroup.remove(conKey);
-            logger.info("Stashed connection found but transaction is not active (${getStatusString()}) for group ${groupName}: ${con.toString()}");
+            txStackInfo.txConByGroup.remove(groupName);
+            logger.info("事务操作信息: 发现隐藏连接,但是事务是未活动状态,事务状态 ["+getStatusString()+"] 组 ["+groupName+"] 连接 ["+con.toString()+"]");
             return null;
         }
         return con;
@@ -710,15 +699,14 @@ public class TransactionFacadeImpl implements TransactionFacade {
         // if transactionBeginStartTime is null we didn't begin the transaction, so can't count on commit/rollback through this
         if (txStackInfo.transactionBeginStartTime == null) return con;
 
-        String conKey = groupName;
-        ConnectionWrapper existing = (ConnectionWrapper) txStackInfo.txConByGroup.get(conKey);
+        ConnectionWrapper existing = txStackInfo.txConByGroup.get(groupName);
         try {
             if (existing != null && !existing.isClosed()) existing.closeInternal();
         } catch (Throwable t) {
-            logger.error("Error closing previously stashed connection for group ${groupName}: ${existing.toString()}", t);
+            logger.error("事务操作错误: 无法关闭之前隐藏连接 组 ["+groupName+"] 连接 ["+existing.toString()+"] :", t);
         }
         ConnectionWrapper newCw = new ConnectionWrapper(con, this, groupName);
-        txStackInfo.txConByGroup.put(conKey, newCw);
+        txStackInfo.txConByGroup.put(groupName, newCw);
         return newCw;
     }
 
@@ -735,7 +723,7 @@ public class TransactionFacadeImpl implements TransactionFacade {
         try {
             InitialContext ic;
             if (serverJndi != null) {
-                Hashtable<String, Object> h = new Hashtable<String, Object>();
+                Hashtable<String, Object> h = new Hashtable<>();
                 h.put(Context.INITIAL_CONTEXT_FACTORY, serverJndi.attribute("initial-context-factory"));
                 h.put(Context.PROVIDER_URL, serverJndi.attribute("context-provider-url"));
                 if (serverJndi.attribute("url-pkg-prefixes") != null) h.put(Context.URL_PKG_PREFIXES, serverJndi.attribute("url-pkg-prefixes"));

@@ -22,6 +22,9 @@ import javax.sql.DataSource;
 import javax.transaction.TransactionManager;
 import javax.transaction.UserTransaction;
 
+/**
+ * 内部事务
+ */
 public interface TransactionInternal {
 
     TransactionInternal init(ExecutionContextFactory ecf);

@@ -7,12 +7,10 @@ import javax.transaction.Synchronization;
 import javax.transaction.xa.XAResource;
 import java.util.function.Function;
 
-/** Use this interface to do transaction demarcation and related operations.
- * This should be used instead of using the JTA UserTransaction and TransactionManager interfaces.
- *
- * When you do transaction demarcation yourself use something like:
- *
- * <pre>
+/**
+ * 使用此接口进行事务划分和相关操作。
+ * 使用它代替使用JTA UserTransaction和TransactionManager接口。
+ * 当您进行事务划分时，请这样使用:
  * boolean beganTransaction = transactionFacade.begin(timeout);
  * try {
  *     ...
@@ -22,14 +20,8 @@ import java.util.function.Function;
  * } finally {
  *     if (transactionFacade.isTransactionInPlace()) transactionFacade.commit(beganTransaction);
  * }
- * </pre>
- *
- * This code will use a transaction if one is already in place (including setRollbackOnly instead of rollbackon
- * error), or begin a new one if not.
- *
- * When you want to suspend the current transaction and create a new one use something like: 
- *
- * <pre>
+ * 如果已经存在一个事务（包括setRollbackOnly而不是rollbackon错误），则此代码将使用事务，否则将开始新事务。
+ * 当你想暂停当前事务并创建一个新事务时，请这样使用:
  * boolean suspendedTransaction = false;
  * try {
  *     if (transactionFacade.isTransactionInPlace()) suspendedTransaction = transactionFacade.suspend();
@@ -48,14 +40,13 @@ import java.util.function.Function;
  * } finally {
  *     if (suspendedTransaction) transactionFacade.resume();
  * }
- * </pre>
  */
 @SuppressWarnings("unused")
 public interface TransactionFacade {
 
-    /** Run in current transaction if one is in place, begin and commit/rollback if none is. */
+    /** 如果有的话，在当前事务中运行，如果没有，则开始并提交/回滚。 */
     Object runUseOrBegin(Integer timeout, String rollbackMessage,  Function<Boolean,Boolean> function);
-    /** Run in a separate transaction, even if one is in place. */
+    /** 运行一个隔离事务,即使当前已有事务了 */
     Object runRequireNew(Integer timeout, String rollbackMessage, Function<Boolean,Boolean> function);
 
     TransactionInternal getTransactionInternal();
@@ -63,57 +54,64 @@ public interface TransactionFacade {
     javax.transaction.TransactionManager getTransactionManager();
     javax.transaction.UserTransaction getUserTransaction();
 
-    /** Get the status of the current transaction */
+    /** 获取当前事务的状态*/
     int getStatus() throws TransactionException;
 
     String getStatusString() throws TransactionException;
 
     boolean isTransactionInPlace() throws TransactionException;
 
-    /** Begins a transaction in the current thread. Only tries if the current transaction status is not ACTIVE, if
-     * ACTIVE it returns false since no transaction was begun.
+    /**
+     * 仅在当前事务状态不是ACTIVE时 在当前线程中开始一个事务。
+     * 如果ACTIVE，则返回false，因为没有开始事务。
      *
-     * @param timeout Optional Integer for the timeout. If null the default configured will be used.
-     * @return True if a transaction was begun, otherwise false.
+     * @param timeout 超时的可选整数。 如果为null，则将使用默认配置。
+     * @return 如果事务开始则为true，否则为false。
      * @throws TransactionException
      */
     boolean begin(Integer timeout) throws TransactionException;
 
-    /** Commits the transaction in the current thread if beganTransaction is true */
+    /** 如果startsTransaction为true，则在当前线程中提交事务 */
     void commit(boolean beganTransaction) throws TransactionException;
 
-    /** Commits the transaction in the current thread */
+    /** 在当前线程中提交事务 */
     void commit() throws TransactionException;
 
-    /** Rollback current transaction if beganTransaction is true, otherwise setRollbackOnly is called to mark current
-     * transaction as rollback only.
+    /**
+     * 如果startsTransaction为true，则回滚当前事务，否则调用setRollbackOnly将当前事务标记为仅回滚。
      */
     void rollback(boolean beganTransaction, String causeMessage, Throwable causeThrowable) throws TransactionException;
 
-    /** Rollback current transaction */
+    /** 回滚当前事务 */
     void rollback(String causeMessage, Throwable causeThrowable) throws TransactionException;
 
-    /** Mark current transaction as rollback-only (transaction can only be rolled back) */
+    /** 将当前事务标记为仅回滚（事务只能回滚） */
     void setRollbackOnly(String causeMessage, Throwable causeThrowable) throws TransactionException;
 
+    /** 将当前事务挂起 */
     boolean suspend() throws TransactionException;
 
+    /** 启动挂起的事务 */
     void resume() throws TransactionException;
-
+    /** 登记连接 */
     java.sql.Connection enlistConnection(javax.sql.XAConnection con) throws TransactionException;
-
+    /** 登记资源 */
     void enlistResource(XAResource resource) throws TransactionException;
     XAResource getActiveXaResource(String resourceName);
     void putAndEnlistActiveXaResource(String resourceName, XAResource xar);
-
+    /** 事务同步注册 */
     void registerSynchronization(Synchronization sync) throws TransactionException;
     Synchronization getActiveSynchronization(String syncName);
     void putAndEnlistActiveSynchronization(String syncName, Synchronization sync);
-
+    /** 初始化事务缓存 */
     void initTransactionCache();
+    /** 判断事务缓存是否启动 */
     boolean isTransactionCacheActive();
     void flushAndDisableTransactionCache();
+    /** 删除线程中所有事务 */
     void destroyAllInThread();
+    /** 取事务缓存 */
     TransactionCache getTransactionCache();
+    /** 取当前事务的开始时间 */
     Long getCurrentTransactionStartTime();
 }
