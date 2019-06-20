@@ -1,107 +1,88 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- *
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
-package com.zmtech.zkit.context.reference
 
-import groovy.transform.CompileStatic
-import org.moqui.BaseArtifactException
-import org.moqui.entity.EntityList
-import org.moqui.entity.EntityValue
-import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.resource.ResourceReference
-import org.moqui.resource.ResourceReference.Version
+package com.zmtech.zkit.resource.references;
 
-// NOTE: IDE says this isn't needed but compiler requires it
+import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
+import com.zmtech.zkit.context.impl.ExecutionContextImpl;
+import com.zmtech.zkit.entity.EntityList;
+import com.zmtech.zkit.entity.EntityValue;
+import com.zmtech.zkit.util.ObjectUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import org.moqui.util.ObjectUtilities
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-
-import javax.sql.rowset.serial.SerialBlob
+import javax.sql.rowset.serial.SerialBlob;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
-import java.nio.charset.StandardCharsets
-import java.sql.Timestamp
+import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.util.*;
 
-@CompileStatic
-class DbResourceReference extends BaseResourceReference {
-    protected final static Logger logger = LoggerFactory.getLogger(DbResourceReference.class)
-    public final static String locationPrefix = "dbresource://"
+public class DbResourceReference extends BaseResourceReference {
+    protected final static Logger logger = LoggerFactory.getLogger(DbResourceReference.class);
+    public final static String locationPrefix = "dbresource://";
 
-    String location
-    String resourceId = (String) null
+    String location;
+    String resourceId = null;
 
     DbResourceReference() { }
 
-    @Override ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
+    @Override
+    public ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf
         this.location = location
         return this
     }
 
-    ResourceReference init(String location, EntityValue dbResource, ExecutionContextFactoryImpl ecf) {
+    public ResourceReference init(String location, EntityValue dbResource, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf
         this.location = location
         resourceId = dbResource.resourceId
         return this
     }
 
-    @Override ResourceReference createNew(String location) {
+    @Override public ResourceReference createNew(String location) {
         DbResourceReference resRef = new DbResourceReference()
         resRef.init(location, ecf)
         return resRef
     }
-    @Override String getLocation() { location }
+    @Override public String getLocation() { location }
 
-    String getPath() {
+    public String getPath() {
         if (!location) return ""
         // should have a prefix of "dbresource://"
         return location.substring(locationPrefix.length())
     }
 
     @Override
-    InputStream openStream() {
+    public InputStream openStream() {
         EntityValue dbrf = getDbResourceFile()
         if (dbrf == null) return null
         return dbrf.getSerialBlob("fileData")?.getBinaryStream()
     }
 
     @Override
-    OutputStream getOutputStream() {
+    public OutputStream getOutputStream() {
         throw new UnsupportedOperationException("The getOutputStream method is not supported for DB resources, use putStream() instead")
     }
 
-    @Override String getText() { return ObjectUtilities.getStreamText(openStream()) }
+    @Override public public String getText() { return ObjectUtil.getStreamText(openStream()) }
 
-    @Override boolean supportsAll() { true }
+    @Override public boolean supportsAll() { true }
 
-    @Override boolean supportsUrl() { false }
+    @Override public boolean supportsUrl() { false }
     @Override
-    URL getUrl() { return null }
+    public URL getUrl() { return null }
 
-    @Override boolean supportsDirectory() { true }
-    @Override boolean isFile() { return "Y".equals(getDbResource(true)?.isFile) }
-    @Override boolean isDirectory() {
+    @Override boolean public supportsDirectory() { true }
+    @Override boolean public isFile() { return "Y".equals(getDbResource(true)?.isFile) }
+    @Override boolean public isDirectory() {
         if (!getPath()) return true // consider root a directory
         EntityValue dbr = getDbResource(true)
         return dbr != null && !"Y".equals(dbr.isFile)
     }
     @Override
-    List<ResourceReference> getDirectoryEntries() {
+    public List<ResourceReference> getDirectoryEntries() {
         List<ResourceReference> dirEntries = new LinkedList()
         EntityValue dbr = getDbResource(true)
         if (getPath() && dbr == null) return dirEntries
@@ -116,11 +97,11 @@ class DbResourceReference extends BaseResourceReference {
         return dirEntries
     }
 
-    @Override boolean supportsExists() { true }
-    @Override boolean getExists() { return getDbResource(true) != null }
+    @Override public boolean supportsExists() { true }
+    @Override public boolean getExists() { return getDbResource(true) != null }
 
-    @Override boolean supportsLastModified() { true }
-    @Override long getLastModified() {
+    @Override public boolean supportsLastModified() { true }
+    @Override public long getLastModified() {
         EntityValue dbr = getDbResource(true)
         if (dbr == null) return 0
         if ("Y".equals(dbr.isFile)) {
@@ -131,23 +112,23 @@ class DbResourceReference extends BaseResourceReference {
         return dbr.getTimestamp("lastUpdatedStamp").getTime()
     }
 
-    @Override boolean supportsSize() { true }
-    @Override long getSize() {
+    @Override public boolean supportsSize() { true }
+    @Override public long getSize() {
         EntityValue dbrf = getDbResourceFile()
         if (dbrf == null) return 0
         return dbrf.getSerialBlob("fileData")?.length() ?: 0
     }
 
-    @Override boolean supportsWrite() { true }
-    @Override void putText(String text) {
+    @Override public boolean supportsWrite() { true }
+    @Override public void putText(String text) {
         // TODO: use diff from last version for text
         SerialBlob sblob = text ? new SerialBlob(text.getBytes(StandardCharsets.UTF_8)) : null
         this.putObject(sblob)
     }
-    @Override void putStream(InputStream stream) {
+    @Override public void putStream(InputStream stream) {
         if (stream == null) return
                 ByteArrayOutputStream baos = new ByteArrayOutputStream()
-        ObjectUtilities.copyStream(stream, baos)
+        ObjectUtil.copyStream(stream, baos)
         SerialBlob sblob = new SerialBlob(baos.toByteArray())
         this.putObject(sblob)
     }
@@ -214,7 +195,7 @@ class DbResourceReference extends BaseResourceReference {
         dbrf.fileData = newFileObj
         dbrf.update()
     }
-    String findDirectoryId(List<String> pathList, boolean create) {
+    private String findDirectoryId(List<String> pathList, boolean create) {
         String finalParentResourceId = null
         if (pathList) {
             String parentResourceId = null
@@ -259,7 +240,7 @@ class DbResourceReference extends BaseResourceReference {
         return finalParentResourceId
     }
 
-    @Override void move(String newLocation) {
+    @Override public void move(String newLocation) {
         EntityValue dbr = getDbResource(false)
         // if the current resource doesn't exist, nothing to move
         if (!dbr) {
@@ -283,16 +264,16 @@ class DbResourceReference extends BaseResourceReference {
         }
     }
 
-    @Override ResourceReference makeDirectory(String name) {
+    @Override public ResourceReference makeDirectory(String name) {
         findDirectoryId([name], true)
         return new DbResourceReference().init("${location}/${name}", ecf)
     }
-    @Override ResourceReference makeFile(String name) {
+    @Override public ResourceReference makeFile(String name) {
         DbResourceReference newRef = (DbResourceReference) new DbResourceReference().init("${location}/${name}", ecf)
         newRef.putObject(null)
         return newRef
     }
-    @Override boolean delete() {
+    @Override public boolean delete() {
         EntityValue dbr = getDbResource(false)
         if (dbr == null) return false
         if (dbr.isFile == "Y") {
@@ -309,24 +290,24 @@ class DbResourceReference extends BaseResourceReference {
         return true
     }
 
-    @Override boolean supportsVersion() { return true }
-    @Override Version getVersion(String versionName) {
+    @Override public boolean supportsVersion() { return true }
+    @Override public Version getVersion(String versionName) {
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
         return makeVersion(ecf.entityFacade.find("moqui.resource.DbResourceFileHistory").condition("resourceId", resourceId)
                 .condition("versionName", versionName).useCache(false).one())
     }
-    @Override Version getCurrentVersion() {
+    @Override public Version getCurrentVersion() {
         EntityValue dbrf = getDbResourceFile()
         if (dbrf == null) return null
         return getVersion((String) dbrf.versionName)
     }
-    @Override Version getRootVersion() {
+    @Override public Version getRootVersion() {
         EntityValue dbrf = getDbResourceFile()
         if (dbrf == null) return null
         return getVersion((String) dbrf.rootVersionName)
     }
-    @Override ArrayList<Version> getVersionHistory() {
+    @Override public ArrayList<Version> getVersionHistory() {
         String resourceId = getDbResourceId()
         if (resourceId == null) return new ArrayList<>()
         EntityList dbrfHistoryList = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory")
@@ -339,7 +320,7 @@ class DbResourceReference extends BaseResourceReference {
         }
         return verList
     }
-    @Override ArrayList<Version> getNextVersions(String versionName) {
+    @Override public ArrayList<Version> getNextVersions(String versionName) {
         String resourceId = getDbResourceId()
         if (resourceId == null) return new ArrayList<>()
         EntityList dbrfHistoryList = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory")
@@ -352,7 +333,7 @@ class DbResourceReference extends BaseResourceReference {
         }
         return verList
     }
-    @Override InputStream openStream(String versionName) {
+    @Override public InputStream openStream(String versionName) {
         if (versionName == null || versionName.isEmpty()) return openStream()
         EntityValue dbrfHistory = getDbResourceFileHistory(versionName)
         if (dbrfHistory == null) return null
@@ -373,14 +354,14 @@ class DbResourceReference extends BaseResourceReference {
             }
         }
     }
-    @Override String getText(String versionName) { return ObjectUtilities.getStreamText(openStream(versionName)) }
+    @Override public String getText(String versionName) { return ObjectUtil.getStreamText(openStream(versionName)) }
 
-    Version makeVersion(EntityValue dbrfHistory) {
+    private Version makeVersion(EntityValue dbrfHistory) {
         if (dbrfHistory == null) return null
         return new Version(this, (String) dbrfHistory.versionName, (String) dbrfHistory.previousVersionName,
                 (String) dbrfHistory.userId, (Timestamp) dbrfHistory.versionDate)
     }
-    String getDbResourceId() {
+    private String getDbResourceId() {
         if (resourceId != null) return resourceId
 
         List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
@@ -396,18 +377,18 @@ class DbResourceReference extends BaseResourceReference {
         return resourceId
     }
 
-    EntityValue getDbResource(boolean useCache) {
+    private EntityValue getDbResource(boolean useCache) {
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
         return ecf.entityFacade.fastFindOne("moqui.resource.DbResource", useCache, false, resourceId)
     }
-    EntityValue getDbResourceFile() {
+    private EntityValue getDbResourceFile() {
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
         // don't cache this, can be big and will be cached below this as text if needed
         return ecf.entityFacade.fastFindOne("moqui.resource.DbResourceFile", false, false, resourceId)
     }
-    EntityValue getDbResourceFileHistory(String versionName) {
+    private EntityValue getDbResourceFileHistory(String versionName) {
         if (versionName == null) return null
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
