@@ -40,7 +40,7 @@ public class ZEntry<K, V> implements Cache.Entry<K, V> {
     @Override
     public <T> T unwrap(Class<T> clazz) {
         if (clazz.isAssignableFrom(this.getClass())) return clazz.cast(this);
-        throw new IllegalArgumentException("类型: " + clazz.getName() + " 不是 ZCache.ZEntry 类型!");
+        throw new IllegalArgumentException("ZCache缓存错误: 类型: " + clazz.getName() + " 不是 ZCache.ZEntry 类型!");
     }
 
     boolean valueEquals(V otherValue) {
