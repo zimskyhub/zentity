@@ -1,16 +1,3 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- * 
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- * 
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
 package com.zmtech.zkit.resource;
 
 import com.zmtech.zkit.context.renderer.FtlTemplateRenderer;
@@ -24,59 +11,56 @@ import java.io.OutputStream;
 import java.io.Writer;
 import java.util.Map;
 
-/** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
+/** 用于按位置字符串（http：//，jar：//，component：//，content：//，classpath：//等）访问资源。 */
 public interface ResourceFacade {
-    /** Get a ResourceReference representing the Moqui location string passed.
-     *
-     * @param location A URL-style location string. In addition to the standard URL protocols (http, https, ftp, jar,
-     * and file) can also have the special Moqui protocols of "component://" for a resource location relative to a
-     * component base location, "content://" for a resource in the content repository, and "classpath://" to get a
-     * resource from the Java classpath.
+    /**
+     * 获取表示传递的zkit位置字符串的ResourceReference。
+     * @param location URL样式的位置字符串。
+     *                 除了标准URL协议（http，https，ftp，jar和file）之外，
+     *                 还可以为相对于组件基本位置的资源位置具有“component：//”的特殊Moqui协议，“content：//” 对于内容存储库中的资源，
+     *                 使用“classpath：//”从Java类路径获取资源。
      */
     ResourceReference getLocationReference(String location);
 
-    /** Open an InputStream to read the contents of a file/document at a location.
+    /** 打开InputStream以读取某个位置的文件/文档的内容。
      *
-     * @param location A URL-style location string that also support the Moqui-specific component and content protocols.
+     * @param location URL的位置字符串，也支持Zkit特定的组件和内容协议。
      */
     InputStream getLocationStream(String location);
 
-    /** Get the text at the given location, optionally from the cache (resource.text.location). */
+    /** 获取给定位置的文本，可选地从缓存（resource.text.location）获取。 */
     String getLocationText(String location, boolean cache);
     DataSource getLocationDataSource(String location);
 
-    /** Render a template at the given location using the current context and write the output to the given writer. */
+    /** 使用当前上下文在给定位置渲染模板，并将输出写入给定的编写器。 */
     void template(String location, Writer writer);
 
-    /** Run a script at the given location (optionally with the given method, like in a groovy class) using the current
-     * context for its variable space.
-     *
-     * @return The value returned by the script, if any.
+    /**
+     * 使用当前上下文为其变量空间在给定位置（可选地使用给定方法，如在groovy类中）运行脚本。
+     * @return 脚本返回的值（如果有）。
      */
     Object script(String location, String method);
     Object script(String location, String method, Map<String,Object> additionalContext);
 
-    /** Evaluate a Groovy expression as a condition.
-     *
-     * @return boolean representing the result of evaluating the expression
+    /**
+     * 将Groovy表达式转换为Condition。
+     * @return boolean 运行表达式的结果
      */
     boolean condition(String expression, String debugLocation);
     boolean condition(String expression, String debugLocation, Map<String,Object> additionalContext);
 
-    /** Evaluate a Groovy expression as a context field, or more generally as an expression that evaluates to an Object
-     * reference. This can be used to get a value from an expression or to run any general expression or script.
-     *
-     * @return Object reference representing result of evaluating the expression
+    /**
+     * 计算Groovy表达式的上下文，或者更一般地将其作为计算为Object引用的表达式。
+     * 可用于从表达式获取值或运行任何常规表达式或脚本。
+     * @return 运行表达式的结果
      */
     Object expression(String expr, String debugLocation);
     Object expression(String expr, String debugLocation, Map<String,Object> additionalContext);
 
-    /** Evaluate a Groovy expression as a GString to be expanded/interpolated into a simple String.
-     *
-     * NOTE: the inputString is always run through the L10nFacade.localize() method before evaluating the
-     * expression in order to implicitly internationalize string expansion.
-     *
-     * @return String representing localized and expanded inputString
+    /**
+     * 将Groovy表达式运行结果扩展/插入到简单字符串中的GString。
+     * 注意：在运行表达式之前，inputString始终通过L10nFacade.localize（）方法运行，以隐式地国际化字符串扩展。
+     * @return 运行表达式的结果
      */
     String expand(String inputString, String debugLocation);
     String expand(String inputString, String debugLocation, Map<String,Object> additionalContext);

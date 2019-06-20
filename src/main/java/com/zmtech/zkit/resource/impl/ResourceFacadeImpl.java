@@ -13,6 +13,7 @@ import com.zmtech.zkit.exception.BaseException;
 import com.zmtech.zkit.resource.ResourceFacade;
 import com.zmtech.zkit.tools.ToolFactory;
 import com.zmtech.zkit.util.*;
+import groovy.lang.Closure;
 import groovy.lang.Script;
 import org.codehaus.groovy.runtime.InvokerHelper;
 import org.slf4j.Logger;
@@ -67,29 +68,29 @@ public class ResourceFacadeImpl implements ResourceFacade {
         xmlActionsScriptRunner.init(ecfi);
 
         textLocationCache = ecfi.getCache().getCache("resource.text.location", String.class, String.class);
-        // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.cacheFacade.getCache("resource.groovy.expression")
+        // 使用HashMap在这里更快：scriptGroovyExpressionCache = ecfi.cacheFacade.getCache（“resource.groovy.expression”）
         resourceReferenceByLocation = ecfi.getCache().getCache("resource.reference.location", String.class, ResourceReference.class);
 
         MNode resourceFacadeNode = ecfi.getConfXmlRoot().first("resource-facade");
 
-        // Setup resource reference classes
+        // 设置资源引用类
         for (MNode rrNode : resourceFacadeNode.children("resource-reference")) {
             try {
                 Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"));
                 resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass);
             } catch (ClassNotFoundException e) {
-                logger.info("Class [" + rrNode.attribute("class") + "] not found (" + e.toString() + ")");
+                logger.info("资源操作信息: 类 [" + rrNode.attribute("class") + "] 不存在 (" + e.toString() + ")");
             }
         }
 
-        // Setup template renderers
+        // 设置模板渲染器
         for (MNode templateRendererNode : resourceFacadeNode.children("template-renderer")) {
             TemplateRenderer tr = null;
             try {
                 tr = (TemplateRenderer) Thread.currentThread().getContextClassLoader()
                         .loadClass(templateRendererNode.attribute("class")).newInstance();
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("资源操作错误: 模板渲染类 [" + templateRendererNode.attribute("class") + "] 不存在或无法初始化:" + e.toString());
             }
             templateRenderers.put(templateRendererNode.attribute("extension"), tr.init(ecfi));
         }
@@ -98,7 +99,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             templateRendererExtensionsDots.add(ObjectUtil.countChars(ext, (char) '.'));
         }
 
-        // Setup script runners
+        // 设置脚本运行程序
         for (MNode scriptRunnerNode : resourceFacadeNode.children("script-runner")) {
             if (scriptRunnerNode.attribute("class") != null) {
                 ScriptRunner sr = null;
@@ -106,30 +107,30 @@ public class ResourceFacadeImpl implements ResourceFacade {
                     sr = (ScriptRunner) Thread.currentThread().getContextClassLoader()
                             .loadClass(scriptRunnerNode.attribute("class")).newInstance();
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    logger.error("资源操作错误: 脚本运行类 [" + scriptRunnerNode.attribute("class") + "] 不存在或无法初始化。" + e.toString());
                 }
                 scriptRunners.put(scriptRunnerNode.attribute("extension"), sr.init(ecfi));
             } else if (scriptRunnerNode.attribute("engine") != null) {
                 ScriptRunner sr = new JavaxScriptRunner(scriptRunnerNode.attribute("engine")).init(ecfi);
                 scriptRunners.put(scriptRunnerNode.attribute("extension"), sr);
             } else {
-                logger.error("Configured script-runner for extension [" + scriptRunnerNode.attribute("extension") + "] must have either a class or engine attribute and has neither.");
+                logger.error("资源操作错误: 配置扩展 [" + scriptRunnerNode.attribute("extension") + "] 脚本运行程序必须具有类或引擎属性。");
             }
         }
 
-        // Get XSL-FO Handler Factory
+        // 获得 XSL-FO 处理器
         if (resourceFacadeNode.attribute("xsl-fo-handler-factory") != null) {
             xslFoHandlerFactory = ecfi.getToolFactory(resourceFacadeNode.attribute("xsl-fo-handler-factory"));
             if (xslFoHandlerFactory != null) {
-                logger.info("Using xsl-fo-handler-factory " + resourceFacadeNode.attribute("xsl-fo-handler-factory") + " (" + xslFoHandlerFactory.getClass().getName() + ")");
+                logger.info("资源操作信息: 正在使用 xsl-fo-handler-factory [" + resourceFacadeNode.attribute("xsl-fo-handler-factory") + "] (" + xslFoHandlerFactory.getClass().getName() + ")");
             } else {
-                logger.warn("Could not find xsl-fo-handler-factory with name " + resourceFacadeNode.attribute("xsl-fo-handler-factory"));
+                logger.warn("资源操作警告: 无法找到名为 [" + resourceFacadeNode.attribute("xsl-fo-handler-factory") + "] 的 xsl-fo-handler-factory!");
             }
         } else {
             xslFoHandlerFactory = null;
         }
 
-        // Setup content repositories
+        // 设置内容仓库
         for (MNode repositoryNode : ecfi.getConfXmlRoot().first("repository-list").children("repository")) {
             String repoName = repositoryNode.attribute("name");
             Repository repo = null;
@@ -145,12 +146,12 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 }
                 if (repo != null) {
                     contentRepositories.put(repoName, repo);
-                    logger.info("Added JCR Repository " + repoName + " of type " + repo.getClass().getName() + " for workspace " + repositoryNode.attribute("workspace") + " using parameters: " + parameters);
+                    logger.info("资源操作信息: 添加了工作区为 [" + repositoryNode.attribute("workspace") + "] 名为 [" + repoName + "] 类型为 [" + repo.getClass().getName() + "] 参数为 [" + parameters + "] 的 JCR 仓库");
                 } else {
-                    logger.error("Could not find JCR RepositoryFactory for repository " + repoName + " using parameters: " + parameters);
+                    logger.error("资源操作错误: 无法找到名为 [" + repoName + "] 参数为 [" + parameters + "] 的 JCR 资源仓库!");
                 }
             } catch (Exception e) {
-                logger.error("Error getting JCR Repository " + repositoryNode.attribute("name") + ": " + e.toString());
+                logger.error("资源操作错误: 无法获取名为 [" + repositoryNode.attribute("name") + "] 的 JCR 资源仓库 :" + e.toString());
             }
         }
     }
@@ -179,7 +180,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     /**
-     * Get the active JCR Session for the context/thread, making sure it is live, and make one if needed.
+     * 获取上下文/线程中的活动 JCR Session，确保它是活动的，并在需要时创建一个。
      */
     public Session getContentRepositorySession(String name) {
         Map<String, Session> sessionMap = contentSessions.get();
@@ -200,8 +201,12 @@ public class ResourceFacadeImpl implements ResourceFacade {
         Repository rep = contentRepositories.get("name");
         if (rep == null) return null;
         MNode repositoryNode = ecfi.getConfXmlRoot().first("repository-list")
-                .first((MNode it) -> {
-                    return it.getName().equals("repository") && it.attribute("name").equals(name);
+                .first(new Closure<Boolean>(this) {
+                    @Override
+                    public Boolean call(Object arg) {
+                        MNode it = (MNode) arg;
+                        return it.getName().equals("repository") && it.attribute("name").equals(name);
+                    }
                 });
         SimpleCredentials credentials = new SimpleCredentials(repositoryNode.attribute("username") != null ? repositoryNode.attribute("username") : "anonymous",
                 (repositoryNode.attribute("password") != null ? repositoryNode.attribute("password") : "").toCharArray());
@@ -209,13 +214,13 @@ public class ResourceFacadeImpl implements ResourceFacade {
             try {
                 newSession = rep.login(credentials, repositoryNode.attribute("workspace"));
             } catch (RepositoryException e) {
-                e.printStackTrace();
+                logger.error("资源操作错误: 无法登录工作区名为 [" + repositoryNode.attribute("workspace") + "] 的 JCR 资源仓库 :" + e.toString());
             }
         } else {
             try {
                 newSession = rep.login(credentials);
             } catch (RepositoryException e) {
-                e.printStackTrace();
+                logger.error("资源操作错误: 无法登录工作区名为 [" + repositoryNode.attribute("workspace") + "] 的 JCR 资源仓库 :" + e.toString());
             }
         }
 
@@ -237,7 +242,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         String scheme = getLocationScheme(location);
         Class rrClass = resourceReferenceClasses.get(scheme);
         if (rrClass == null)
-            throw new BaseException("Prefix (" + scheme + ") not supported for location [" + location + "]");
+            throw new BaseException("资源操作错误: 地址 [" + location + "] 不支持前缀 [" + scheme + "]!");
 
         ResourceReference rr = null;
         try {
@@ -252,9 +257,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     public static String getLocationScheme(String location) {
         String scheme = "file";
-        // Q: how to get the scheme for windows? the Java URI class doesn't like spaces, the if we look for the first ":"
-        //    it may be a drive letter instead of a scheme/protocol
-        // A: ignore colon if only one character before it
+        // Q: 如何获得Windows的方案？ Java URI类不喜欢空格，如果我们查找第一个“：”它可能是驱动器号而不是方案/协议
+        // A: 如果前面只有一个字符，则忽略冒号
         if (location.indexOf(":") > 1) {
             String prefix = location.substring(0, location.indexOf(":"));
             if (!prefix.contains("/") && prefix.length() > 2) scheme = prefix;
@@ -283,26 +287,25 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         ResourceReference textRr = getLocationReference(location);
         if (textRr == null) {
-            logger.info("Cound not get resource reference for location [" + location + "], returning empty location text String");
+            logger.info("资源操作信息: 无法从地址 [" + location + "] 获取资源的引用,返回空地址!");
             return "";
         }
-        // don't cache when getting by version
+        // 按版本获取时不要缓存
         if (versionName != null) cache = false;
         if (cache) {
             String cachedText;
             if (textLocationCache instanceof ZCache) {
                 ZCache<String, String> mCache = (ZCache<String, String>) textLocationCache;
-                // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
-                //     updated time is older/less than rr.lastModified)
-                cachedText = (String) mCache.get(location, textRr.getLastModified());
+                // 如果我们有一个资源引用并且最后修改了比缓存条目更新然后将其抛出（当缓存条目更新时间更早/小于rr.lastModified时到期）
+                cachedText = mCache.get(location, textRr.getLastModified());
             } else {
-                // TODO: doesn't support on the fly reloading without cache expire/clear!
-                cachedText = (String) textLocationCache.get(location);
+                // TODO: 没有缓存到期/清除时不支持动态重新加载！
+                cachedText = textLocationCache.get(location);
             }
             if (cachedText != null) return cachedText;
         }
         InputStream locStream = textRr.openStream(versionName);
-        if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]");
+        if (locStream == null) logger.info("资源操作信息: 地址 [" + location + "] 下没有任何资源或文本!");
         String text = ObjectUtil.getStreamText(locStream);
         if (cache) textLocationCache.put(location, text);
         // logger.warn("==== getLocationText at ${location} version ${versionName} text ${text.length() > 100 ? text.substring(0, 100) : text}")
@@ -322,7 +325,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         TemplateRenderer tr = getTemplateRendererByLocation(fileResourceRef.getLocation());
 
         String fileName = fileResourceRef.getFileName();
-        // strip template extension(s) to avoid problems with trying to find content types based on them
+        // 剥离模板扩展，避免尝试查找内容类型时出现问题
         String fileContentType = getContentType(tr != null ? tr.stripTemplateExtension(fileName) : fileName);
 
         boolean isBinary = ResourceReference.isBinaryContentType(fileContentType);
@@ -331,28 +334,28 @@ public class ResourceFacadeImpl implements ResourceFacade {
             try {
                 return new ByteArrayDataSource(fileResourceRef.openStream(versionName), fileContentType);
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error("资源操作错误: 无法加载地址 [" + location + "] 的资源文件:" + e.toString());
             }
         } else {
-            // not a binary object (hopefully), get the text and pass it over
+            // 不是二进制对象（希望如此），获取文本并将其传递过来
             if (tr != null) {
-                // NOTE: version ignored here
+                // 注意：此处忽略版本
                 StringWriter sw = new StringWriter();
                 tr.render(fileResourceRef.getLocation(), sw);
                 try {
                     return new ByteArrayDataSource(sw.toString(), fileContentType);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("资源操作错误: 无法加载地址 [" + fileResourceRef.getLocation() + "] 的资源文件:" + e.toString());
                 }
             } else {
-                // no renderer found, just grab the text (cached) and throw it to the writer
+                // 找不到渲染器，只需抓取文本（缓存）并将其抛给作者
                 String textLoc = fileResourceRef.getLocation();
                 if (versionName != null && !versionName.isEmpty()) textLoc = textLoc.concat("#").concat(versionName);
                 String text = getLocationText(textLoc, true);
                 try {
                     return new ByteArrayDataSource(text, fileContentType);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("资源操作错误: 无法加载文本 [" + text + "] 为资源文件:" + e.toString());
                 }
             }
         }
@@ -362,18 +365,18 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     @Override
     public void template(String location, Writer writer) {
-        // NOTE: let version fall through to tr.render() and getLocationText()
+        // 注意：让版本通过tr.render（）和getLocationText（）
         TemplateRenderer tr = getTemplateRendererByLocation(location);
         if (tr != null) {
             tr.render(location, writer);
         } else {
-            // no renderer found, just grab the text and throw it to the writer
+            // 找不到渲染器，只需抓取文本并将其扔给作者
             String text = getLocationText(location, true);
             if (text != null && !text.isEmpty()) {
                 try {
                     writer.write(text);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("资源操作错误: 无法写入地址 [" + location + "] 的资源文件:" + e.toString());
                 }
             }
         }
@@ -385,11 +388,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
         int hashIdx = location.indexOf("#");
         if (hashIdx > 0) location = location.substring(0, hashIdx);
 
-        // match against extension for template renderer, with as many dots that match as possible (most specific match)
+        // 匹配模板渲染器的扩展名，尽可能多的点匹配（最具体的匹配）
         int lastSlashIndex = location.lastIndexOf("/");
         int dotIndex = location.indexOf(".", lastSlashIndex);
         String fullExt = location.substring(dotIndex + 1);
-        TemplateRenderer tr = (TemplateRenderer) templateRenderers.get(fullExt);
+        TemplateRenderer tr = templateRenderers.get(fullExt);
         if (tr != null || templateRenderers.containsKey(fullExt)) return tr;
 
         int lastDotIndex = location.lastIndexOf(".", lastSlashIndex);
@@ -402,16 +405,16 @@ public class ResourceFacadeImpl implements ResourceFacade {
         int mostDots = -1;
         int templateRendererExtensionsSize = templateRendererExtensions.size();
         for (int i = 0; i < templateRendererExtensionsSize; i++) {
-            String ext = (String) templateRendererExtensions.get(i);
+            String ext = templateRendererExtensions.get(i);
             if (location.endsWith(ext)) {
                 int dots = templateRendererExtensionsDots.get(i).intValue();
                 if (dots > mostDots) {
                     mostDots = dots;
-                    tr = (TemplateRenderer) templateRenderers.get(ext);
+                    tr = templateRenderers.get(ext);
                 }
             }
         }
-        // if there is no template renderer for extension remember that
+        // 如果没有扩展模板渲染器，请记住
         if (tr == null) {
             // logger.warn("No renderer found for ${location}, exts: ${templateRendererExtensions}\ntemplateRenderers: ${templateRenderers}")
             templateRenderers.put(fullExt, null);
@@ -423,7 +426,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     public Object script(String location, String method) {
         int hashIdx = location.indexOf("#");
         if (hashIdx > 0) location = location.substring(0, hashIdx);
-        // NOTE: version ignored here
+        // 注意：此处忽略版本
 
         ExecutionContextImpl ec = ecfi.getEci();
         String extension = location.substring(location.lastIndexOf("."));
@@ -432,11 +435,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
         if (sr != null) {
             return sr.run(location, method, ec);
         } else {
-            // see if the extension is known
+            // 看看扩展名是否已知
             ScriptEngine engine = scriptEngineManager.getEngineByExtension(extension);
             if (engine == null)
-                throw new BaseException("Cannot run script [" + location + "], unknown extension (not in ZFrameWork Conf file, and unkown to Java ScriptEngineManager).");
-            return JavaxScriptRunner.bindAndRun(location, ec, engine, ecfi.getCache().getCache("resource.script${extension}.location"));
+                throw new BaseException("资源操作错误: 无法运行地址为 [" + location + "] 的脚本, 扩展名不为,配置中的文件扩展名,并且 Java 脚本运行管理器无法识别!");
+            return JavaxScriptRunner.bindAndRun(location, ec, engine, ecfi.getCache().getCache("resource.script" + extension + ".location"));
         }
     }
 
@@ -450,7 +453,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 if (additionalContext instanceof EntityValueBase)
                     cs.push(((EntityValueBase) additionalContext).getValueMap());
                 else cs.push(additionalContext);
-                // do another push so writes to the context don't modify the passed in Map
+                // 再做一次推送，写入上下文不会修改Map中传递的内容
                 cs.push();
             }
             return script(location, method);
@@ -491,7 +494,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             script.setBinding(null);
             return (Boolean) result;
         } catch (Exception e) {
-            throw new BaseException("Error in condition [" + expression + "] from [" + debugLocation + "]", e);
+            throw new BaseException("资源操作草屋: 在 [" + debugLocation + "] 中的条件表达式 [" + expression + "] 存在错误!", e);
         }
     }
 
@@ -505,7 +508,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 if (additionalContext instanceof EntityValueBase)
                     cs.push(((EntityValueBase) additionalContext).getValueMap());
                 else cs.push(additionalContext);
-                // do another push so writes to the context don't modify the passed in Map
+                // 再做一次推送，写入上下文不会修改Map中传递的内容
                 cs.push();
             }
             return conditionInternal(expression, debugLocation, ec);
@@ -538,7 +541,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             script.setBinding(null);
             return result;
         } catch (Exception e) {
-            throw new BaseException("Error in field expression [${expression}] from [${debugLocation}]", e);
+            throw new BaseException("资源操作错误: 在 [" + debugLocation + "] 中的字段表达式 [" + expression + "] 存在错误!", e);
         }
     }
 
@@ -552,7 +555,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 if (additionalContext instanceof EntityValueBase)
                     cs.push(((EntityValueBase) additionalContext).getValueMap());
                 else cs.push(additionalContext);
-                // do another push so writes to the context don't modify the passed in Map
+                // 再做一次推送，写入上下文不会修改Map中传递的内容
                 cs.push();
             }
             return expressionInternal(expr, debugLocation, ec);
@@ -586,18 +589,18 @@ public class ResourceFacadeImpl implements ResourceFacade {
         int inputStringLength = inputString.length();
         if (inputStringLength == 0) return "";
 
-        ExecutionContextImpl eci = (ExecutionContextImpl) null;
-        // localize string before expanding
+        ExecutionContextImpl eci = null;
+        // 在扩展之前本地化字符串
         if (localize && inputStringLength < 256) {
             eci = ecfi.getEci();
-            inputString = eci.l10nFacade.localize(inputString);
+            inputString = eci.getL10n().localize(inputString);
         }
-        // if no $ then it's a plain String, just return it
+        // 如果没有$那么它是一个普通的字符串，只需返回它
         if (!inputString.contains("$")) return inputString;
 
         if (eci == null) eci = ecfi.getEci();
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0;
-        ContextStack cs = (ContextStack) null;
+        ContextStack cs = null;
         if (doPushPop) cs = eci.contextStack;
         try {
             if (doPushPop) {
@@ -606,7 +609,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 } else {
                     cs.push(additionalContext);
                 }
-                // do another push so writes to the context don't modify the passed in Map
+                // 再做一次推送，写入上下文不会修改Map中传递的内容
                 cs.push();
             }
 
@@ -618,7 +621,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 script.setBinding(null);
                 return (String) result;
             } catch (Exception e) {
-                throw new BaseException("Error in string expression [${expression}] from ${debugLocation}", e);
+                throw new BaseException("资源操作错误: 在 [" + debugLocation + "] 的文本表达式 [" + expression + "] 错误!", e);
             }
         } finally {
             if (doPushPop) {
@@ -650,7 +653,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     public Class getGroovyClass(String expression) {
         if (expression == null || expression.isEmpty()) return null;
-        Class groovyClass = (Class) scriptGroovyExpressionCache.get(expression);
+        Class groovyClass = scriptGroovyExpressionCache.get(expression);
         if (groovyClass == null) {
             groovyClass = ecfi.compileGroovy(expression, StringUtil.getExpressionClassName(expression));
             scriptGroovyExpressionCache.put(expression, groovyClass);
@@ -667,7 +670,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     @Override
     public void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
         if (xslFoHandlerFactory == null)
-            throw new BaseException("No XSL-FO Handler ToolFactory found (from resource-facade.@xsl-fo-handler-factory)");
+            throw new BaseException("资源操作错误:resource-facade.@xsl-fo-handler-factory 中没有找到 XSL-FO Handler ToolFactory");
 
         TransformerFactory factory = TransformerFactory.newInstance();
         factory.setURIResolver(new LocalResolver(ecfi, factory.getURIResolver()));
@@ -682,16 +685,20 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         final org.xml.sax.ContentHandler contentHandler = xslFoHandlerFactory.getInstance(out, contentType);
 
-        // There's a ThreadLocal memory leak in XALANJ, reported in 2005 but still not fixed in 2016
-        // The memory it prevent GC depend on the fo file size and the thread pool size. So use a separate thread to workaround.
+        // XALANJ中存在ThreadLocal内存泄漏，在2005年报告但在2016年仍未修复。
+        // 它阻止GC的内存取决于文件大小和线程池大小。 因此，请使用单独的线程来解决此问题。
         // https://issues.apache.org/jira/browse/XALANJ-2195
-        BaseException transformException = null;
+        final BaseException[] transformException = {null};
         Transformer finalTransformer = transformer;
-        ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi.getEci(), (o) -> {
-            try {
-                finalTransformer.transform(xslFoSrc, new SAXResult(contentHandler));
-            } catch (Throwable t) {
-                transformException = new BaseException("Error transforming XSL-FO to " + contentType, t);
+        ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi.getEci(), new Closure(this) {
+            @Override
+            public Object call() {
+                try {
+                    finalTransformer.transform(xslFoSrc, new SAXResult(contentHandler));
+                } catch (Throwable t) {
+                    transformException[0] = new BaseException("资源操作错误: 无法转换 XSL-FO 为 [" + contentType + "]:", t);
+                }
+                return true;
             }
         });
         Thread transThread = new Thread(runnable);
@@ -699,9 +706,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
         try {
             transThread.join();
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            throw new BaseException("资源操作错误: 转换 XSL-FO 线程中断!", e);
         }
-        if (transformException != null) throw transformException;
+        if (transformException[0] != null) throw transformException[0];
     }
 
     public static class LocalResolver implements URIResolver {
@@ -714,10 +721,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
 
         public Source resolve(String href, String base) {
-            // try plain href
+            // 试试普通的href
             ResourceReference rr = ecfi.getResource().getLocationReference(href);
 
-            // if href has no colon try base + href
+            // 如果href没有冒号尝试base + href
             if (rr == null && href.indexOf(':') < 0) rr = ecfi.getResource().getLocationReference(base + href);
 
             if (rr != null) {
