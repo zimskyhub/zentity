@@ -11,7 +11,7 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package com.zmtech.zkit.resource.impl;
+package com.zmtech.zkit.resource.reference;
 
 import org.moqui.BaseException;
 import org.moqui.util.ObjectUtilities;

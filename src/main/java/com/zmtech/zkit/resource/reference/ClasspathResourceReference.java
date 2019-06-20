@@ -1,4 +1,4 @@
-package com.zmtech.zkit.resource.impl;
+package com.zmtech.zkit.resource.reference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,9 +12,9 @@ public class ClasspathResourceReference extends UrlResourceReference {
     @Override
     public ResourceReference init(String location) {
         strippedLocation = ResourceReference.stripLocationPrefix(location);
-        // first try the current thread's context ClassLoader
+        // 首先尝试当前线程的上下文ClassLoader
         locationUrl = Thread.currentThread().getContextClassLoader().getResource(strippedLocation);
-        // next try the ClassLoader that loaded this class
+        // 接下来尝试加载此类的ClassLoader
         if (locationUrl == null) locationUrl = this.getClass().getClassLoader().getResource(strippedLocation);
         // no luck? try the system ClassLoader
         if (locationUrl == null) locationUrl = ClassLoader.getSystemResource(strippedLocation);

@@ -13,7 +13,6 @@ import com.zmtech.zkit.resource.impl.ResourceReference;
 import com.zmtech.zkit.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zkit.util.*;
 import com.zmtech.zkit.util.EntityJavaUtil.*;
-import groovy.lang.Closure;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException;
 
