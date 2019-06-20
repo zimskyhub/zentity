@@ -1,4 +1,4 @@
-package com.zmtech.zkit.resource.reference;
+package com.zmtech.zkit.resource.references;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +23,7 @@ public class ClasspathResourceReference extends UrlResourceReference {
             exists = true;
             isFileProtocol = "file".equals(locationUrl.getProtocol());
         } else {
-            logger.warn("Could not find location [" + strippedLocation + "] on the classpath");
+            logger.warn("资源类引用警告: 无法在类路径找到 ["+strippedLocation+"]");
         }
 
         return this;

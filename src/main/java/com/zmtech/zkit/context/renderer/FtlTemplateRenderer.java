@@ -5,7 +5,7 @@ import com.zmtech.zkit.context.ExecutionContextFactory;
 import com.zmtech.zkit.context.TemplateRenderer;
 import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zkit.exception.BaseException;
-import com.zmtech.zkit.resource.impl.ResourceReference;
+import com.zmtech.zkit.resource.references.ResourceReference;
 import freemarker.core.Environment;
 import freemarker.core.InvalidReferenceException;
 import freemarker.ext.beans.BeansWrapper;

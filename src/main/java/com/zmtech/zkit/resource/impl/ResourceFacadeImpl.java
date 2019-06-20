@@ -11,6 +11,7 @@ import com.zmtech.zkit.context.runner.XmlActionsScriptRunner;
 import com.zmtech.zkit.entity.impl.EntityValueBase;
 import com.zmtech.zkit.exception.BaseException;
 import com.zmtech.zkit.resource.ResourceFacade;
+import com.zmtech.zkit.resource.references.ResourceReference;
 import com.zmtech.zkit.tools.ToolFactory;
 import com.zmtech.zkit.util.*;
 import groovy.lang.Closure;

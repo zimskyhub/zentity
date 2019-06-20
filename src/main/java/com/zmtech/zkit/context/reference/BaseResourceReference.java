@@ -2,7 +2,7 @@ package com.zmtech.zkit.context.reference;
 
 
 import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
-import com.zmtech.zkit.resource.impl.ResourceReference;
+import com.zmtech.zkit.resource.references.ResourceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

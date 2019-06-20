@@ -16,7 +16,7 @@ package org.moqui.impl.context.reference
 import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zkit.context.reference.BaseResourceReference;
 import com.zmtech.zkit.resource.impl.ResourceFacadeImpl;
-import com.zmtech.zkit.resource.impl.ResourceReference;
+import com.zmtech.zkit.resource.references.ResourceReference;
 import com.zmtech.zkit.util.ObjectUtil;
 import groovy.transform.CompileStatic
 import org.moqui.impl.context.ExecutionContextFactoryImpl

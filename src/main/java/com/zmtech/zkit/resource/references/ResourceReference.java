@@ -1,19 +1,6 @@
-/*
- * This software is in the public domain under CC0 1.0 Universal plus a
- * Grant of Patent License.
- * 
- * To the extent possible under law, the author(s) have dedicated all
- * copyright and related and neighboring rights to this software to the
- * public domain worldwide. This software is distributed without any
- * warranty.
- * 
- * You should have received a copy of the CC0 Public Domain Dedication
- * along with this software (see the LICENSE.md file). If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
- */
-package com.zmtech.zkit.resource.reference;
+package com.zmtech.zkit.resource.references;
 
-import org.moqui.BaseException;
+import com.zmtech.zkit.exception.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +55,7 @@ public abstract class ResourceReference implements Serializable {
     public abstract ResourceReference makeFile(String name);
     public abstract boolean delete();
 
-    /** Get the entries of a directory */
+    /** 获取目录的入口 */
     public abstract List<ResourceReference> getDirectoryEntries();
 
     public URI getUri() {
@@ -76,14 +63,14 @@ public abstract class ResourceReference implements Serializable {
             if (supportsUrl()) {
                 URL locUrl = getUrl();
                 if (locUrl == null) return null;
-                // use the multi-argument constructor to have it do character encoding and avoid an exception
-                // WARNING: a String from this URI may not equal the String from the URL (ie if characters are encoded)
-                // NOTE: this doesn't seem to work on Windows for local files: when protocol is plain "file" and path starts
-                //     with a drive letter like "C:\moqui\..." it produces a parse error showing the URI as "file://C:/..."
+                // 使用多参数构造函数使其执行字符编码并避免异常
+                // 警告：此URI中的字符串可能与URL中的字符串不相等（即，如果字符是编码的）
+                // 注意：对于本地文件，这似乎不适用于Windows：当协议是普通的“文件”并且路径以“C：\ moqui \ ...”之类的驱动器号开头时，
+                // 它会产生一个解析错误，显示URI为“文件：// C：/...”
                 if (logger.isTraceEnabled()) logger.trace("Getting URI for URL " + locUrl.toExternalForm());
                 String path = locUrl.getPath();
 
-                // Support Windows local files.
+                // 支持Windows本地文件。
                 if ("file".equals(locUrl.getProtocol())) {
                     if (!path.startsWith("/"))
                         path = "/" + path;
@@ -96,11 +83,11 @@ public abstract class ResourceReference implements Serializable {
                 return new URI(loc);
             }
         } catch (URISyntaxException e) {
-            throw new BaseException("Error creating URI", e);
+            throw new BaseException("资源引用错误: 无法创建 URI", e);
         }
     }
 
-    /** One part of the URI not easy to get from the URI object, basically the last part of the path. */
+    /** URI的一部分不容易从URI对象中获取，基本上是路径的最后部分。 */
     public String getFileName() {
         String loc = getLocation();
         if (loc == null || loc.length() == 0) return null;
@@ -109,14 +96,14 @@ public abstract class ResourceReference implements Serializable {
     }
 
 
-    /** The content (MIME) type for this content, if known or can be determined. */
+    /** 如果可以确定此内容的类型（MIME）。 */
     public String getContentType() {
         String fn = getFileName();
         return fn != null && fn.length() > 0 ? getContentType(fn) : null;
     }
     public boolean isBinary() { return isBinaryContentType(getContentType()); }
 
-    /** Get the parent directory, null if it is the root (no parent). */
+    /** 获取父目录，如果是根目录（无父目录），则为null。 */
     public ResourceReference getParent() {
         String curLocation = getLocation();
         if (curLocation.endsWith("/")) curLocation = curLocation.substring(0, curLocation.length() - 1);
@@ -127,18 +114,18 @@ public abstract class ResourceReference implements Serializable {
             return createNew(curLocation.substring(0, curLocation.lastIndexOf("/")));
         } else {
             String prefix = getLocationPrefix(curLocation);
-            if (prefix != null && !prefix.isEmpty()) return createNew(prefix);
+            if (!prefix.isEmpty()) return createNew(prefix);
             return null;
         }
     }
 
-    /** Find the directory with a name that matches the current filename (minus the extension) */
+    /** 找到名称与当前文件名匹配的目录（减去扩展名） */
     public ResourceReference findMatchingDirectory() {
         if (this.isDirectory()) return this;
         StringBuilder dirLoc = new StringBuilder(getLocation());
         ResourceReference directoryRef = this;
         while (!(directoryRef.getExists() && directoryRef.isDirectory()) && dirLoc.lastIndexOf(".") > 0) {
-            // get rid of one suffix at a time (for screens probably .xml but use .* for other files, etc)
+            // 一次去掉一个后缀（屏幕可能是.xml但是使用。*用于其他文件等）
             dirLoc.delete(dirLoc.lastIndexOf("."), dirLoc.length());
             directoryRef = createNew(dirLoc.toString());
             // directoryRef = ecf.resource.getLocationReference(dirLoc.toString())
@@ -146,7 +133,7 @@ public abstract class ResourceReference implements Serializable {
         return directoryRef;
     }
 
-    /** Get a reference to the child of this directory or this file in the matching directory */
+    /** 获取对此目录的子项或匹配目录中此文件的引用 */
     public ResourceReference getChild(String childName) {
         if (childName == null || childName.length() == 0) return null;
         ResourceReference directoryRef = findMatchingDirectory();
@@ -155,36 +142,37 @@ public abstract class ResourceReference implements Serializable {
         if (childName.charAt(0) != '/') fileLoc.append('/');
         fileLoc.append(childName);
 
-        // NOTE: don't really care if it exists or not at this point
+        // 注意：此时并不关心它是否存在
         return createNew(fileLoc.toString());
     }
 
-    /** Get a list of references to all files in this directory or for a file in the matching directory */
+    /** 获取此目录中所有文件或匹配目录中文件的引用列表 */
     public List<ResourceReference> getChildren() {
         List<ResourceReference> children = new LinkedList<>();
         ResourceReference directoryRef = findMatchingDirectory();
         if (directoryRef == null || !directoryRef.getExists()) return null;
-        for (ResourceReference childRef : directoryRef.getDirectoryEntries()) if (childRef.isFile()) children.add(childRef);
+        for (ResourceReference childRef : directoryRef.getDirectoryEntries()) if (childRef.isFile()) {
+            children.add(childRef);
+        }
         return children;
     }
 
-    /** Find a file by path (can be single name) in the matching directory and child matching directories */
+    /** 在匹配目录和子匹配目录中按路径（可以是单个名称）查找文件 */
     public ResourceReference findChildFile(String relativePath) {
-        // no path to child? that means this resource
+        // 没有子文件路径？ 这意味着这个资源
         if (relativePath == null || relativePath.length() == 0) return this;
 
         if (!supportsAll()) {
-            throw new BaseException("Not looking for child file at " + relativePath + " under space root page " +
-                    getLocation() + " because exists, isFile, etc are not supported");
+            throw new BaseException("资源引用错误: 无法在根路径 ["+getLocation()+"] 下找子文件 ["+relativePath+"] ,因为不支持 exists, isFile 等");
         }
 
         // logger.warn("============= finding child resource of [${toString()}] path [${relativePath}]")
 
-        // check the cache first
+        // 首先检查缓存
         ResourceReference childRef = getSubContentRefByPath().get(relativePath);
         if (childRef != null && childRef.getExists()) return childRef;
 
-        // this finds a file in a directory with the same name as this resource, unless this resource is a directory
+        // 这将在与此资源同名的目录中查找文件，除非此资源是目录
         ResourceReference directoryRef = findMatchingDirectory();
 
         // logger.warn("============= finding child resource path [${relativePath}] directoryRef [${directoryRef}]")
@@ -199,13 +187,13 @@ public abstract class ResourceReference implements Serializable {
 
             // logger.warn("============= finding child resource path [${relativePath}] childRef [${childRef}]")
             if (childRef == null) {
-                // didn't find it at a literal path, try searching for it in all subdirectories
+                // 没有在文字路径上找到它，尝试在所有子目录中搜索它
                 int lastSlashIdx = relativePath.lastIndexOf("/");
                 String directoryPath = lastSlashIdx > 0 ? relativePath.substring(0, lastSlashIdx) : "";
                 String childFilename = lastSlashIdx >= 0 ? relativePath.substring(lastSlashIdx + 1) : relativePath;
-                // first find the most matching directory
+                // 首先找到最匹配的目录
                 ResourceReference childDirectoryRef = directoryRef.findChildDirectory(directoryPath);
-                // recursively walk the directory tree and find the childFilename
+                // 递归遍历目录树并找到子文件名称
                 childRef = internalFindChildFile(childDirectoryRef, childFilename);
                 // logger.warn("============= finding child resource path [${relativePath}] directoryRef [${directoryRef}] childFilename [${childFilename}] childRef [${childRef}]")
             }
@@ -216,20 +204,20 @@ public abstract class ResourceReference implements Serializable {
 
 
         if (childRef == null) {
-            // still nothing? treat the path to the file as a literal and return it (exists will be false)
+            // 依然没有？ 将文件的路径视为文字并返回它（存在将为false）
             if (directoryRef.getExists()) {
                 childRef = createNew(directoryRef.getLocation() + "/" + relativePath);
                 childRef.childOfResource = directoryRef;
             } else {
                 String newDirectoryLoc = getLocation();
-                // pop off the extension, everything past the first dot after the last slash
+                // 弹出扩展，一切都经过最后一个斜线后的第一个点
                 int lastSlashLoc = newDirectoryLoc.lastIndexOf("/");
                 if (newDirectoryLoc.contains("."))
                     newDirectoryLoc = newDirectoryLoc.substring(0, newDirectoryLoc.indexOf(".", lastSlashLoc));
                 childRef = createNew(newDirectoryLoc + "/" + relativePath);
             }
         } else {
-            // put it in the cache before returning, but don't cache the literal reference
+            // 在返回之前将它放在缓存中，但不要缓存文字引用
             getSubContentRefByPath().put(relativePath, childRef);
         }
 
@@ -237,25 +225,24 @@ public abstract class ResourceReference implements Serializable {
         return childRef;
     }
 
-    /** Find a directory by path (can be single name) in the matching directory and child matching directories */
+    /** 在匹配目录和子匹配目录中按路径（可以是单个名称）查找目录 */
     public ResourceReference findChildDirectory(String relativePath) {
         if (relativePath == null || relativePath.isEmpty()) return this;
 
         if (!supportsAll()) {
-            throw new BaseException("Not looking for child file at " + relativePath + " under space root page " +
-                    getLocation() + " because exists, isFile, etc are not supported");
+            throw new BaseException("资源引用错误: 无法在根路径 ["+getLocation()+"] 下找子文件 ["+relativePath+"] ,因为不支持 exists, isFile 等");
         }
 
-        // check the cache first
+        // 首先检查缓存
         ResourceReference childRef = getSubContentRefByPath().get(relativePath);
         if (childRef != null && childRef.getExists()) return childRef;
 
-        List<String> relativePathNameList = Arrays.asList(relativePath.split("/"));
+        String[] relativePathNameList = relativePath.split("/");
 
         ResourceReference childDirectoryRef = this;
         if (this.isFile()) childDirectoryRef = this.findMatchingDirectory();
 
-        // search remaining relativePathNameList, ie partial directories leading up to filename
+        // 搜索剩余的 relativePathNameList，引导到文件名的目录
         for (String relativePathName : relativePathNameList) {
             childDirectoryRef = internalFindChildDir(childDirectoryRef, relativePathName);
             if (childDirectoryRef == null) break;
@@ -263,10 +250,10 @@ public abstract class ResourceReference implements Serializable {
 
 
         if (childDirectoryRef == null) {
-            // still nothing? treat the path to the file as a literal and return it (exists will be false)
+            // 依然没有？ 将文件的路径视为文字并返回它（存在将为false）
             String newDirectoryLoc = getLocation();
             if (this.isFile()) {
-                // pop off the extension, everything past the first dot after the last slash
+                // 去掉扩展名，一切都经过最后一个斜线后的第一个点
                 int lastSlashLoc = newDirectoryLoc.lastIndexOf("/");
                 if (newDirectoryLoc.contains("."))
                     newDirectoryLoc = newDirectoryLoc.substring(0, newDirectoryLoc.indexOf(".", lastSlashLoc));
@@ -274,7 +261,7 @@ public abstract class ResourceReference implements Serializable {
 
             childDirectoryRef = createNew(newDirectoryLoc + "/" + relativePath);
         } else {
-            // put it in the cache before returning, but don't cache the literal reference
+            // 在返回之前将它放在缓存中，但不要缓存文字引用
             getSubContentRefByPath().put(relativePath, childRef);
         }
 
@@ -283,10 +270,10 @@ public abstract class ResourceReference implements Serializable {
 
     private ResourceReference internalFindChildDir(ResourceReference directoryRef, String childDirName) {
         if (directoryRef == null || !directoryRef.getExists()) return null;
-        // no child dir name, means this/current dir
+        // 没有子文件夹名称，意思是这个/当前的文件夹
         if (childDirName == null || childDirName.isEmpty()) return directoryRef;
 
-        // try a direct sub-directory, if it is there it's more efficient than a brute-force search
+        // 尝试取直接子文件夹，如果它在那里它比暴力搜索更有效
         StringBuilder dirLocation = new StringBuilder(directoryRef.getLocation());
         if (dirLocation.charAt(dirLocation.length() - 1) == '/') dirLocation.deleteCharAt(dirLocation.length() - 1);
         if (childDirName.charAt(0) != '/') dirLocation.append('/');
@@ -294,13 +281,13 @@ public abstract class ResourceReference implements Serializable {
         ResourceReference directRef = createNew(dirLocation.toString());
         if (directRef != null && directRef.getExists()) return directRef;
 
-        // if no direct reference is found, try the more flexible search
+        // 如果没有找到直接引用，请尝试更灵活的搜索
         for (ResourceReference childRef : directoryRef.getDirectoryEntries()) {
             if (childRef.isDirectory() && (childRef.getFileName().equals(childDirName) || childRef.getFileName().contains(childDirName + "."))) {
-                // matching directory name, use it
+                // 匹配文件夹名称，使用它
                 return childRef;
             } else if (childRef.isDirectory()) {
-                // non-matching directory name, recurse into it
+                // 不匹配的文件夹名，递归到它
                 ResourceReference subRef = internalFindChildDir(childRef, childDirName);
                 if (subRef != null) return subRef;
             }
@@ -311,12 +298,12 @@ public abstract class ResourceReference implements Serializable {
     private ResourceReference internalFindChildFile(ResourceReference directoryRef, String childFilename) {
         if (directoryRef == null || !directoryRef.getExists()) return null;
 
-        // find check exact filename first
+        // 找先检查明确的文件名
         ResourceReference exactMatchRef = directoryRef.getChild(childFilename);
         if (exactMatchRef.isFile() && exactMatchRef.getExists()) return exactMatchRef;
 
         List<ResourceReference> childEntries = directoryRef.getDirectoryEntries();
-        // look through all files first, ie do a breadth-first search
+        // 首先查看所有文件，即进行广度优先搜索
         for (ResourceReference childRef : childEntries) {
             if (childRef.isFile() && (childRef.getFileName().equals(childFilename) || childRef.getFileName().startsWith(childFilename + "."))) {
                 return childRef;
@@ -336,7 +323,7 @@ public abstract class ResourceReference implements Serializable {
         if (childOfResource == null) return null;
         String parentLocation = childOfResource.getLocation();
         String childLocation = getLocation();
-        // this should be true, but just in case:
+        // 这应该是true，但以防万一：
         if (childLocation.startsWith(parentLocation)) {
             String childPath = childLocation.substring(parentLocation.length());
             if (childPath.startsWith("/")) return childPath.substring(1);
@@ -382,7 +369,7 @@ public abstract class ResourceReference implements Serializable {
                 childRef.walkChildFileTree(rootResource, childPath, allChildFileFlatList, curChildResourceList);
             }
         }
-        // TODO: walk child directories somehow or just stick with files with matching directories?
+        // TODO: 以某种方式走到子文件夹或只是坚持与匹配目录的文件？
     }
 
     public void destroy() { }
@@ -398,10 +385,10 @@ public abstract class ResourceReference implements Serializable {
     }
 
     public static String getContentType(String filename) {
-        // need to check this, or type mapper handles it fine? || !filename.contains(".")
+        // 需要检查一下，还是输入mapper处理好了？||！filename.contains（“”）
         if (filename == null || filename.length() == 0) return null;
         String type = mimetypesFileTypeMap.getContentType(filename);
-        // strip any parameters, ie after the ;
+        // 剥离任何参数，即;
         int semicolonIndex = type.indexOf(";");
         if (semicolonIndex >= 0) type = type.substring(0, semicolonIndex);
         return type;
@@ -409,7 +396,7 @@ public abstract class ResourceReference implements Serializable {
     public static boolean isBinaryContentType(String contentType) {
         if (contentType == null || contentType.length() == 0) return false;
         if (contentType.startsWith("text/")) return false;
-        // aside from text/*, a few notable exceptions:
+        // 除了text / *之外，还有一些值得注意的例外：
         if ("application/javascript".equals(contentType)) return false;
         if ("application/json".equals(contentType)) return false;
         if (contentType.endsWith("+json")) return false;
@@ -422,7 +409,7 @@ public abstract class ResourceReference implements Serializable {
     }
     public static String stripLocationPrefix(String location) {
         if (location == null || location.isEmpty()) return "";
-        // first remove colon (:) and everything before it
+        // 首先删除冒号（:)及其前面的所有内容
         StringBuilder strippedLocation = new StringBuilder(location);
         int colonIndex = strippedLocation.indexOf(":");
         if (colonIndex == 0) {
@@ -430,7 +417,7 @@ public abstract class ResourceReference implements Serializable {
         } else if (colonIndex > 0) {
             strippedLocation.delete(0, colonIndex+1);
         }
-        // delete all leading forward slashes
+        // 删除所有前导斜杠
         while (strippedLocation.length() > 0 && strippedLocation.charAt(0) == '/') strippedLocation.deleteCharAt(0);
         return strippedLocation.toString();
     }
