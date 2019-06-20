@@ -1,6 +1,5 @@
 package com.zmtech.zkit.entity.impl;
 
-import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zkit.entity.EntityCondition;
 import com.zmtech.zkit.entity.EntityList;
 import com.zmtech.zkit.entity.EntityValue;
@@ -20,7 +19,7 @@ import java.sql.Timestamp;
 import java.util.*;
 
 public class EntityListImpl implements EntityList {
-    protected static final Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class);
+    protected static final Logger logger = LoggerFactory.getLogger(EntityListImpl.class);
     private transient EntityFacadeImpl efiTransient;
     private ArrayList<EntityValue> valueList;
     private boolean fromCache = false;
@@ -52,8 +51,6 @@ public class EntityListImpl implements EntityList {
 
     @SuppressWarnings("unchecked")
     public EntityFacadeImpl getEfi() {
-        if (efiTransient == null)
-            efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).entityFacade;
         return efiTransient;
     }
 
@@ -193,9 +190,7 @@ public class EntityListImpl implements EntityList {
 
     @Override public EntityList findAll(Closure<Boolean> closure) {
         EntityListImpl newList = new EntityListImpl(getEfi());
-        int valueListSize = valueList.size();
-        for (int i = 0; i < valueListSize; i++) {
-            EntityValue value = valueList.get(i);
+        for (EntityValue value : valueList) {
             boolean matches = closure.call(value);
             if (matches) newList.add(value);
         }
