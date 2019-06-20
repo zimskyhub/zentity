@@ -1,7 +1,7 @@
 package com.zmtech.zkit.util;
 
 import com.zmtech.zkit.exception.BaseException;
-import com.zmtech.zkit.resource.references.ResourceReference;
+import com.zmtech.zkit.references.ResourceReference;
 import freemarker.ext.beans.BeansWrapper;
 import freemarker.ext.beans.BeansWrapperBuilder;
 import freemarker.template.*;

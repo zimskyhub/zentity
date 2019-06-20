@@ -9,7 +9,7 @@ import com.zmtech.zkit.entity.impl.condition.impl.ListCondition;
 import com.zmtech.zkit.etl.SimpleEtl;
 import com.zmtech.zkit.exception.EntityException;
 import com.zmtech.zkit.exception.EntityNotFoundException;
-import com.zmtech.zkit.resource.references.ResourceReference;
+import com.zmtech.zkit.references.ResourceReference;
 import com.zmtech.zkit.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zkit.util.*;
 import com.zmtech.zkit.util.EntityJavaUtil.*;

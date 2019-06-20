@@ -5,7 +5,7 @@ import com.zmtech.zkit.context.ExecutionContextFactory;
 import com.zmtech.zkit.context.TemplateRenderer;
 import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zkit.exception.BaseException;
-import com.zmtech.zkit.resource.references.ResourceReference;
+import com.zmtech.zkit.references.ResourceReference;
 import freemarker.template.Template;
 import org.pegdown.PegDownProcessor;
 import org.slf4j.Logger;

@@ -1,4 +1,4 @@
-package com.zmtech.zkit.resource.references;
+package com.zmtech.zkit.references;
 
 import com.zmtech.zkit.exception.BaseException;
 import org.slf4j.Logger;

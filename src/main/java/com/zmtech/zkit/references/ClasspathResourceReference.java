@@ -1,4 +1,4 @@
-package com.zmtech.zkit.resource.references;
+package com.zmtech.zkit.references;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,4 +1,4 @@
-package com.zmtech.zkit.resource.references;
+package com.zmtech.zkit.references;
 
 import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
 import org.slf4j.Logger;
