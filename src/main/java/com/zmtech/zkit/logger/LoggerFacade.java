@@ -3,8 +3,8 @@ package com.zmtech.zkit.logger;
 /**
  * 用于跟踪，错误等记录到控制台，文件等。
  */
-public interface {
-    /** Log level copied from org.apache.logging.log4j.spi.StandardLevel to avoid requiring that on the classpath. */
+public interface LoggerFacade {
+    /** 复制 org.apache.logging.log4j.spi.StandardLevel 的日志级别，避免在类路径上加载。 */
     int	OFF_INT = 0;
     int	FATAL_INT = 100;
     int	ERROR_INT = 200;
@@ -14,29 +14,12 @@ public interface {
     int	TRACE_INT = 600;
     int	ALL_INT = 2147483647;
 
-    /** Log a message and/or Throwable error at the given level.
-     *
-     * This is meant to be used for scripts, xml-actions, etc.
-     *
-     * In Java or Groovy classes it is better to use SLF4J directly, with something like:
-     * <code>
-     * public class Wombat {
-     *   final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Wombat.class);
-     *
-     *   public void setTemperature(Integer temperature) {
-     *     Integer oldT = t;
-     *     Integer t = temperature;
-     *     logger.debug("Temperature set to {}. Old temperature was {}.", t, oldT);
-     *     if(temperature.intValue() &gt; 50) {
-     *       logger.info("Temperature has risen above 50 degrees.");
-     *     }
-     *   }
-     * }
-     * </code>
-     *
-     * @param level The logging level. Options should come from org.apache.log4j.Level.  
-     * @param message The message text to log. If contains ${} syntax will be expanded from the current context.
-     * @param thrown Throwable with stack trace, etc to be logged along with the message.
+    /** 按照不同级别记录抛出的错误信息。
+     * 主要适用于脚本，xml-actions等。
+     * 在Java或Groovy类中，最好直接使用SLF4J
+     * @param level 记录级别。 选项应来自org.apache.log4j.Level.
+     * @param message 要记录的消息文本。 如果包含$ {}语法将从当前上下文扩展。
+     * @param thrown 可以与堆栈跟踪等一起使用，以便与消息一起记录。
      */
     void log(int level, String message, Throwable thrown);
 
@@ -46,6 +29,6 @@ public interface {
     void warn(String message);
     void error(String message);
 
-    /** Is the given logging level enabled? */
+    /** 是否启用了给定的日志级别？ */
     boolean logEnabled(int level);
 }
