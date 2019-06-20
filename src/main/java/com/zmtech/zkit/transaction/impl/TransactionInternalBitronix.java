@@ -58,7 +58,7 @@ public class TransactionInternalBitronix implements TransactionInternal {
 
         PoolingDataSource pds = new PoolingDataSource();
         pds.setUniqueName(dsi.uniqueName);
-        if (dsi.xaDsClass) {
+        if (dsi.xaDsClass != null &&!dsi.xaDsClass.isEmpty()) {
             pds.setClassName(dsi.xaDsClass);
             pds.setDriverProperties(dsi.xaProps);
         } else {
@@ -69,10 +69,10 @@ public class TransactionInternalBitronix implements TransactionInternal {
             pds.getDriverProperties().setProperty("password", dsi.jdbcPassword);
         }
 
-        String txIsolationLevel = dsi.inlineJdbc.attribute("isolation-level") ?
+        String txIsolationLevel = dsi.inlineJdbc.attribute("isolation-level") != null ?
                 dsi.inlineJdbc.attribute("isolation-level") : dsi.database.attribute("default-isolation-level");
         int isolationInt = efi.getTxIsolationFromString(txIsolationLevel);
-        if (txIsolationLevel && isolationInt != -1) {
+        if (txIsolationLevel != null && !txIsolationLevel.isEmpty() && isolationInt != -1) {
             switch (isolationInt) {
                 case Connection.TRANSACTION_SERIALIZABLE: pds.setIsolationLevel("SERIALIZABLE"); break;
                 case Connection.TRANSACTION_REPEATABLE_READ: pds.setIsolationLevel("REPEATABLE_READ"); break;
@@ -86,10 +86,10 @@ public class TransactionInternalBitronix implements TransactionInternal {
         pds.setMinPoolSize(Integer.valueOf(dsi.inlineJdbc.attribute("pool-minsize")!= null? dsi.inlineJdbc.attribute("pool-minsize"): "5"));
         pds.setMaxPoolSize(Integer.valueOf(dsi.inlineJdbc.attribute("pool-maxsize")!= null? dsi.inlineJdbc.attribute("pool-minsize"): "50"));
 
-        if (dsi.inlineJdbc.attribute("pool-time-idle")) pds.setMaxIdleTime(Integer.valueOf(dsi.inlineJdbc.attribute("pool-time-idle")));
+        if (dsi.inlineJdbc.attribute("pool-time-idle") != null) pds.setMaxIdleTime(Integer.valueOf(dsi.inlineJdbc.attribute("pool-time-idle")));
         // if (dsi.inlineJdbc."@pool-time-reap") ads.setReapTimeout(dsi.inlineJdbc."@pool-time-reap" as int)
         // if (dsi.inlineJdbc."@pool-time-maint") ads.setMaintenanceInterval(dsi.inlineJdbc."@pool-time-maint" as int)
-        if (dsi.inlineJdbc.attribute("pool-time-wait")) pds.setAcquisitionTimeout(Integer.valueOf(dsi.inlineJdbc.attribute("pool-time-wait")));
+        if (dsi.inlineJdbc.attribute("pool-time-wait") != null) pds.setAcquisitionTimeout(Integer.valueOf(dsi.inlineJdbc.attribute("pool-time-wait")));
         pds.setAllowLocalTransactions(true); // allow mixing XA and non-XA transactions
         pds.setAutomaticEnlistingEnabled(true); // automatically enlist/delist this resource in the tx
         pds.setShareTransactionConnections(true); // share connections within a transaction
@@ -105,9 +105,9 @@ public class TransactionInternalBitronix implements TransactionInternal {
         // use-tm-join defaults to true, so does Bitronix so just set to false if false
         if (dsi.database.attribute("use-tm-join").equals("false")) pds.setUseTmJoin(false);
 
-        if (dsi.inlineJdbc.attribute("pool-test-query")) {
+        if (dsi.inlineJdbc.attribute("pool-test-query") != null) {
             pds.setTestQuery(dsi.inlineJdbc.attribute("pool-test-query"));
-        } else if (dsi.database.attribute("default-test-query")) {
+        } else if (dsi.database.attribute("default-test-query") != null) {
             pds.setTestQuery(dsi.database.attribute("default-test-query"));
         }
 
@@ -115,7 +115,7 @@ public class TransactionInternalBitronix implements TransactionInternal {
 
         // init the DataSource
         pds.init();
-        logger.info("Init DataSource ${dsi.uniqueName} (${dsi.database.attribute('name')}) isolation ${pds.getIsolationLevel()} (${isolationInt}), max pool ${pds.getMaxPoolSize()}")
+        logger.info("Init DataSource ${dsi.uniqueName} (${dsi.database.attribute('name')}) isolation ${pds.getIsolationLevel()} (${isolationInt}), max pool ${pds.getMaxPoolSize()}");
 
         pdsList.add(pds);
 
