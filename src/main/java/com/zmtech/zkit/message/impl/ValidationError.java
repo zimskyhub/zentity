@@ -1,6 +1,8 @@
 package com.zmtech.zkit.message.impl;
 
+
 import com.zmtech.zkit.exception.BaseException;
+import com.zmtech.zkit.util.StringUtil;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -34,12 +36,31 @@ public class ValidationError extends BaseException {
     }
 
     public String getForm() { return form; }
+    public String getFormPretty() { return StringUtil.camelCaseToPretty(form); }
     public String getField() { return field; }
+    public String getFieldPretty() { return StringUtil.camelCaseToPretty(field); }
     public String getServiceName() { return serviceName; }
+    public String getServiceNamePretty() { return StringUtil.camelCaseToPretty(serviceName); }
+
+    public String toStringPretty() {
+        StringBuilder errorBuilder = new StringBuilder();
+        String message = getMessage();
+        if (message != null) errorBuilder.append(message);
+        errorBuilder.append('(');
+        String fieldPretty = getFieldPretty();
+        if (fieldPretty != null && !fieldPretty.isEmpty()) errorBuilder.append("for field ").append(fieldPretty);
+        String formPretty = getFormPretty();
+        if (formPretty != null && !formPretty.isEmpty()) errorBuilder.append(" on form ").append(formPretty);
+        String serviceNamePretty = getServiceNamePretty();
+        if (serviceNamePretty != null && !serviceNamePretty.isEmpty()) errorBuilder.append(" of service ").append(serviceNamePretty);
+        return  errorBuilder.toString();
+    }
 
     public Map<String, String> getMap() {
         Map<String, String> veMap = new HashMap<>();
         veMap.put("form", form); veMap.put("field", field); veMap.put("serviceName", serviceName);
+        veMap.put("formPretty", getFormPretty()); veMap.put("fieldPretty", getFieldPretty());
+        veMap.put("serviceNamePretty", getServiceNamePretty());
         veMap.put("message", getMessage());
         if (getCause() != null) veMap.put("cause", getCause().toString());
         return veMap;

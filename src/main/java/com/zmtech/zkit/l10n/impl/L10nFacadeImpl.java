@@ -23,8 +23,8 @@ import java.util.*;
 public class L10nFacadeImpl implements L10nFacade {
     protected final static Logger logger = LoggerFactory.getLogger(L10nFacadeImpl.class);
 
-    final static BigDecimalValidator bigDecimalValidator = new BigDecimalValidator(false);
-    final static CalendarValidator calendarValidator = new CalendarValidator();
+    private final static BigDecimalValidator bigDecimalValidator = new BigDecimalValidator(false);
+    private final static CalendarValidator calendarValidator = new CalendarValidator();
 
     protected final ExecutionContextImpl eci;
 

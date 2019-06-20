@@ -36,7 +36,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     public final ExecutionContextFactoryImpl ecfi;
     public final ContextStack contextStack = new ContextStack();
     public final ContextBinding contextBindingInternal = new ContextBinding(contextStack);
-    private final Timestamp effectiveTime = null;
+    private Timestamp effectiveTime = null;
 
     private final EntityFacadeImpl activeEntityFacade;
     private final TransactionFacadeImpl transactionFacade;
@@ -96,11 +96,10 @@ public class ExecutionContextImpl implements ExecutionContext {
         tarpitHitCache = cacheFacade.getCache("artifact.tarpit.hits");
         l10nMessageCache = cacheFacade.getCache("l10n.message");
     }
-    Cache<String, String> getL10nMessageCache() { return l10nMessageCache; }
+    public Cache<String, String> getL10nMessageCache() { return l10nMessageCache; }
     public Cache<String, ArrayList> getTarpitHitCache() { return tarpitHitCache; }
 
-    @Override public @Nonnull
-    ExecutionContextFactory getFactory() { return ecfi; }
+    @Override public @Nonnull ExecutionContextFactory getFactory() { return ecfi; }
 
     @Override public @Nonnull ContextStack getContext() { return contextStack; }
     @Override public @Nonnull Map<String, Object> getContextRoot() { return contextStack.getRootMap(); }
@@ -216,7 +215,7 @@ public class ExecutionContextImpl implements ExecutionContext {
         ecfi.getResource().destroyAllInThread();
         // clear out the ECFI's reference to this as well
         ecfi.activeContext.remove();
-        ecfi.activeContextMap.remove(Thread.currentThread().getId());
+        ecfi.getActiveContextMap().remove(Thread.currentThread().getId());
 
         MDC.remove("moqui_userId");
         MDC.remove("moqui_visitorId");

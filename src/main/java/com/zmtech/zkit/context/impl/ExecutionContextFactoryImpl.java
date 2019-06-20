@@ -902,6 +902,10 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return ec;
     }
 
+    public Map<Long, ExecutionContextImpl> getActiveContextMap() {
+        return activeContextMap;
+    }
+
     public void destroyActiveExecutionContext() {
         ExecutionContext ec = this.activeContext.get();
         if (ec != null) {
