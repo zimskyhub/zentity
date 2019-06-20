@@ -49,12 +49,12 @@ public class ZCache<K, V> implements Cache<K, V> {
     private ScheduledFuture<?> evictFuture = null;
 
     private static class WorkerThreadFactory implements ThreadFactory {
-        private final ThreadGroup workerGroup = new ThreadGroup("MCacheEvict");
+        private final ThreadGroup workerGroup = new ThreadGroup("ZCacheEvict");
         private final AtomicInteger threadNumber = new AtomicInteger(1);
 
         @Override
         public Thread newThread(Runnable r) {
-            return new Thread(workerGroup, r, "MCacheEvict-" + threadNumber.getAndIncrement());
+            return new Thread(workerGroup, r, "ZCacheEvict-" + threadNumber.getAndIncrement());
         }
     }
 
@@ -93,11 +93,11 @@ public class ZCache<K, V> implements Cache<K, V> {
             // TODO: support any other configuration?
 
             if (configuration instanceof ZCacheConfiguration) {
-                ZCacheConfiguration<K, V> mCacheConf = (ZCacheConfiguration<K, V>) configuration;
+                ZCacheConfiguration<K, V> zCacheConf = (ZCacheConfiguration<K, V>) configuration;
 
-                if (mCacheConf.maxEntries > 0) {
-                    evictRunnable = new EvictRunnable(this, mCacheConf.maxEntries);
-                    evictFuture = workerPool.scheduleWithFixedDelay(evictRunnable, 30, mCacheConf.maxCheckSeconds, TimeUnit.SECONDS);
+                if (zCacheConf.maxEntries > 0) {
+                    evictRunnable = new EvictRunnable(this, zCacheConf.maxEntries);
+                    evictFuture = workerPool.scheduleWithFixedDelay(evictRunnable, 30, zCacheConf.maxCheckSeconds, TimeUnit.SECONDS);
                 }
             }
         }
@@ -167,8 +167,8 @@ public class ZCache<K, V> implements Cache<K, V> {
      * 获取，不检查是否过期。
      */
     public ZEntry<K, V> getEntryNoCheck(K key) {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经关闭!");
-        if (key == null) throw new IllegalArgumentException("缓存键不能为空!");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: [" + name + "] 已经关闭!");
+        if (key == null) throw new IllegalArgumentException("ZCache缓存错误: 缓存键不能为空!");
         ZEntry<K, V> entry = entryStore.get(key);
         if (entry != null) {
             if (statsEnabled) {
@@ -188,8 +188,8 @@ public class ZCache<K, V> implements Cache<K, V> {
     }
 
     private ZEntry<K, V> getEntryInternal(final K key, final ExpiryPolicy policy, final Long expireBeforeTime, long currentTime) {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经关闭!");
-        if (key == null) throw new IllegalArgumentException("缓存不能为空!");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: [" + name + "] 已经关闭!");
+        if (key == null) throw new IllegalArgumentException("ZCache缓存错误: 缓存不能为空!");
         ZEntry<K, V> entry = entryStore.get(key);
 
         if (entry != null) {
@@ -221,9 +221,9 @@ public class ZCache<K, V> implements Cache<K, V> {
                     stats.hits++;
                 }
                 entry.accessCount++;
-                // at this point if an ad-hoc policy is used or hasExpiry == true currentTime will be set, otherwise will be 0
-                // meaning we don't need to track the lastAccessTime (only thing we need System.currentTimeMillis() for)
-                // if (currentTime == 0) currentTime = System.currentTimeMillis();
+                // 此时如果使用ad-hoc策略或hasExpiry == true 将设置currentTime，
+                // 否则将为0意味着我们不需要跟踪lastAccessTime 我们只需要System.currentTimeMillis（））
+                // if（currentTime == 0）currentTime = System.currentTimeMillis（）;
                 if (currentTime > entry.lastAccessTime) entry.lastAccessTime = currentTime;
             } else {
                 if (statsEnabled) {
@@ -242,8 +242,8 @@ public class ZCache<K, V> implements Cache<K, V> {
     }
 
     private ZEntry<K, V> getCheckExpired(K key) {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经关闭!");
-        if (key == null) throw new IllegalArgumentException("Cache key cannot be null");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: [" + name + "] 已经关闭!");
+        if (key == null) throw new IllegalArgumentException("ZCache缓存错误: Cache key cannot be null");
         ZEntry<K, V> entry = entryStore.get(key);
         if (hasExpiry && entry != null && entry.isExpired(accessDuration, creationDuration, updateDuration)) {
             entryStore.remove(key);
@@ -254,8 +254,8 @@ public class ZCache<K, V> implements Cache<K, V> {
     }
 
     private ZEntry<K, V> getCheckExpired(K key, long currentTime) {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经关闭!");
-        if (key == null) throw new IllegalArgumentException("缓存键不能为空!");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: [" + name + "] 已经关闭!");
+        if (key == null) throw new IllegalArgumentException("ZCache缓存错误: 缓存键不能为空!");
         ZEntry<K, V> entry = entryStore.get(key);
         if (hasExpiry && entry != null && entry.isExpired(currentTime, accessDuration, creationDuration, updateDuration)) {
             entryStore.remove(key);
@@ -426,13 +426,13 @@ public class ZCache<K, V> implements Cache<K, V> {
 
     @Override
     public void removeAll(Set<? extends K> keys) {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经关闭!");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: [" + name + "] 已经关闭!");
         for (K key : keys) remove(key);
     }
 
     @Override
     public void removeAll() {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经关闭!");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: [" + name + "] 已经关闭!");
         int size = entryStore.size();
         entryStore.clear();
         if (statsEnabled) stats.countBulkRemoval(size);
@@ -440,7 +440,7 @@ public class ZCache<K, V> implements Cache<K, V> {
 
     @Override
     public void clear() {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经关闭!");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: [" + name + "] 已经关闭!");
         // don't track removals or do anything else, removeAll does that
         entryStore.clear();
     }
@@ -449,32 +449,32 @@ public class ZCache<K, V> implements Cache<K, V> {
     public <C extends Configuration<K, V>> C getConfiguration(Class<C> clazz) {
         if (configuration == null) return null;
         if (clazz.isAssignableFrom(configuration.getClass())) return clazz.cast(configuration);
-        throw new IllegalArgumentException("类型: " + clazz.getName() + " 不是: " + configuration.getClass().getName() +"类型!");
+        throw new IllegalArgumentException("ZCache缓存错误: 类型 [" + clazz.getName() + "] 不是 [" + configuration.getClass().getName() +" ]类型!");
     }
 
     @Override
     public void loadAll(Set<? extends K> keys, boolean replaceExistingValues, CompletionListener completionListener) {
-        throw new CacheException("ZCache暂时不支持 loadAll!");
+        throw new CacheException("ZCache缓存错误: ZCache暂时不支持 loadAll!");
     }
 
     @Override
     public <T> T invoke(K key, EntryProcessor<K, V, T> entryProcessor, Object... arguments) throws EntryProcessorException {
-        throw new CacheException("ZCache暂时不支持 invoke!");
+        throw new CacheException("ZCache缓存错误: ZCache暂时不支持 invoke!");
     }
 
     @Override
     public <T> Map<K, EntryProcessorResult<T>> invokeAll(Set<? extends K> keys, EntryProcessor<K, V, T> entryProcessor, Object... arguments) {
-        throw new CacheException("ZCache暂时不支持 invokeAll!");
+        throw new CacheException("ZCache缓存错误: ZCache暂时不支持 invokeAll!");
     }
 
     @Override
     public void registerCacheEntryListener(CacheEntryListenerConfiguration<K, V> cacheEntryListenerConfiguration) {
-        throw new CacheException("ZCache暂时不支持 registerCacheEntryListener!");
+        throw new CacheException("ZCache缓存错误: ZCache暂时不支持 registerCacheEntryListener!");
     }
 
     @Override
     public void deregisterCacheEntryListener(CacheEntryListenerConfiguration<K, V> cacheEntryListenerConfiguration) {
-        throw new CacheException("ZCache暂时不支持 deregisterCacheEntryListener!");
+        throw new CacheException("ZCache缓存错误: ZCache暂时不支持 deregisterCacheEntryListener!");
     }
 
     @Override
@@ -484,7 +484,7 @@ public class ZCache<K, V> implements Cache<K, V> {
 
     @Override
     public void close() {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经成功关闭!");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: [" + name + "] 已经成功关闭!");
         isClosed = true;
         entryStore.clear();
     }
@@ -497,26 +497,26 @@ public class ZCache<K, V> implements Cache<K, V> {
     @Override
     public <T> T unwrap(Class<T> clazz) {
         if (clazz.isAssignableFrom(this.getClass())) return clazz.cast(this);
-        throw new IllegalArgumentException("类型: " + clazz.getName() + " 不是ZCache类型!");
+        throw new IllegalArgumentException("ZCache缓存错误: 类型 [" + clazz.getName() + "] 不是ZCache类型!");
     }
 
     @Override
     public Iterator<Entry<K, V>> iterator() {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经关闭!");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: 缓存 [" + name + "] 已经关闭!");
         return new CacheIterator<>(this);
     }
 
     private static class CacheIterator<K, V> implements Iterator<Entry<K, V>> {
-        final ZCache<K, V> mCache;
+        final ZCache<K, V> zCache;
         final long initialTime;
         final ArrayList<ZEntry<K, V>> entryList;
         final int maxIndex;
         int curIndex = -1;
         ZEntry<K, V> curEntry = null;
 
-        CacheIterator(ZCache<K, V> mCache) {
-            this.mCache = mCache;
-            entryList = new ArrayList<>(mCache.entryStore.values());
+        CacheIterator(ZCache<K, V> zCache) {
+            this.zCache = zCache;
+            entryList = new ArrayList<>(zCache.entryStore.values());
             maxIndex = entryList.size() - 1;
             initialTime = System.currentTimeMillis();
         }
@@ -534,14 +534,14 @@ public class ZCache<K, V> implements Cache<K, V> {
                 curEntry = entryList.get(curIndex);
                 if (curEntry.isExpired) {
                     curEntry = null;
-                } else if (mCache.hasExpiry && curEntry.isExpired(initialTime, mCache.accessDuration, mCache.creationDuration, mCache.updateDuration)) {
-                    mCache.entryStore.remove(curEntry.getKey());
-                    if (mCache.statsEnabled) mCache.stats.countExpire();
+                } else if (zCache.hasExpiry && curEntry.isExpired(initialTime, zCache.accessDuration, zCache.creationDuration, zCache.updateDuration)) {
+                    zCache.entryStore.remove(curEntry.getKey());
+                    if (zCache.statsEnabled) zCache.stats.countExpire();
                     curEntry = null;
                 } else {
-                    if (mCache.statsEnabled) {
-                        mCache.stats.gets++;
-                        mCache.stats.hits++;
+                    if (zCache.statsEnabled) {
+                        zCache.stats.gets++;
+                        zCache.stats.hits++;
                     }
                     break;
                 }
@@ -552,8 +552,8 @@ public class ZCache<K, V> implements Cache<K, V> {
         @Override
         public void remove() {
             if (curEntry != null) {
-                mCache.entryStore.remove(curEntry.getKey());
-                if (mCache.statsEnabled) mCache.stats.countRemoval();
+                zCache.entryStore.remove(curEntry.getKey());
+                if (zCache.statsEnabled) zCache.stats.countRemoval();
                 curEntry = null;
             }
         }
@@ -563,7 +563,7 @@ public class ZCache<K, V> implements Cache<K, V> {
      * 获取所有，检查到期时间并计算每个条目的获取
      */
     public ArrayList<Entry<K, V>> getEntryList() {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经关闭!");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: 缓存 [" + name + "] 已经关闭!");
         long currentTime = System.currentTimeMillis();
         ArrayList<K> keyList = new ArrayList<>(entryStore.keySet());
         int keyListSize = keyList.size();
@@ -588,7 +588,7 @@ public class ZCache<K, V> implements Cache<K, V> {
      * 清空到期缓存
      */
     public int clearExpired() {
-        if (isClosed) throw new IllegalStateException("缓存: " + name + " 已经关闭!");
+        if (isClosed) throw new IllegalStateException("ZCache缓存错误: 缓存 [" + name + "] 已经关闭!");
         if (!hasExpiry) return 0;
         long currentTime = System.currentTimeMillis();
         ArrayList<K> keyList = new ArrayList<>(entryStore.keySet());
@@ -664,7 +664,7 @@ public class ZCache<K, V> implements Cache<K, V> {
                 entriesToEvict--;
             }
             long timeElapsed = System.currentTimeMillis() - startTime;
-            logger.info("从缓存: " + cache.name + " 中删除了 :" + entriesEvicted + " 用时: " + timeElapsed + "毫秒");
+            logger.info("ZCache缓存信息: 从缓存 [" + cache.name + "] 中删除了 [" + entriesEvicted + "] 用时: [" + timeElapsed + "] 毫秒");
         }
     }
 
