@@ -60,16 +60,16 @@ public class SimpleEtl {
     /** 调用此方法来处理ETL */
     public SimpleEtl process() {
         startTime = System.currentTimeMillis();
-        // initialize loader
+        // 初始化 loader
         loader.init(timeout);
 
         try {
-            // kick off extraction to process extracted entries
+            // 启动提取以处理提取的条目
             extractor.extract(this);
         } catch (Exception e) {
             extractException = e;
         } finally {
-            // close the loader
+            // 关闭 loader
             loader.complete(this);
             endTime = System.currentTimeMillis();
         }
@@ -122,9 +122,7 @@ public class SimpleEtl {
             loadEntries.add(extractEntry);
         }
 
-        int loadEntriesSize = loadEntries.size();
-        for (int i = 0; i < loadEntriesSize; i++) {
-            Entry loadEntry = loadEntries.get(i);
+        for (Entry loadEntry : loadEntries) {
             try {
                 loader.load(loadEntry);
                 loadCount++;
@@ -143,7 +141,7 @@ public class SimpleEtl {
         private LinkedHashMap<String, ArrayList<Transformer>> typeTransformers = new LinkedHashMap<>();
         boolean hasTransformers = false;
 
-        public TransformConfiguration() { }
+        TransformConfiguration() { }
 
         /** 调用此方法添加一个转换器以运行任何类型，它将按顺序运行 */
         public TransformConfiguration addTransformer(@Nonnull Transformer transformer) {
@@ -207,7 +205,7 @@ public class SimpleEtl {
     }
 
     public static class StopException extends Exception {
-        public StopException(Throwable t) { super(t); }
+        StopException(Throwable t) { super(t); }
     }
 
     public static class EtlError {
