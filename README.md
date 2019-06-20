@@ -1,2 +1,2 @@
-# zentity spring boot start
-ZhumaTech entity framework base on Moqui framework
+# ZKit Famework
+Base on Moqui framework
