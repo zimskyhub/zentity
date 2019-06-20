@@ -24,7 +24,7 @@ public interface CacheFacade {
      * @param cacheName 缓存名称
      * @return 缓存对象
      */
-    Cache getCache(String cacheName);
+    <K, V>Cache<K, V> getCache(String cacheName);
     /**
      * 取类型安全的Cache，
      * @param cacheName 缓存名称
@@ -32,7 +32,7 @@ public interface CacheFacade {
      * @param valueType 值类型
      * @return 缓存对象
      */
-    <K, V> Cache getCache(String cacheName, Class<K> keyType, Class<V> valueType);
+    <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType);
     /**
      * 获取指定的本地缓存（ZCache），如果不存在根据默认值创建一个缓存。
      * 如果缓存配置了类型！='local'，则会返回错误。

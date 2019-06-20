@@ -1,12 +1,13 @@
 package com.zmtech.zkit.cache.impl;
 
-import com.google.common.collect.ImmutableMap;
 import com.zmtech.zkit.cache.CacheFacade;
 import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zkit.tools.impl.ZCacheToolFactory;
 import com.zmtech.zkit.util.CollectionUtil;
 import com.zmtech.zkit.util.MNode;
 import com.zmtech.zkit.util.ObjectUtil;
+import groovy.lang.Closure;
+import org.apache.groovy.util.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,7 +80,7 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
     @Override
-    public Cache getCache(String cacheName) {
+    public <K, V> Cache<K, V> getCache(String cacheName) {
         return getCacheInternal(cacheName, "local");
     }
 
@@ -90,7 +91,7 @@ public class CacheFacadeImpl implements CacheFacade {
 
     @Override
     public ZCache getLocalCache(String cacheName) {
-        return (ZCache) getCacheInternal(cacheName, "local").unwrap(ZCache.class);
+        return getCacheInternal(cacheName, "local").unwrap(ZCache.class);
     }
 
     @Override
@@ -98,7 +99,8 @@ public class CacheFacadeImpl implements CacheFacade {
         return getCacheInternal(cacheName, "distributed");
     }
 
-    public Cache getCacheInternal(String cacheName, String defaultCacheType) {
+    @SuppressWarnings("unchecked")
+    private <K, V> Cache<K, V> getCacheInternal(String cacheName, String defaultCacheType) {
         Cache theCache = localCacheMap.get(cacheName);
         if (theCache == null) {
             localCacheMap.putIfAbsent(cacheName, initCache(cacheName, defaultCacheType));
@@ -129,8 +131,8 @@ public class CacheFacadeImpl implements CacheFacade {
         for (String cn : localCacheMap.keySet()) {
             if (hasFilterRegexp && !cn.matches("(?i).*" + filterRegexp + ".*")) continue;
             Cache co = getCache(cn);
-            /* TODO: somehow support external cache stats like Hazelcast, through some sort of Moqui interface or maybe the JMX bean?
-               NOTE: this isn't all that important because we don't have a good use case for distributed caches
+            /* TODO：通过某种接口或JMX bean，以某种方式支持像Hazelcast这样的外部缓存统计数据？
+               注意：这并不是那么重要，因为我们没有一个很好的分布式缓存用例
             if (co instanceof ICache) {
                 ICache ico = co.unwrap(ICache.class)
                 CacheStatistics cs = ico.getLocalCacheStatistics()
@@ -151,25 +153,25 @@ public class CacheFacadeImpl implements CacheFacade {
             if (co instanceof ZCache) {
                 ZCache mc = (ZCache) co.unwrap(ZCache.class);
                 ZStats stats = mc.getMStats();
-                Long expireIdle = mc.getAccessDuration() != null ? mc.getAccessDuration().getDurationAmount() : 0;
-                Long expireLive = mc.getCreationDuration() != null ? mc.getCreationDuration().getDurationAmount() : 0;
-                ci.add(ImmutableMap.<String, Object>builder()
-                        .put("name", co.getName())
-                        .put("expireTimeIdle", expireIdle)
-                        .put("expireTimeLive", expireLive)
-                        .put("maxElements", mc.getMaxEntries())
-                        .put("evictionStrategy", "LRU")
-                        .put("size", mc.size())
-                        .put("getCount", stats.getCacheGets())
-                        .put("putCount", stats.getCachePuts())
-                        .put("hitCount", stats.getCacheHits())
-                        .put("missCountTotal", stats.getCacheMisses())
-                        .put("evictionCount", stats.getCacheEvictions())
-                        .put("removeCount", stats.getCacheRemovals())
-                        .put("expireCount", stats.getCacheExpires())
-                        .build());
+                long expireIdle = mc.getAccessDuration() != null ? mc.getAccessDuration().getDurationAmount() : 0;
+                long expireLive = mc.getCreationDuration() != null ? mc.getCreationDuration().getDurationAmount() : 0;
+                ci.add(Maps.of(
+                        "name", co.getName(),
+                        "expireTimeIdle", expireIdle,
+                        "expireTimeLive", expireLive,
+                        "maxElements", mc.getMaxEntries(),
+                        "evictionStrategy", "LRU",
+                        "size", mc.size(),
+                        "getCount", stats.getCacheGets(),
+                        "putCount", stats.getCachePuts(),
+                        "hitCount", stats.getCacheHits(),
+                        "missCountTotal", stats.getCacheMisses(),
+                        "evictionCount", stats.getCacheEvictions(),
+                        "removeCount", stats.getCacheRemovals(),
+                        "expireCount", stats.getCacheExpires()
+                ));
             } else {
-                logger.warn("无法获取名称为: [" + cn + "] 类型为: [" + co.getClass().getName() + "] 的详细信息");
+                logger.warn("缓存操作警告: 无法获取名称为: [" + cn + "] 类型为: [" + co.getClass().getName() + "] 的详细信息");
             }
         }
         if (orderByField != null && !orderByField.isEmpty())
@@ -179,10 +181,22 @@ public class CacheFacadeImpl implements CacheFacade {
 
     protected MNode getCacheNode(String cacheName) {
         MNode cacheListNode = ecfi.getConfXmlRoot().first("cache-list");
-        MNode cacheElement = cacheListNode.first((MNode it) -> it.getName().equals("cache") && it.attribute("name").equals(cacheName));
-        // nothing found? try starts with, ie allow the cache configuration to be a prefix
+        MNode cacheElement = cacheListNode.first(new Closure<Boolean>(this) {
+            @Override
+            public Boolean call(Object arg) {
+                MNode it = (MNode) arg;
+                return it.getName().equals("cache") && it.attribute("name").equals(cacheName);
+            }
+        });
+        // 什么都没找到？ 尝试开始，即允许缓存配置为前缀
         if (cacheElement == null) cacheElement = cacheListNode
-                .first((MNode it) -> it.getName().equals("cache") && cacheName.startsWith(it.attribute("name")));
+                .first(new Closure<Boolean>(this) {
+                    @Override
+                    public Boolean call(Object arg) {
+                        MNode it = (MNode) arg;
+                        return it.getName().equals("cache") && cacheName.startsWith(it.attribute("name"));
+                    }
+                });
         return cacheElement;
     }
 
@@ -217,12 +231,12 @@ public class CacheFacadeImpl implements CacheFacade {
             } else if ("distributed".equals(cacheType)) {
                 cacheManager = getDistCacheManager();
             } else {
-                throw new IllegalArgumentException("不支持 [" + cacheType + "] 类型的缓存");
+                throw new IllegalArgumentException("缓存操作错误: 不支持 [" + cacheType + "] 类型的缓存");
             }
 
             Configuration config;
             if (cacheManager instanceof ZCacheManager) {
-                // use ZCache
+                // 使用 ZCache
                 ZCacheConfiguration mConf = new ZCacheConfiguration();
                 mConf.setTypes(keyType, valueType);
                 mConf.setStoreByValue(false).setStatisticsEnabled(true);
@@ -235,8 +249,8 @@ public class CacheFacadeImpl implements CacheFacade {
                 }
 
                 config = mConf;
-            /* TODO: somehow support external cache configuration like Hazelcast, through some sort of Moqui interface, maybe pass cacheNode to Cache factory?
-               NOTE: this isn't all that important because we don't have a good use case for distributed caches, and they can be configured directly through hazelcast.xml or other Hazelcast conf
+            /* TODO：以某种方式支持外部缓存配置，如Hazelcast，通过某种接口，可能会将cacheNode传递给Cache工厂？
+               注意：这并不是那么重要，因为我们没有很好的分布式缓存用例，可以通过hazelcast.xml或其他Hazelcast配置直接配置它们
             } else if (cacheManager instanceof AbstractHazelcastCacheManager) {
                 // use Hazelcast
                 CacheConfig cacheConfig = new CacheConfig()
@@ -259,7 +273,7 @@ public class CacheFacadeImpl implements CacheFacade {
                 config = (Configuration) cacheConfig
             */
             } else {
-                logger.info("初始化缓存: [" + cacheName + "] 缓存管理器类型为: [" + cacheManager.getClass().getName() + "] 不支持扩展配置选项, 正在使用 Mutable Configuration");
+                logger.info("缓存操作信息: 初始化缓存: [" + cacheName + "] 缓存管理器类型为: [" + cacheManager.getClass().getName() + "] 不支持扩展配置选项, 正在使用 Mutable Configuration");
                 MutableConfiguration mutConfig = new MutableConfiguration();
                 mutConfig.setTypes(keyType, valueType);
                 mutConfig.setStoreByValue("distributed".equals(cacheType)).setStatisticsEnabled(true);
@@ -279,17 +293,17 @@ public class CacheFacadeImpl implements CacheFacade {
                 cacheManager = getDistCacheManager();
                 storeByValue = true;
             } else {
-                throw new IllegalArgumentException("不支持默认缓存类型" + defaultCacheType + ",请修改默认缓存类型: defaultCacheType");
+                throw new IllegalArgumentException("缓存操作错误: 不支持默认缓存类型" + defaultCacheType + ",请修改默认缓存类型: defaultCacheType");
             }
 
-            logger.info("正在创建默认类型为: [" + defaultCacheType + "] 缓存名称为: [" + cacheName + "], storeByValue:=${storeByValue}");
+            logger.info("缓存操作信息: 正在创建默认类型为: [" + defaultCacheType + "] 缓存名称为: [" + cacheName + "], 保存名称为: ["+storeByValue+"]");
             MutableConfiguration mutConfig = new MutableConfiguration();
             mutConfig.setStoreByValue(storeByValue).setStatisticsEnabled(true);
-            // any defaults we want here? better to use underlying defaults and conf file settings only
+            // 我们想要的任何默认值？ 最好只使用基础默认值和conf文件设置
             newCache = cacheManager.createCache(cacheName, mutConfig);
         }
 
-        // NOTE: put in localCacheMap done in caller (getCache)
+        // 注意：在调用者中完成localCacheMap（getCache）
         return newCache;
     }
 
@@ -300,12 +314,12 @@ public class CacheFacadeImpl implements CacheFacade {
             List<Map<String, Object>> elementInfoList = new ArrayList<>();
             for (Object ce : mCache.getEntryList()) {
                 ZEntry entry = (ZEntry) ((Cache.Entry) ce).unwrap(ZEntry.class);
-                Map<String, Object> im = ImmutableMap.<String, Object>builder()
-                        .put("key", entry.getKey())
-                        .put("value", entry.getValue())
-                        .put("hitCount", entry.getAccessCount())
-                        .put("creationTime", new Timestamp(entry.getCreatedTime()))
-                        .build();
+                Map<String, Object> im = Maps.of(
+                        "key", entry.getKey(),
+                        "value", entry.getValue(),
+                        "hitCount", entry.getAccessCount(),
+                        "creationTime", new Timestamp(entry.getCreatedTime())
+                );
                 if (entry.getLastUpdatedTime() > 0) im.put("lastUpdateTime", new Timestamp(entry.getLastUpdatedTime()));
                 if (entry.getLastAccessTime() > 0) im.put("lastAccessTime", new Timestamp(entry.getLastAccessTime()));
                 elementInfoList.add(im);
