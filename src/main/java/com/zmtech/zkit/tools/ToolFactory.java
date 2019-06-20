@@ -2,11 +2,15 @@ package com.zmtech.zkit.tools;
 
 import com.zmtech.zkit.context.ExecutionContextFactory;
 
-/** Implement this interface to manage lifecycle and factory for tools initialized and destroyed with Moqui Framework.
- * Implementations must have a public no parameter constructor. */
+/**
+ * 实现此接口以管理使用ZKit Framework初始化和销毁的工具的生命周期和工厂。
+ * 实现必须具有公共无参数构造函数。
+ */
 public interface ToolFactory<V> {
-    /** Return a name that the factory will be available under through the ExecutionContextFactory.getToolFactory()
-     * method and instances will be available under through the ExecutionContextFactory.getTool() method. */
+    /**
+     * 通过ExecutionContextFactory.getToolFactory（）返回工厂将可用的名称
+     * 方法和实例将通过ExecutionContextFactory.getTool（）方法提供。
+     */
     default String getName() {
         String className = this.getClass().getSimpleName();
         int tfIndex = className.indexOf("ToolFactory");
@@ -14,23 +18,27 @@ public interface ToolFactory<V> {
         return className;
     }
 
-    /** Initialize the underlying tool and if the instance is a singleton also the instance. */
+    /**
+     * 初始化基础工具，如果实例是单例也是实例.
+     */
     default void init(ExecutionContextFactory ecf) { }
 
-    /** Rarely used, initialize before Moqui Facades are initialized; useful for tools that ResourceReference,
-     * ScriptRunner, TemplateRenderer, ServiceRunner, etc implementations depend on. */
+    /**
+     * 很少在Zkit Facades初始化之前进行初始化时使用;
+     * 适用于ResourceReference，ScriptRunner，TemplateRenderer，ServiceRunner等实现所依赖的工具。
+     */
     default void preFacadeInit(ExecutionContextFactory ecf) { }
 
-    /** Called by ExecutionContextFactory.getTool() to get an instance object for this tool.
-     * May be created for each call or a singleton.
-     *
-     * @throws IllegalStateException if not initialized
+    /**
+     * 由ExecutionContextFactory.getTool（）调用以获取此工具的实例对象。
+     * 可以为每个呼叫或是单例。
+     * @throws IllegalStateException 如果没有初始化
      */
     V getInstance(Object... parameters);
 
-    /** Called on destroy/shutdown of Moqui to destroy (shutdown, close, etc) the underlying tool. */
+    /** 调用Zkit的销毁/关闭来销毁（关闭，关闭等）底层工具。 */
     default void destroy() { }
 
-    /** Rarely used, like destroy() but runs after the facades are destroyed. */
+    /** 很少使用，像destroy（），但在facade被摧毁后运行。 */
     default void postFacadeDestroy() { }
 }

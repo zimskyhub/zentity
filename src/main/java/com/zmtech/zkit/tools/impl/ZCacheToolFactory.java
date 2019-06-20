@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.cache.CacheManager;
 
-/** A factory for getting a MCacheManager */
+/** 获取MCacheManager的工厂类 */
 public class ZCacheToolFactory implements ToolFactory<CacheManager> {
     protected final static Logger logger = LoggerFactory.getLogger(ZCacheToolFactory.class);
     public final static String TOOL_NAME = "MCache";
@@ -17,7 +17,7 @@ public class ZCacheToolFactory implements ToolFactory<CacheManager> {
 
     private ZCacheManager cacheManager = null;
 
-    /** Default empty constructor */
+    /** 默认的空构造函数 */
     public ZCacheToolFactory() { }
 
     @Override
@@ -32,7 +32,7 @@ public class ZCacheToolFactory implements ToolFactory<CacheManager> {
 
     @Override
     public CacheManager getInstance(Object... parameters) {
-        if (cacheManager == null) throw new IllegalStateException("ZCacheToolFactory not initialized");
+        if (cacheManager == null) throw new IllegalStateException("ZCache缓存错误: ZCacheToolFactory 未初始化");
         return cacheManager;
     }
 

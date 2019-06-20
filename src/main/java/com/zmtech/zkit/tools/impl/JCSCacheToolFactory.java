@@ -11,8 +11,9 @@ import javax.cache.spi.CachingProvider;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-/** A factory for getting a JCS CacheManager; this has no compile time dependency on Commons JCS, just add the jar files
- * Current artifact: org.apache.commons:commons-jcs-jcache:2.0-beta-1
+/**
+ * 获取JCS CacheManager的工厂; 对Commons JCS没有编译时依赖，只需添加jar文件即可
+ * 当前：org.apache.commons：commons-jcs-jcache：2.0-beta-1
  */
 
 public class JCSCacheToolFactory implements ToolFactory<CacheManager> {
@@ -23,7 +24,7 @@ public class JCSCacheToolFactory implements ToolFactory<CacheManager> {
 
     protected CacheManager cacheManager = null;
 
-    /** Default empty constructor */
+    /** 默认的空构造函数 */
     public JCSCacheToolFactory() { }
 
     @Override
@@ -34,23 +35,23 @@ public class JCSCacheToolFactory implements ToolFactory<CacheManager> {
     @Override
     public void preFacadeInit(ExecutionContextFactory ecf) {
         this.ecf = ecf;
-        // always use the server caching provider, the client one always goes over a network interface and is slow
+        // 总是使用服务器缓存提供程序，客户端总是通过网络接口并且速度很慢
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         CachingProvider providerInternal = Caching.getCachingProvider("org.apache.commons.jcs.jcache.JCSCachingProvider", cl);
         URL cmUrl = cl.getResource("cache.ccf");
-        logger.info("JCS config URI: ${cmUrl}");
+        logger.info("JCS缓存信息: JCS 配置地址 ["+cmUrl+"]");
         try {
             cacheManager = providerInternal.getCacheManager(cmUrl.toURI(), cl);
         } catch (URISyntaxException e) {
-            logger.info("Initialized JCS CacheManager failed");
+            logger.info("JCS缓存错误: 初始化 JCS CacheManager 失败");
             e.printStackTrace();
         }
-        logger.info("Initialized JCS CacheManager");
+        logger.info("JCS缓存信息: 完成 JCS CacheManager 初始化");
     }
 
     @Override
     public CacheManager getInstance(Object... parameters) {
-        if (cacheManager == null) throw new IllegalStateException("JCSCacheToolFactory not initialized");
+        if (cacheManager == null) throw new IllegalStateException("JCS缓存错误: JCSCacheToolFactory 未初始化");
         return cacheManager;
     }
 
