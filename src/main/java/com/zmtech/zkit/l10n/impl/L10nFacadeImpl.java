@@ -1,30 +1,31 @@
+
 package com.zmtech.zkit.l10n.impl;
 
+import javax.xml.bind.DatatypeConverter;
+import java.math.BigDecimal;
+import java.text.NumberFormat;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.*;
 
 import com.zmtech.zkit.context.impl.ExecutionContextImpl;
 import com.zmtech.zkit.entity.EntityFind;
 import com.zmtech.zkit.entity.EntityValue;
-import com.zmtech.zkit.exception.EntityException;
+import com.zmtech.zkit.exception.BaseException;
 import com.zmtech.zkit.l10n.L10nFacade;
 import com.zmtech.zkit.util.ObjectUtil;
 import org.apache.commons.validator.routines.BigDecimalValidator;
 import org.apache.commons.validator.routines.CalendarValidator;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.xml.bind.DatatypeConverter;
-import java.math.BigDecimal;
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.text.NumberFormat;
-import java.util.*;
 
 public class L10nFacadeImpl implements L10nFacade {
     protected final static Logger logger = LoggerFactory.getLogger(L10nFacadeImpl.class);
 
-    private final static BigDecimalValidator bigDecimalValidator = new BigDecimalValidator(false);
-    private final static CalendarValidator calendarValidator = new CalendarValidator();
+    final static BigDecimalValidator bigDecimalValidator = new BigDecimalValidator(false);
+    final static CalendarValidator calendarValidator = new CalendarValidator();
 
     protected final ExecutionContextImpl eci;
 
@@ -41,7 +42,7 @@ public class L10nFacadeImpl implements L10nFacade {
         int originalLength = original.length();
         if (originalLength == 0) return "";
         if (originalLength > 255) {
-            throw new EntityException("Original String cannot be more than 255 characters long, passed in string was " + originalLength + " characters long");
+            throw new BaseException("Original String cannot be more than 255 characters long, passed in string was " + originalLength + " characters long");
         }
 
         if (locale == null) locale = getLocale();
@@ -168,7 +169,7 @@ public class L10nFacadeImpl implements L10nFacade {
     }
 
     @Override
-    public Date parseDate(String input, String format) {
+    public java.sql.Date parseDate(String input, String format) {
         if (format == null || format.isEmpty()) format = "yyyy-MM-dd";
         Locale curLocale = getLocale();
 
@@ -192,7 +193,7 @@ public class L10nFacadeImpl implements L10nFacade {
         // also try the full ISO-8601, dates may come in that way
         if (cal == null) cal = calendarValidator.validate(input, "yyyy-MM-dd'T'HH:mm:ssZ", curLocale);
         if (cal != null) {
-            Date date = new Date(cal.getTimeInMillis());
+            java.sql.Date date = new java.sql.Date(cal.getTimeInMillis());
             // logger.warn("============== parseDate input=${input} cal=${cal} long=${cal.getTimeInMillis()} date=${date} date long=${date.getTime()} util date=${new java.util.Date(cal.getTimeInMillis())} timestamp=${new java.sql.Timestamp(cal.getTimeInMillis())}")
             return date;
         }
@@ -200,7 +201,7 @@ public class L10nFacadeImpl implements L10nFacade {
         // try interpreting the String as a long
         try {
             Long lng = Long.valueOf(input);
-            return new Date(lng);
+            return new java.sql.Date(lng);
         } catch (NumberFormatException e) {
             if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Date parse: " + e.toString());
         }
@@ -310,7 +311,7 @@ public class L10nFacadeImpl implements L10nFacade {
         if (valueClass == String.class) return (String) value;
         if (valueClass == Timestamp.class) return formatTimestamp((Timestamp) value, format, locale, tz);
         if (valueClass == java.util.Date.class) return formatTimestamp((java.util.Date) value, format, locale, tz);
-        if (valueClass == Date.class) return formatDate((Date) value, format, locale, tz);
+        if (valueClass == java.sql.Date.class) return formatDate((Date) value, format, locale, tz);
         if (valueClass == Time.class) return formatTime((Time) value, format, locale, tz);
         // this one needs to be instanceof to include the many sub-classes of Number
         if (value instanceof Number) return formatNumber((Number) value, format, locale);

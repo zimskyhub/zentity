@@ -28,7 +28,7 @@ public class ContentResourceReference extends BaseResourceReference {
 
     protected javax.jcr.Node theNode = null;
 
-    ContentResourceReference() { }
+    public ContentResourceReference() { }
 
     @Override
     public ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
@@ -80,14 +80,14 @@ public class ContentResourceReference extends BaseResourceReference {
         } catch (RepositoryException e) {
             e.printStackTrace();
         }
-        if (contentNode == null) throw new IllegalArgumentException("Cannot get stream for content at [${repositoryName}][${nodePath}], has no jcr:content child node");
+        if (contentNode == null) throw new IllegalArgumentException("内容资源引用错误: 无法获取资源库 ["+repositoryName+"] 下节点 ["+nodePath+"] 的输入流, 未找到内容节点!");
         Property dataProperty = null;
         try {
             dataProperty = contentNode.getProperty("jcr:data");
         } catch (RepositoryException e) {
             e.printStackTrace();
         }
-        if (dataProperty == null) throw new IllegalArgumentException("Cannot get stream for content at [${repositoryName}][${nodePath}], has no jcr:content.jcr:data property");
+        if (dataProperty == null) throw new IllegalArgumentException("内容资源引用错误: 无法获取资源库 ["+repositoryName+"] 下节点 ["+nodePath+"] 的输入流, 未找到数据属性!");
         try {
             return dataProperty.getBinary().getStream();
         } catch (RepositoryException e) {
@@ -98,7 +98,7 @@ public class ContentResourceReference extends BaseResourceReference {
 
     @Override
     public OutputStream getOutputStream() {
-        throw new UnsupportedOperationException("The getOutputStream method is not supported for JCR, use putStream() instead");
+        throw new UnsupportedOperationException("内容资源引用错误: JCR 不支持输出流,请用 putStream() 方法代替!");
     }
 
     @Override public String getText() { return ObjectUtil.getStreamText(openStream()); }
@@ -132,23 +132,24 @@ public class ContentResourceReference extends BaseResourceReference {
     }
     @Override
     public List<ResourceReference> getDirectoryEntries() {
-        List<ResourceReference> dirEntries = new LinkedList();
+        List<ResourceReference> dirEntries = new LinkedList<>();
         javax.jcr.Node node = getNode();
         if (node == null) return dirEntries;
 
         NodeIterator childNodes = null;
         try {
             childNodes = node.getNodes();
+            while (childNodes.hasNext()) {
+                javax.jcr.Node childNode = childNodes.nextNode();
+                dirEntries.add(new ContentResourceReference().init(repositoryName, childNode, ecf));
+            }
         } catch (RepositoryException e) {
-            e.printStackTrace();
+            throw new IllegalArgumentException("内容资源引用错误: 无法获取资源库 ["+repositoryName+"] 下子节点:"+e.toString());
         }
-        while (childNodes.hasNext()) {
-            javax.jcr.Node childNode = childNodes.nextNode();
-            dirEntries.add(new ContentResourceReference().init(repositoryName, childNode, ecf));
-        }
+
         return dirEntries;
     }
-    // TODO: consider overriding findChildFile() to let the JCR impl do the query
+    // TODO: 这里考虑覆盖 findChildFile() 方法,好让 JCR impl 执行查询
     // ResourceReference findChildFile(String relativePath)
 
     @Override public boolean supportsExists() { return true; }
@@ -158,9 +159,8 @@ public class ContentResourceReference extends BaseResourceReference {
         try {
             return session.nodeExists(nodePath);
         } catch (RepositoryException e) {
-            e.printStackTrace();
+            throw new IllegalArgumentException("内容资源引用错误: 无法判断资源库 ["+repositoryName+"] 是否存在节点路径 ["+nodePath+"]:"+e.toString());
         }
-        return true;
     }
 
     @Override public boolean supportsLastModified() { return true; }
@@ -176,9 +176,10 @@ public class ContentResourceReference extends BaseResourceReference {
         }
     }
 
-    @Override public boolean supportsSize() { true; }
+    @Override public boolean supportsSize() { return true; }
     @Override public long getSize() {
         try {
+
             return getNode()!=null?getNode().getProperty("jcr:content/jcr:data")!= null? getNode().getProperty("jcr:content/jcr:data").getLength() : null:null;
         } catch (PathNotFoundException e) {
             return 0;
@@ -187,6 +188,7 @@ public class ContentResourceReference extends BaseResourceReference {
         } catch (RepositoryException e) {
             e.printStackTrace();
         }
+        return 0;
     }
 
     @Override public boolean supportsWrite() { return true; }

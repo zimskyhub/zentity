@@ -23,7 +23,7 @@ public class ClasspathResourceReference extends UrlResourceReference {
             exists = true;
             isFileProtocol = "file".equals(locationUrl.getProtocol());
         } else {
-            logger.warn("资源类引用警告: 无法在类路径找到 ["+strippedLocation+"]");
+            logger.warn("类资源引用警告: 无法在类路径找到 ["+strippedLocation+"]");
         }
 
         return this;
