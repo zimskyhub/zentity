@@ -1,8 +1,8 @@
-package com.zmtech.zkit.context.renderer;
+package com.zmtech.zkit.render.impl;
 
 import com.zmtech.zkit.cache.impl.ZCache;
 import com.zmtech.zkit.context.ExecutionContextFactory;
-import com.zmtech.zkit.context.TemplateRenderer;
+import com.zmtech.zkit.render.TemplateRenderer;
 import com.zmtech.zkit.context.impl.ExecutionContextFactoryImpl;
 import com.zmtech.zkit.exception.BaseException;
 import com.zmtech.zkit.references.ResourceReference;

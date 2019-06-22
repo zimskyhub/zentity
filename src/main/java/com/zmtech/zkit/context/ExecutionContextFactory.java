@@ -12,44 +12,47 @@ import groovy.lang.GroovyClassLoader;
 import javax.annotation.Nonnull;
 
 public interface ExecutionContextFactory {
-    /** Get the ExecutionContext associated with the current thread or initialize one and associate it with the thread. */
+    /** 获取与当前线程关联的ExecutionContext或初始化一个并将其与线程关联。 */
     @Nonnull
     ExecutionContext getExecutionContext();
 
-    /** Destroy the active Execution Context. When another is requested in this thread a new one will be created. */
+    /** 销毁活动的执行上下文。 当在该线程中请求另一个时，将创建一个新线程。 */
     void destroyActiveExecutionContext();
-
-    /** Called after construction but before registration with Moqui/Servlet, check for empty database and load configured data. */
+    /** 检查空数据库并加载配置数据。 */
     boolean checkEmptyDb();
-    /** Destroy this ExecutionContextFactory and all resources it uses (all facades, tools, etc) */
+    /** 销毁ExecutionContextFactory及其使用的所有资源 */
     void destroy();
+    /** 判断ExecutionContextFactory是否被销毁 */
     boolean isDestroyed();
-
-    /** Get the path of the runtime directory */
+    /** 获取运行时目录的路径 */
     @Nonnull String getRuntimePath();
+    /** 获取当前ZKit版本 */
     @Nonnull String getZKitVersion();
-
-    /** For managing and accessing caches. */
-    @Nonnull CacheFacade getCache();
-    /** For localization (l10n) functionality, like localizing messages. */
-    @Nonnull L10nFacade getL10n();
-    /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
-    @Nonnull ResourceFacade getResource();
-    /** For interactions with a relational database. */
-    @Nonnull EntityFacade getEntity();
-    /** For transaction operations use this facade instead of the JTA UserTransaction and TransactionManager. See javadoc comments there for examples of code usage. */
-    @Nonnull TransactionFacade getTransaction();
-    /** For trace, error, etc logging to the console, files, etc. */
-    @Nonnull LoggerFacade getLogger();
-    /** Get the framework ClassLoader, aware of all additional classes in runtime and in components. */
-    @Nonnull ClassLoader getClassLoader();
-    /** Get a GroovyClassLoader for runtime compilation, etc. */
-    @Nonnull
-    GroovyClassLoader getGroovyClassLoader();
-    /** Get the named ToolFactory instance (loaded by configuration) */
+    /** 获取命名的ToolFactory实例（由配置加载） */
     <V> ToolFactory<V> getToolFactory(@Nonnull String toolName);
-    /** Get an instance object from the named ToolFactory instance (loaded by configuration); the instanceClass may be
-     * null in scripts or other contexts where static typing is not needed */
+    /** 用于管理和访问缓存。 */
+    @Nonnull CacheFacade getCache();
+    /** 用于本地化（l10n）功能，如本地化消息。 */
+    @Nonnull L10nFacade getL10n();
+    /** 用于按位置字符串（http：//，jar：//，component：//，content：//，classpath：//等）访问资源。 */
+    @Nonnull ResourceFacade getResource();
+    /** 用于调用服务（本地或远程，同步或异步）。 */
+    @Nonnull ServiceFacade getService();
+    /** 用于与关系数据库的交互。 */
+    @Nonnull EntityFacade getEntity();
+    /** 用于事务管理。对于事务操作，请使用此Facade而不是JTA UserTransaction和TransactionManager。 有关代码用法的示例，请参阅javadoc注释。 */
+    @Nonnull TransactionFacade getTransaction();
+    /** 用于跟踪，错误等记录到控制台，文件等。 */
+    @Nonnull LoggerFacade getLogger();
+    /** 获取框架ClassLoader，了解运行时和组件中的所有其他类。 */
+    @Nonnull ClassLoader getClassLoader();
+    /** 获取GroovyClassLoader以进行运行时编译等。 */
+    @Nonnull GroovyClassLoader getGroovyClassLoader();
+
+    /**
+     * 从命名的ToolFactory实例获取实例对象（由配置加载）;
+     * 在不需要静态类型的脚本或其他上下文中，instanceClass可以为null
+     */
     <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters);
 
 //

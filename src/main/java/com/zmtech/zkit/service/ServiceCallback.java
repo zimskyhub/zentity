@@ -1,5 +1,5 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a
+ * This software is in the public domain under CC0 1.0 Universal plus a 
  * Grant of Patent License.
  * 
  * To the extent possible under law, the author(s) have dedicated all
@@ -11,15 +11,12 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package com.zmtech.zkit.context;
+package com.zmtech.zkit.service;
 
-import org.moqui.BaseException;
+import java.util.Map;
 
-import java.io.Writer;
-
-public interface TemplateRenderer {
-    TemplateRenderer init(ExecutionContextFactory ecf);
-    void render(String location, Writer writer) throws BaseException;
-    String stripTemplateExtension(String fileName);
-    void destroy();
+public interface ServiceCallback {
+    boolean isEnabled();
+    void receiveEvent(Map<String, Object> context, Map<String, Object> result);
+    void receiveEvent(Map<String, Object> context, Throwable t);
 }

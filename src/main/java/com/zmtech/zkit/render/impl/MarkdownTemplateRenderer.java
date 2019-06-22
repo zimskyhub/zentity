@@ -11,7 +11,7 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package com.zmtech.zkit.context.renderer
+package com.zmtech.zkit.render.impl
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory

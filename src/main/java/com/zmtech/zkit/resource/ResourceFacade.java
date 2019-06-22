@@ -1,7 +1,7 @@
 package com.zmtech.zkit.resource;
 
-import com.zmtech.zkit.context.renderer.FtlTemplateRenderer;
-import com.zmtech.zkit.context.runner.XmlActionsScriptRunner;
+import com.zmtech.zkit.render.impl.FtlTemplateRenderer;
+import com.zmtech.zkit.script.runner.XmlActionsScriptRunner;
 import com.zmtech.zkit.references.ResourceReference;
 
 import javax.activation.DataSource;
