@@ -13,6 +13,8 @@
  */
 package com.zmtech.zkit.service;
 
+import com.zmtech.zkit.exception.ServiceException;
+
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;

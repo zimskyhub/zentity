@@ -66,6 +66,9 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     /** The main worker pool for services, running async closures and runnables, etc */
     @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool;
 
+    /** The SecurityManager for Apache Shiro */
+    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager;
+
 //    protected String moquiVersion = "";
 //    protected MNode serverStatsNode;
 //    @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath;
@@ -82,8 +85,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //    private final EnumMap<ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<>(ArtifactType.class)
 //    private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<>(ArtifactType.class)
 //    final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
-//    /** The SecurityManager for Apache Shiro */
-//    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
+
 //    /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
 //    protected ServletContext internalServletContext = null
 //    /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
