@@ -1,5 +1,7 @@
 package com.zmtech.zkit.context.impl;
 
+import com.zmtech.zkit.artifact.ArtifactExecutionInfo;
+import com.zmtech.zkit.artifact.ArtifactExecutionInfo.*;
 import com.zmtech.zkit.cache.CacheFacade;
 import com.zmtech.zkit.cache.impl.CacheFacadeImpl;
 import com.zmtech.zkit.context.ExecutionContext;
@@ -15,6 +17,7 @@ import com.zmtech.zkit.tools.ToolFactory;
 import com.zmtech.zkit.transaction.TransactionFacade;
 import com.zmtech.zkit.transaction.impl.TransactionFacadeImpl;
 import com.zmtech.zkit.util.ContextJavaUtil;
+import com.zmtech.zkit.util.ContextJavaUtil.*;
 import com.zmtech.zkit.util.MNode;
 import com.zmtech.zkit.util.SystemBinding;
 import com.zmtech.zkit.util.ZClassLoader;
@@ -392,7 +395,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         long aliveTime = Long.valueOf(toolsNode.attribute("worker-pool-alive") != null? toolsNode.attribute("worker-pool-alive"): "60");
 
         logger.info("Initializing worker ThreadPoolExecutor: queue limit "+workerQueueSize+", pool-core "+coreSize+", pool-max "+maxSize+", pool-alive "+aliveTime+"s");
-        return new ContextJavaUtil.WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue);
+        return new WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue);
     }
 
     boolean waitWorkerPoolEmpty(int retryLimit) {
@@ -699,18 +702,18 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //        for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()
 
         // Run destroy() in ToolFactory implementations from tools.tool-factory elements, in reverse order
-//        ArrayList<ToolFactory> toolFactoryList = new ArrayList<>(toolFactoryMap.values())
-//        Collections.reverse(toolFactoryList)
-//        for (ToolFactory tf in toolFactoryList) {
-//            logger.info("Destroying ToolFactory: ${tf.getName()}")
-//            // NOTE: also calling System.out.println because log4j gets often gets closed before this completes
-//            // System.out.println("Destroying ToolFactory: ${tf.getName()}")
-//            try {
-//                tf.destroy()
-//            } catch (Throwable t) {
-//                logger.error("Error destroying ToolFactory ${tf.getName()}", t)
-//            }
-//        }
+        ArrayList<ToolFactory> toolFactoryList = new ArrayList<>(toolFactoryMap.values());
+        Collections.reverse(toolFactoryList);
+        for (ToolFactory tf : toolFactoryList) {
+            logger.info("Destroying ToolFactory: ${tf.getName()}");
+            // NOTE: also calling System.out.println because log4j gets often gets closed before this completes
+            // System.out.println("Destroying ToolFactory: ${tf.getName()}")
+            try {
+                tf.destroy();
+            } catch (Throwable t) {
+                logger.error("Error destroying ToolFactory ${tf.getName()}", t);
+            }
+        }
 
         /* use to watch destroy issues:
         if (activeContextMap.size() > 2) {
@@ -1326,52 +1329,52 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //            'moqui.entity.view.DbViewEntity', 'moqui.entity.view.DbViewEntityMember',
 //            'moqui.entity.view.DbViewEntityKeyMap', 'moqui.entity.view.DbViewEntityAlias'])
 //
-//    void countArtifactHit(ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
-//                          Map<String, Object> parameters, long startTime, double runningTimeMillis, Long outputSize) {
-//        boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum) || (artifactSubType != null && artifactSubType.startsWith('entity'))
-//        // don't count the ones this calls
-//        if (isEntity && entitiesToSkipHitCount.contains(artifactName)) return
-//        // for screen, transition, screen-content check skip stats expression
-//        if (!isEntity && (ArtifactExecutionInfo.AT_XML_SCREEN.is(artifactTypeEnum) ||
-//                ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT.is(artifactTypeEnum) ||
-//                ArtifactExecutionInfo.AT_XML_SCREEN_TRANS.is(artifactTypeEnum)) && eci.getSkipStats()) return
-//
-//        boolean isSlowHit = false
-//        if (Boolean.TRUE.is((Boolean) artifactPersistBinByTypeEnum.get(artifactTypeEnum))) {
-//            // NOTE: not adding artifactTypeEnum.name() to key, artifact names should be unique
-//            String binKey = artifactName
-//            // TODO: may be more cases where we don't need to append artifactTypeEnum, ie based on artifactName
-//            if (artifactSubType != null && !ArtifactExecutionInfo.AT_SERVICE.is(artifactTypeEnum)) binKey = binKey.concat(artifactSubType)
-//            ArtifactStatsInfo statsInfo = (ArtifactStatsInfo) artifactStatsInfoByType.get(binKey)
-//            if (statsInfo == null) {
-//                // consider seeding this from the DB using ArtifactHitReport to get all past data, or maybe not to better handle different servers/etc over time, etc
-//                statsInfo = new ArtifactStatsInfo(artifactTypeEnum, artifactSubType, artifactName)
-//                artifactStatsInfoByType.put(binKey, statsInfo)
-//            }
-//
-//            // has the current bin expired since the last hit record?
-//            if (statsInfo.curHitBin != null) {
-//                long binStartTime = statsInfo.curHitBin.startTime
-//                if (startTime > (binStartTime + hitBinLengthMillis)) {
-//                    if (isTraceEnabled) logger.trace("Advancing ArtifactHitBin [${artifactTypeEnum.name()}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(binStartTime)}] bin length ${hitBinLengthMillis/1000} seconds")
-//                    advanceArtifactHitBin(getEci(), statsInfo, startTime, hitBinLengthMillis)
-//                }
-//            }
-//
-//            // handle stats since start
-//            isSlowHit = statsInfo.countHit(startTime, runningTimeMillis)
-//        }
-//        // NOTE: never save individual hits for entity artifact hits, way too heavy and also avoids self-reference
-//        //     (could also be done by checking for ArtifactHit/etc of course)
-//        // Always save slow hits above userImpactMinMillis regardless of settings
-//        if (!isEntity && ((isSlowHit && runningTimeMillis > ContextJavaUtil.userImpactMinMillis) ||
-//                Boolean.TRUE.is((Boolean) artifactPersistHitByTypeEnum.get(artifactTypeEnum)))) {
-//            ExecutionContextImpl eci = getEci()
-//            ArtifactHitInfo ahi = new ArtifactHitInfo(eci, isSlowHit, artifactTypeEnum, artifactSubType, artifactName,
-//                    startTime, runningTimeMillis, parameters, outputSize)
-//            deferredHitInfoQueue.add(ahi)
-//        }
-//    }
+    public void countArtifactHit(ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
+                          Map<String, Object> parameters, long startTime, double runningTimeMillis, Long outputSize) {
+        boolean isEntity = ArtifactExecutionInfo.AT_ENTITY == artifactTypeEnum || (artifactSubType != null && artifactSubType.startsWith("entity"));
+        // don't count the ones this calls
+        if (isEntity && entitiesToSkipHitCount.contains(artifactName)) return;
+        // for screen, transition, screen-content check skip stats expression
+        if (!isEntity && (ArtifactExecutionInfo.AT_XML_SCREEN == artifactTypeEnum||
+                ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT == artifactTypeEnum ||
+                ArtifactExecutionInfo.AT_XML_SCREEN_TRANS == artifactTypeEnum) && eci.getSkipStats()) return;
+
+        boolean isSlowHit = false;
+        if (Boolean.TRUE.is((Boolean) artifactPersistBinByTypeEnum.get(artifactTypeEnum))) {
+            // NOTE: not adding artifactTypeEnum.name() to key, artifact names should be unique
+            String binKey = artifactName
+            // TODO: may be more cases where we don't need to append artifactTypeEnum, ie based on artifactName
+            if (artifactSubType != null && !ArtifactExecutionInfo.AT_SERVICE.is(artifactTypeEnum)) binKey = binKey.concat(artifactSubType);
+            ArtifactStatsInfo statsInfo = (ArtifactStatsInfo) artifactStatsInfoByType.get(binKey);
+            if (statsInfo == null) {
+                // consider seeding this from the DB using ArtifactHitReport to get all past data, or maybe not to better handle different servers/etc over time, etc
+                statsInfo = new ArtifactStatsInfo(artifactTypeEnum, artifactSubType, artifactName);
+                artifactStatsInfoByType.put(binKey, statsInfo);
+            }
+
+            // has the current bin expired since the last hit record?
+            if (statsInfo.curHitBin != null) {
+                long binStartTime = statsInfo.curHitBin.startTime;
+                if (startTime > (binStartTime + hitBinLengthMillis)) {
+                    if (isTraceEnabled) logger.trace("Advancing ArtifactHitBin [${artifactTypeEnum.name()}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(binStartTime)}] bin length ${hitBinLengthMillis/1000} seconds");
+                    advanceArtifactHitBin(getEci(), statsInfo, startTime, hitBinLengthMillis);
+                }
+            }
+
+            // handle stats since start
+            isSlowHit = statsInfo.countHit(startTime, runningTimeMillis);
+        }
+        // NOTE: never save individual hits for entity artifact hits, way too heavy and also avoids self-reference
+        //     (could also be done by checking for ArtifactHit/etc of course)
+        // Always save slow hits above userImpactMinMillis regardless of settings
+        if (!isEntity && ((isSlowHit && runningTimeMillis > ContextJavaUtil.userImpactMinMillis) ||
+                Boolean.TRUE.is((Boolean) artifactPersistHitByTypeEnum.get(artifactTypeEnum)))) {
+            ExecutionContextImpl eci = getEci();
+            ContextJavaUtil.ArtifactHitInfo ahi = new ArtifactHitInfo(eci, isSlowHit, artifactTypeEnum, artifactSubType, artifactName,
+                    startTime, runningTimeMillis, parameters, outputSize);
+            deferredHitInfoQueue.add(ahi);
+        }
+    }
 
 //    static class DeferredHitInfoFlush implements Runnable {
 //        // max creates per chunk, one transaction per chunk (unless error)
