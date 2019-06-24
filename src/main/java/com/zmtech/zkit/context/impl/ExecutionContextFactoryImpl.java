@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.*;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -55,6 +56,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     public final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>();
     private final Map<Long, ExecutionContextImpl> activeContextMap = new HashMap<>();
     private final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>();
+    protected final Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>();
     // 注意：这是实验性的，不要设置为true！
     // 仍有问题的独特类名等也问题如何支持对变更动作的重新编译，
     // 可能只是用于表达式，但这只能帮助这么多可能某种方式从磁盘加载只有当XmlActions和GroovyScriptRunner的时间戳更新时才能驱动
@@ -80,7 +82,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //    protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>();
 //    protected final Map<String, WebappInfo> webappInfoMap = new HashMap<>()
 //    protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
-//    protected final Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>()
+
 //    public final Map<ArtifactType, Boolean> artifactTypeAuthzEnabled = new EnumMap<>(ArtifactType.class)
 //    public final Map<ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<>(ArtifactType.class)
 //    protected String skipStatsCond
@@ -232,7 +234,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Transaction Facade initialized");
         entityFacade = new EntityFacadeImpl(this);
         logger.info("Entity Facade initialized");
-//        serviceFacade = new ServiceFacadeImpl(this)
+//        serviceFacade = new ServiceFacadeImpl(this);
 //        logger.info("Service Facade initialized")
 //        screenFacade = new ScreenFacadeImpl(this)
 //        logger.info("Screen Facade initialized")
@@ -419,10 +421,10 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         File confSaveFile = new File(runtimePath + "/log/MoquiActualConf.xml");
         try {
             if (confSaveFile.exists()) confSaveFile.delete();
-//            if (!confSaveFile.getParentFile().exists()) confSaveFile.getParentFile().mkdirs();
-//            FileWriter fw = new FileWriter(confSaveFile);
-//            fw.write(confXmlRoot.toString());
-//            fw.close();
+            if (!confSaveFile.getParentFile().exists()) confSaveFile.getParentFile().mkdirs();
+            FileWriter fw = new FileWriter(confSaveFile);
+            fw.write(confXmlRoot.toString());
+            fw.close();
         } catch (Exception e) {
             logger.warn("Could not save ${confSaveFile.absolutePath} file: ${e.toString()}");
         }
@@ -672,9 +674,9 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
 
         // persist any remaining bins in artifactHitBinByType
-//        Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis())
-//        List<ArtifactStatsInfo> asiList = new ArrayList<>(artifactStatsInfoByType.values())
-//        artifactStatsInfoByType.clear()
+        Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis());
+        List<ArtifactStatsInfo> asiList = new ArrayList<>(artifactStatsInfoByType.values());
+        artifactStatsInfoByType.clear();
 //        ArtifactExecutionFacadeImpl aefi = getEci().artifactExecutionFacade
 //        boolean enableAuthz = !aefi.disableAuthz()
 //        try {
