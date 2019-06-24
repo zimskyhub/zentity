@@ -29,31 +29,33 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         artifactActionDescriptionMap.put(AUTHZA_ALL, "All");
     }
 
-    public final String nameInternal;
-    public final ArtifactType internalTypeEnum;
-    public final AuthzAction internalActionEnum;
-    public final String actionDetail;
+    private final String nameInternal;
+    private final ArtifactType internalTypeEnum;
+    private final AuthzAction internalActionEnum;
+    private final String actionDetail;
     protected Map<String, Object> parameters = null;
-    public String internalAuthorizedUserId = null;
-    public AuthzType internalAuthorizedAuthzType = null;
-    public AuthzAction internalAuthorizedActionEnum = null;
-    public boolean internalAuthorizationInheritable = false;
-    public boolean internalAuthzWasRequired = false;
-    public boolean isAccess = false;
-    public boolean trackArtifactHit = true;
+    private String internalAuthorizedUserId = null;
+    private AuthzType internalAuthorizedAuthzType = null;
+
+    private AuthzAction internalAuthorizedActionEnum = null;
+    private boolean internalAuthorizationInheritable = false;
+    private boolean internalAuthzWasRequired = false;
+    private boolean isAccess = false;
+    private boolean trackArtifactHit = true;
+
     private boolean internalAuthzWasGranted = false;
-    public ArtifactAuthzCheck internalAacv = null;
+    private ArtifactAuthzCheck internalAacv = null;
 
     //protected Exception createdLocation = null
     private ArtifactExecutionInfoImpl parentAeii = null;
-    public final long startTimeMillis;
-    public final long startTimeNanos;
+    private final long startTimeMillis;
+    private final long startTimeNanos;
     private long endTimeNanos = 0;
-    public Long outputSize = null;
+    private Long outputSize = null;
     private ArrayList<ArtifactExecutionInfoImpl> childList = null;
     private long childrenRunningTime = 0;
 
-    public ArtifactExecutionInfoImpl(String name, ArtifactType typeEnum, AuthzAction actionEnum, String detail) {
+    ArtifactExecutionInfoImpl(String name, ArtifactType typeEnum, AuthzAction actionEnum, String detail) {
         nameInternal = name;
         internalTypeEnum = typeEnum;
         internalActionEnum = actionEnum != null ? actionEnum : AUTHZA_ALL;
@@ -134,6 +136,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     }
 
     public void setEndTime() { this.endTimeNanos = System.nanoTime(); }
+
     @Override
     public long getRunningTime() { return endTimeNanos != 0 ? endTimeNanos - startTimeNanos : 0; }
     public double getRunningTimeMillisDouble() { return (endTimeNanos != 0 ? endTimeNanos - startTimeNanos : 0) / 1000000.0; }
@@ -156,7 +159,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public BigDecimal getThisRunningTimeMillis() { return new BigDecimal(getThisRunningTime()).movePointLeft(6).setScale(2, RoundingMode.HALF_UP); }
     public BigDecimal getChildrenRunningTimeMillis() { return new BigDecimal(getChildrenRunningTime()).movePointLeft(6).setScale(2, RoundingMode.HALF_UP); }
 
-    void setParent(ArtifactExecutionInfoImpl parentAeii) { this.parentAeii = parentAeii; }
+    public void setParent(ArtifactExecutionInfoImpl parentAeii) { this.parentAeii = parentAeii; }
     @Override
     public ArtifactExecutionInfo getParent() { return parentAeii; }
     @Override
@@ -164,7 +167,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         new BigDecimal((getRunningTime() / parentAeii.getRunningTime()) * 100).setScale(2, BigDecimal.ROUND_HALF_UP) : BigDecimal.ZERO; }
 
 
-    void addChild(ArtifactExecutionInfoImpl aeii) {
+    public void addChild(ArtifactExecutionInfoImpl aeii) {
         if (childList == null) childList = new ArrayList<>();
         childList.add(aeii);
     }
@@ -173,6 +176,26 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         List<ArtifactExecutionInfo> newChildList = new ArrayList<>();
         newChildList.addAll(childList);
         return newChildList;
+    }
+
+    public boolean isAccess() {
+        return isAccess;
+    }
+
+    public boolean isTrackArtifactHit() {
+        return trackArtifactHit;
+    }
+
+    public long getStartTimeMillis() {
+        return startTimeMillis;
+    }
+
+    public Long getOutputSize() {
+        return outputSize;
+    }
+
+    public String getActionDetail() {
+        return actionDetail;
     }
 
     public void print(Writer writer, int level, boolean children) {
@@ -197,7 +220,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     private String getKeyString() { return nameInternal + ":" + internalTypeEnum.name() + ":" + internalActionEnum.name() + ":" + actionDetail; }
 
     @SuppressWarnings("unchecked")
-    public static List<Map<String, Object>> hotSpotByTime(List<ArtifactExecutionInfoImpl> aeiiList, boolean ownTime, String orderBy) {
+    static List<Map<String, Object>> hotSpotByTime(List<ArtifactExecutionInfoImpl> aeiiList, boolean ownTime, String orderBy) {
         Map<String, Map<String, Object>> timeByArtifact = new LinkedHashMap<>();
         for (ArtifactExecutionInfoImpl aeii: aeiiList) aeii.addToMapByTime(timeByArtifact, ownTime);
         List<Map<String, Object>> hotSpotList = new LinkedList<>();
@@ -270,7 +293,8 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         }
         if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) aeii.addToMapByTime(timeByArtifact, ownTime);
     }
-    public static void printHotSpotList(Writer writer, List<Map> infoList) throws IOException {
+
+    static void printHotSpotList(Writer writer, List<Map<String,Object>> infoList) throws IOException {
         // "[${time}:${timeMin}:${timeAvg}:${timeMax}][${count}] ${type} ${action} ${actionDetail} ${name}"
         for (Map info: infoList) {
             writer.append("[").append(StringUtil.paddedString(((BigDecimal) info.get("time")).toPlainString(), 8, false)).append(":");
@@ -329,8 +353,9 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         printArtifactInfoList(sw, infoList, 0);
         return sw.toString();
     }
+
     @SuppressWarnings("unchecked")
-    public static void printArtifactInfoList(Writer writer, List<Map> infoList, int level) throws IOException {
+    private static void printArtifactInfoList(Writer writer, List<Map> infoList, int level) throws IOException {
         // "[${time}:${thisTime}:${childrenTime}][${count}] ${type} ${action} ${actionDetail} ${name}"
         for (Map info: infoList) {
             for (int i = 0; i < level; i++) writer.append("|").append(" ");
@@ -363,12 +388,12 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
 
     public static class ArtifactAuthzCheck {
-        public String userGroupId, artifactAuthzId, authzServiceName;
-        public String artifactGroupId, artifactName, filterMap;
-        public ArtifactType artifactType;
-        public AuthzAction authzAction;
-        public AuthzType authzType;
-        public boolean nameIsPattern, inheritAuthz;
+        String userGroupId, artifactAuthzId, authzServiceName;
+        String artifactGroupId, artifactName, filterMap;
+        ArtifactType artifactType;
+        AuthzAction authzAction;
+        AuthzType authzType;
+        boolean nameIsPattern, inheritAuthz;
         public ArtifactAuthzCheck(EntityValueBase aacvEvb) {
             Map<String, Object> aacvMap = aacvEvb.getValueMap();
             userGroupId = (String) aacvMap.get("userGroupId");

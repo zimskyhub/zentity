@@ -18,6 +18,7 @@ import com.zmtech.zkit.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -97,18 +98,18 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             ArtifactExecutionInfoImpl lastAeii = artifactExecutionInfoStack.removeFirst();
             // removed this for performance reasons, generally just checking the name is adequate
             // || aei.typeEnumId != lastAeii.typeEnumId || aei.actionEnumId != lastAeii.actionEnumId
-            if (aei != null && !lastAeii.nameInternal.equals(aei.getName())) {
+            if (aei != null && !lastAeii.getName().equals(aei.getName())) {
                 String popMessage = "Popped artifact (${aei.name}:${aei.getTypeDescription()}:${aei.getActionDescription()}) did not match top of stack (${lastAeii.name}:${lastAeii.getTypeDescription()}:${lastAeii.getActionDescription()}:${lastAeii.actionDetail})";
                 logger.warn(popMessage, new BaseException("Pop Error Location"));
                 //throw new IllegalArgumentException(popMessage)
             }
-            // count artifact hit (now done here instead of by each caller)
-            if (lastAeii.trackArtifactHit && lastAeii.internalAuthzWasRequired && lastAeii.isAccess)
-                eci.ecfi.countArtifactHit(lastAeii.internalTypeEnum, lastAeii.actionDetail, lastAeii.nameInternal,
-                        lastAeii.parameters, lastAeii.startTimeMillis, lastAeii.getRunningTimeMillisDouble(), lastAeii.outputSize);
-            return lastAeii;
             // set end time
             lastAeii.setEndTime();
+            // count artifact hit (now done here instead of by each caller)
+            if (lastAeii.isTrackArtifactHit() && lastAeii.getAuthorizationWasRequired() && lastAeii.isAccess())
+                eci.ecfi.countArtifactHit(lastAeii.getTypeEnum(), lastAeii.getActionDetail(), lastAeii.getName(),
+                        lastAeii.parameters, lastAeii.getStartTimeMillis(), lastAeii.getRunningTimeMillisDouble(), lastAeii.getOutputSize());
+            return lastAeii;
         } catch(NoSuchElementException e) {
             logger.warn("Tried to pop from an empty ArtifactExecutionInfo stack", e);
             return null;
@@ -117,9 +118,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
     @Override
     public Deque<ArtifactExecutionInfo> getStack() {
-        Deque<ArtifactExecutionInfo> newStackDeque = new LinkedList<>();
-        newStackDeque.addAll(this.artifactExecutionInfoStack);
-        return newStackDeque;
+        return new LinkedList<>(this.artifactExecutionInfoStack);
     }
     public String getStackNameString() {
         StringBuilder sb = new StringBuilder();
@@ -133,9 +132,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     }
     @Override
     public List<ArtifactExecutionInfo> getHistory() {
-        List<ArtifactExecutionInfo> newHistList = new ArrayList<>();
-        newHistList.addAll(this.artifactExecutionInfoHistory);
-        return newHistList;
+        return new ArrayList<>(this.artifactExecutionInfoHistory);
     }
 
     public String printHistory() {
@@ -147,19 +144,25 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     public void logProfilingDetail() {
         if (!logger.isInfoEnabled()) return;
 
-        StringWriter sw = new StringWriter();
-        sw.append("========= Hot Spots by Own Time =========\n");
-        sw.append("[{time}:{timeMin}:{timeAvg}:{timeMax}][{count}] {type} {action} {actionDetail} {name}\n");
-        List<Map<String, Object>> ownHotSpotList = ArtifactExecutionInfoImpl.hotSpotByTime(artifactExecutionInfoHistory, true, "-time");
-        ArtifactExecutionInfoImpl.printHotSpotList(sw, ownHotSpotList);
-        logger.info(sw.toString());
+        try {
+            StringWriter sw = new StringWriter();
+            sw.append("========= Hot Spots by Own Time =========\n");
+            sw.append("[{time}:{timeMin}:{timeAvg}:{timeMax}][{count}] {type} {action} {actionDetail} {name}\n");
+            List<Map<String, Object>> ownHotSpotList = ArtifactExecutionInfoImpl.hotSpotByTime(artifactExecutionInfoHistory, true, "-time");
 
-        sw = new StringWriter();
-        sw.append("========= Hot Spots by Total Time =========\n");
-        sw.append("[{time}:{timeMin}:{timeAvg}:{timeMax}][{count}] {type} {action} {actionDetail} {name}\n");
-        List<Map<String, Object>> totalHotSpotList = ArtifactExecutionInfoImpl.hotSpotByTime(artifactExecutionInfoHistory, false, "-time");
-        ArtifactExecutionInfoImpl.printHotSpotList(sw, totalHotSpotList);
-        logger.info(sw.toString());
+            ArtifactExecutionInfoImpl.printHotSpotList(sw, ownHotSpotList);
+            logger.info(sw.toString());
+
+            sw = new StringWriter();
+            sw.append("========= Hot Spots by Total Time =========\n");
+            sw.append("[{time}:{timeMin}:{timeAvg}:{timeMax}][{count}] {type} {action} {actionDetail} {name}\n");
+            List<Map<String, Object>> totalHotSpotList = ArtifactExecutionInfoImpl.hotSpotByTime(artifactExecutionInfoHistory, false, "-time");
+            ArtifactExecutionInfoImpl.printHotSpotList(sw, totalHotSpotList);
+            logger.info(sw.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
 
         /* leave this out by default, sometimes interesting, but big
         sw = new StringWriter()
@@ -177,7 +180,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         aeii.setAuthorizationInheritable(true);
         aeii.setAuthorizedUserId(eci.getUser().getUserId() ?eci.getUser().getUserId(): "_NA_");
         if (aeii.getAuthorizedAuthzType() != ArtifactExecutionInfo.AUTHZT_ALWAYS) aeii.setAuthorizedAuthzType(ArtifactExecutionInfo.AUTHZT_ALLOW);
-        aeii.internalAuthorizedActionEnum = ArtifactExecutionInfo.AUTHZA_ALL;
+        aeii.setAuthorizedActionEnum(ArtifactExecutionInfo.AUTHZA_ALL);
     }
 
     public void setAnonymousAuthorizedView() {
@@ -461,9 +464,9 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             int artifactTarpitCheckListSize = artifactTarpitCheckList.size();
             for (int i = 0; i < artifactTarpitCheckListSize; i++) {
                 Map<String, Object> artifactTarpit =  artifactTarpitCheckList.get(i);
-                if (('Y'.equals(artifactTarpit.nameIsPattern) &&
-                        aeii.nameInternal.matches((String) artifactTarpit.artifactName)) ||
-                        aeii.nameInternal.equals(artifactTarpit.artifactName)) {
+                if (("Y".equals(artifactTarpit.get("nameIsPattern")) &&
+                        aeii.nameInternal.matches((String) artifactTarpit.get("artifactName"))) ||
+                        aeii.nameInternal.equals(artifactTarpit.get("artifactName"))) {
                     recordHitTime = true;
                     if (hitTimeList == null) hitTimeList = (ArrayList<Long>) eci.tarpitHitCache.get(tarpitKey);
                     long maxHitsDuration = artifactTarpit.maxHitsDuration;
