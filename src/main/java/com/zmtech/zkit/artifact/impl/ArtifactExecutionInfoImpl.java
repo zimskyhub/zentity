@@ -86,19 +86,19 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     @Override
     public String getAuthorizedUserId() { return internalAuthorizedUserId; }
-    void setAuthorizedUserId(String authorizedUserId) { this.internalAuthorizedUserId = authorizedUserId; }
+    public void setAuthorizedUserId(String authorizedUserId) { this.internalAuthorizedUserId = authorizedUserId; }
 
     @Override
     public AuthzType getAuthorizedAuthzType() { return internalAuthorizedAuthzType; }
-    void setAuthorizedAuthzType(AuthzType authorizedAuthzType) { this.internalAuthorizedAuthzType = authorizedAuthzType; }
+    public void setAuthorizedAuthzType(AuthzType authorizedAuthzType) { this.internalAuthorizedAuthzType = authorizedAuthzType; }
 
     @Override
     public AuthzAction getAuthorizedActionEnum() { return internalAuthorizedActionEnum; }
-    void setAuthorizedActionEnum(AuthzAction authorizedActionEnum) { this.internalAuthorizedActionEnum = authorizedActionEnum; }
+    public void setAuthorizedActionEnum(AuthzAction authorizedActionEnum) { this.internalAuthorizedActionEnum = authorizedActionEnum; }
 
     @Override
     public boolean isAuthorizationInheritable() { return internalAuthorizationInheritable; }
-    void setAuthorizationInheritable(boolean isAuthorizationInheritable) { this.internalAuthorizationInheritable = isAuthorizationInheritable; }
+    public void setAuthorizationInheritable(boolean isAuthorizationInheritable) { this.internalAuthorizationInheritable = isAuthorizationInheritable; }
 
     @Override
     public boolean getAuthorizationWasRequired() { return internalAuthzWasRequired; }
@@ -110,9 +110,9 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public ArtifactExecutionInfoImpl setTrackArtifactHit(boolean tah) { trackArtifactHit = tah; return this; }
     @Override
     public boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
-    void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
+    public void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
 
-    ArtifactAuthzCheck getAacv() { return internalAacv; }
+    public ArtifactAuthzCheck getAacv() { return internalAacv; }
 
     public void copyAacvInfo(ArtifactAuthzCheck aacv, String userId, boolean wasGranted) {
         internalAacv = aacv;
@@ -133,7 +133,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         internalAuthzWasGranted = aeii.internalAuthzWasGranted;
     }
 
-    void setEndTime() { this.endTimeNanos = System.nanoTime(); }
+    public void setEndTime() { this.endTimeNanos = System.nanoTime(); }
     @Override
     public long getRunningTime() { return endTimeNanos != 0 ? endTimeNanos - startTimeNanos : 0; }
     public double getRunningTimeMillisDouble() { return (endTimeNanos != 0 ? endTimeNanos - startTimeNanos : 0) / 1000000.0; }
@@ -197,7 +197,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     private String getKeyString() { return nameInternal + ":" + internalTypeEnum.name() + ":" + internalActionEnum.name() + ":" + actionDetail; }
 
     @SuppressWarnings("unchecked")
-    static List<Map<String, Object>> hotSpotByTime(List<ArtifactExecutionInfoImpl> aeiiList, boolean ownTime, String orderBy) {
+    public static List<Map<String, Object>> hotSpotByTime(List<ArtifactExecutionInfoImpl> aeiiList, boolean ownTime, String orderBy) {
         Map<String, Map<String, Object>> timeByArtifact = new LinkedHashMap<>();
         for (ArtifactExecutionInfoImpl aeii: aeiiList) aeii.addToMapByTime(timeByArtifact, ownTime);
         List<Map<String, Object>> hotSpotList = new LinkedList<>();
@@ -270,7 +270,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         }
         if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) aeii.addToMapByTime(timeByArtifact, ownTime);
     }
-    static void printHotSpotList(Writer writer, List<Map> infoList) throws IOException {
+    public static void printHotSpotList(Writer writer, List<Map> infoList) throws IOException {
         // "[${time}:${timeMin}:${timeAvg}:${timeMax}][${count}] ${type} ${action} ${actionDetail} ${name}"
         for (Map info: infoList) {
             writer.append("[").append(StringUtil.paddedString(((BigDecimal) info.get("time")).toPlainString(), 8, false)).append(":");
@@ -286,7 +286,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     }
 
 
-    static List<Map> consolidateArtifactInfo(List<ArtifactExecutionInfoImpl> aeiiList) {
+    public static List<Map> consolidateArtifactInfo(List<ArtifactExecutionInfoImpl> aeiiList) {
         List<Map> topLevelList = new LinkedList<>();
         Map<String, Map<String, Object>> flatMap = new LinkedHashMap<>();
         for (ArtifactExecutionInfoImpl aeii: aeiiList) aeii.consolidateArtifactInfo(topLevelList, flatMap, null);

@@ -192,8 +192,8 @@ public class ContextJavaUtil {
             ahb.putNoCheck("minTimeMillis", new BigDecimal(minTimeMillis).setScale(6, RoundingMode.HALF_UP));
             ahb.putNoCheck("maxTimeMillis", new BigDecimal(maxTimeMillis).setScale(6, RoundingMode.HALF_UP));
             ahb.putNoCheck("slowHitCount", slowHitCount);
-            ahb.putNoCheck("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
-            ahb.putNoCheck("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
+//            ahb.putNoCheck("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
+//            ahb.putNoCheck("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
             return ahb;
 
         }
@@ -214,8 +214,8 @@ public class ContextJavaUtil {
         ArtifactHitInfo(ExecutionContextImpl eci, boolean isSlowHit, ArtifactExecutionInfo.ArtifactType artifactTypeEnum,
                         String artifactSubType, String artifactName, long startTime, double runningTimeMillis,
                         Map<String, Object> parameters, Long outputSize) {
-            visitId = eci.userFacade.getVisitId();
-            userId = eci.userFacade.getUserId();
+//            visitId = eci.userFacade.getVisitId();
+//            userId = eci.userFacade.getUserId();
             this.isSlowHit = isSlowHit;
             this.artifactTypeEnum = artifactTypeEnum;
             this.artifactSubType = artifactSubType;
@@ -230,12 +230,12 @@ public class ContextJavaUtil {
                 if (errorMessage.length() > 255) errorMessage.delete(255, errorMessage.length());
                 this.errorMessage = errorMessage.toString();
             }
-            WebFacadeImpl wfi = eci.getWebImpl();
-            if (wfi != null) {
-                String fullUrl = wfi.getRequestUrl();
-                requestUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl;
-                referrerUrl = wfi.getRequest().getHeader("Referrer");
-            }
+//            WebFacadeImpl wfi = eci.getWebImpl();
+//            if (wfi != null) {
+//                String fullUrl = wfi.getRequestUrl();
+//                requestUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl;
+//                referrerUrl = wfi.getRequest().getHeader("Referrer");
+//            }
         }
         EntityValue makeAhiValue(ExecutionContextFactoryImpl ecfi) {
             EntityValueBase ahp = (EntityValueBase) ecfi.getEntity().makeValue("moqui.server.ArtifactHit");
@@ -271,8 +271,8 @@ public class ContextJavaUtil {
             if (requestUrl != null && requestUrl.length() > 0) ahp.putNoCheck("requestUrl", requestUrl);
             if (referrerUrl != null && referrerUrl.length() > 0) ahp.putNoCheck("referrerUrl", referrerUrl);
 
-            ahp.putNoCheck("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
-            ahp.putNoCheck("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
+//            ahp.putNoCheck("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
+//            ahp.putNoCheck("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
 
             return ahp;
         }

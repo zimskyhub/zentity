@@ -57,6 +57,8 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private final Map<Long, ExecutionContextImpl> activeContextMap = new HashMap<>();
     private final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>();
     protected final Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>();
+    public final Map<ArtifactType, Boolean> artifactTypeAuthzEnabled = new EnumMap<>(ArtifactType.class);
+    public final Map<ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<>(ArtifactType.class);
     // 注意：这是实验性的，不要设置为true！
     // 仍有问题的独特类名等也问题如何支持对变更动作的重新编译，
     // 可能只是用于表达式，但这只能帮助这么多可能某种方式从磁盘加载只有当XmlActions和GroovyScriptRunner的时间戳更新时才能驱动
@@ -82,9 +84,6 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 //    protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>();
 //    protected final Map<String, WebappInfo> webappInfoMap = new HashMap<>()
 //    protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
-
-//    public final Map<ArtifactType, Boolean> artifactTypeAuthzEnabled = new EnumMap<>(ArtifactType.class)
-//    public final Map<ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<>(ArtifactType.class)
 //    protected String skipStatsCond
 //    protected long hitBinLengthMillis = 900000 // 15 minute default
 //    private final EnumMap<ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<>(ArtifactType.class)
