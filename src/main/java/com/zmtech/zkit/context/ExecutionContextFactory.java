@@ -5,6 +5,7 @@ import com.zmtech.zkit.entity.EntityFacade;
 import com.zmtech.zkit.l10n.L10nFacade;
 import com.zmtech.zkit.logger.LoggerFacade;
 import com.zmtech.zkit.resource.ResourceFacade;
+import com.zmtech.zkit.service.ServiceFacade;
 import com.zmtech.zkit.tools.ToolFactory;
 import com.zmtech.zkit.transaction.TransactionFacade;
 import groovy.lang.GroovyClassLoader;
@@ -54,8 +55,20 @@ public interface ExecutionContextFactory {
      * 在不需要静态类型的脚本或其他上下文中，instanceClass可以为null
      */
     <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters);
-
+//    /** If running through a web (HTTP servlet) request offers access to the various web objects/information.
+//     * If not running in a web context will return null.
+//     */
+//    @Nullable
+//    WebFacade getWeb();
 //
+//    /** For information about the user and user preferences (including locale, time zone, currency, etc). */
+//    @Nonnull
+//    UserFacade getUser();
+//
+
+//    /** For information about artifacts as they are being executed. */
+//    @Nonnull
+//    ArtifactExecutionFacade getArtifactExecution();
 //    /** Get a Map where each key is a component name and each value is the component's base location. */
 //    @Nonnull
 //    LinkedHashMap<String, String> getComponentBaseLocations();

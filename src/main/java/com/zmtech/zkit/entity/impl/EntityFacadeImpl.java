@@ -276,7 +276,7 @@ public class EntityFacadeImpl implements EntityFacade {
 
                 xaProps = new Properties();
                 xaProperties.setSystemExpandAttributes(true);
-                for (String key : xaProperties.getAttributes().keySet()) {
+                for (String key : xaProperties.attributes().keySet()) {
                     if (xaProps.containsKey(key)) continue;
                     // 各种H2，Derby等属性都有$ {zkit.runtime}，这是一个系统属性，其他数据库也可以拥有它
                     String propValue = xaProperties.attribute(key);
@@ -618,8 +618,8 @@ public class EntityFacadeImpl implements EntityFacade {
                 put("entity-name", finalEntityName);
                 put("package",dbViewEntity.getEntityName());
             }} );
-            if ("Y".equals(dbViewEntity.get("cache"))) dbViewNode.getAttributes().put("cache", "true");
-            else if ("N".equals(dbViewEntity.get("cache"))) dbViewNode.getAttributes().put("cache", "false");
+            if ("Y".equals(dbViewEntity.get("cache"))) dbViewNode.attributes().put("cache", "true");
+            else if ("N".equals(dbViewEntity.get("cache"))) dbViewNode.attributes().put("cache", "false");
 
             EntityList memberList = find("zkit.entity.view.DbViewEntityMember").condition("dbViewEntityName", entityName).list();
             for (EntityValue dbViewEntityMember : memberList) {
@@ -628,8 +628,8 @@ public class EntityFacadeImpl implements EntityFacade {
                     put("entity-name",dbViewEntityMember.getString("entityName"));
                 }});
                 if (dbViewEntityMember.get("joinFromAlias") != null) {
-                    memberEntity.getAttributes().put("join-from-alias", (String) dbViewEntityMember.get("joinFromAlias"));
-                    if (dbViewEntityMember.get("joinOptional") == "Y") memberEntity.getAttributes().put("join-optional", "true");
+                    memberEntity.attributes().put("join-from-alias", (String) dbViewEntityMember.get("joinFromAlias"));
+                    if (dbViewEntityMember.get("joinOptional") == "Y") memberEntity.attributes().put("join-optional", "true");
                 }
 
                 String finalEntityName1 = entityName;
@@ -645,7 +645,7 @@ public class EntityFacadeImpl implements EntityFacade {
                         put("field-name",(String)dbViewEntityKeyMap.get("fieldName"));
                     }});
                     if (dbViewEntityKeyMap.get("relatedFieldName")!=null)
-                        keyMapNode.getAttributes().put("related", (String) dbViewEntityKeyMap.get("relatedFieldName"));
+                        keyMapNode.attributes().put("related", (String) dbViewEntityKeyMap.get("relatedFieldName"));
                 }
             }
             for (EntityValue dbViewEntityAlias : find("zkit.entity.view.DbViewEntityAlias").condition("dbViewEntityName", entityName).list()) {
@@ -653,8 +653,8 @@ public class EntityFacadeImpl implements EntityFacade {
                     put("name",(String) dbViewEntityAlias.get("fieldAlias"));
                     put("entity-alias",(String) dbViewEntityAlias.get("entityAlias"));
                 }});
-                if (dbViewEntityAlias.get("fieldName") != null) aliasNode.getAttributes().put("field", (String) dbViewEntityAlias.get("fieldName"));
-                if (dbViewEntityAlias.get("functionName") != null) aliasNode.getAttributes().put("function", (String) dbViewEntityAlias.get("functionName"));
+                if (dbViewEntityAlias.get("fieldName") != null) aliasNode.attributes().put("field", (String) dbViewEntityAlias.get("fieldName"));
+                if (dbViewEntityAlias.get("functionName") != null) aliasNode.attributes().put("function", (String) dbViewEntityAlias.get("functionName"));
             }
 
             // 创建新的实体定义
@@ -722,12 +722,12 @@ public class EntityFacadeImpl implements EntityFacade {
             String extendPackage = extendEntity.attribute("package") != null ? extendEntity.attribute("package") : extendEntity.attribute("package-name");
             if (!entityPackage.equals(extendPackage) ) continue;
             // 合并属性
-            entityNode.getAttributes().putAll(extendEntity.getAttributes());
+            entityNode.attributes().putAll(extendEntity.attributes());
             // 合并字段节点
             for (MNode childOverrideNode : extendEntity.children("field")) {
                 String keyValue = childOverrideNode.attribute("name");
                 MNode childBaseNode = entityNode.first((MNode it)-> it.getName().equals("field") && it.attribute("name").equals(keyValue));
-                if (childBaseNode != null) childBaseNode.getAttributes().putAll(childOverrideNode.getAttributes());
+                if (childBaseNode != null) childBaseNode.attributes().putAll(childOverrideNode.attributes());
                 else entityNode.append(childOverrideNode);
             }
             // 添加关系，键映射（复制，也将获得子节点）
@@ -852,7 +852,7 @@ public class EntityFacadeImpl implements EntityFacade {
                 }
 
                 // 跟踪相关实体有其他人指向它的实例，除非原始关系类型很多（不符合条件）
-                if (!ed.isViewEntity && !"many".equals(relNode.attribute("type"))) reverseEd.getEntityNode().getAttributes().put("has-dependents", "true");
+                if (!ed.isViewEntity && !"many".equals(relNode.attribute("type"))) reverseEd.getEntityNode().attributes().put("has-dependents", "true");
 
                 // 创造新的反向关系
                 Map<String, String> keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, reverseEd);
@@ -862,7 +862,7 @@ public class EntityFacadeImpl implements EntityFacade {
                     put("is-auto-reverse","true");
                     put("imutable","true");
                 }});
-                if (hasTitle) newRelNode.getAttributes().put("title", title);
+                if (hasTitle) newRelNode.attributes().put("title", title);
                 for (Map.Entry<String, String> keyEntry : keyMap.entrySet()) {
                     // 使用反向字段添加键映射
                     newRelNode.append("key-map", new ConcurrentHashMap<String,String>(){{
@@ -1272,7 +1272,7 @@ public class EntityFacadeImpl implements EntityFacade {
             throw new IllegalArgumentException("Could database conf ${confName} has no default-xa-ds-class attribute");
         }
 
-        for (Map.Entry<String, String> attrEntry : xaPropsNode.getAttributes().entrySet()) {
+        for (Map.Entry<String, String> attrEntry : xaPropsNode.attributes().entrySet()) {
             String propValue = ecfi.getResource().expand(attrEntry.getValue(), "", confMap);
             try {
                 DefaultGroovyMethods.putAt(xaDs,attrEntry.getKey(),propValue);
@@ -1455,7 +1455,7 @@ public class EntityFacadeImpl implements EntityFacade {
             MNode defaultParametersNode = sfiNode.first("default-parameters");
             String inputFieldsMapName = sfiNode.attribute("input-fields-map");
             Map<String, Object> inf = inputFieldsMapName != null? (Map<String, Object>) ecfi.getResource().expression(inputFieldsMapName, "") : ecfi.getEci().getContext();
-            ef.searchFormMap(inf, defaultParametersNode != null ? defaultParametersNode.getAttributes(), sfiNode.attribute("skip-fields"), sfiNode.attribute("default-order-by"), paginate);
+            ef.searchFormMap(inf, defaultParametersNode != null ? defaultParametersNode.attributes(), sfiNode.attribute("skip-fields"), sfiNode.attribute("default-order-by"), paginate);
         }
 
         // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")

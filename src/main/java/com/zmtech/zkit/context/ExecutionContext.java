@@ -46,59 +46,48 @@ public interface ExecutionContext {
     ContextStack getContext();
     @Nonnull
     ContextBinding getContextBinding();
-    /** Returns a Map that represents the global/root variable space (context), ie the bottom of the context stack. */
+    /** 返回表示全局/根变量空间（上下文）的Map，即上下文根堆栈。 */
     @Nonnull
     Map<String, Object> getContextRoot();
-    /** For localization (l10n) functionality, like localizing messages. */
+    /** 用于本地化（l10n）功能，如本地化。 */
     @Nonnull
     L10nFacade getL10n();
-    /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
+    /** 用于按位置字符串（http：//，jar：//，component：//，content：//，classpath：//等）访问资源。 */
     @Nonnull
     ResourceFacade getResource();
-    /** For managing and accessing caches. */
+    /** 用于管理和访问缓存。 */
     @Nonnull
     CacheFacade getCache();
-    /** For transaction operations use this facade instead of the JTA UserTransaction and TransactionManager. See javadoc comments there for examples of code usage. */
+    /** 对于事务操作，请使用此Facade而不是JTA UserTransaction和TransactionManager。 有关代码用法的示例，请参阅javadoc注释。 */
     @Nonnull
     TransactionFacade getTransaction();
-    /** For interactions with a relational database. */
+    /** 用于与关系数据库的交互。 */
     @Nonnull
     EntityFacade getEntity();
-    /** For user messages including general feedback, errors, and field-specific validation errors. */
+    /** 对于用户消息，包括一般反馈，错误和特定于字段的验证错误。 */
     @Nonnull
     MessageFacade getMessage();
-    /** For trace, error, etc logging to the console, files, etc. */
+    /** 用于日志的跟踪，错误等，文件等。 */
     @Nonnull LoggerFacade getLogger();
 
 
-    /** Get an instance object from the named ToolFactory instance (loaded by configuration). Some tools return a
-     * singleton instance, others a new instance each time it is used and that instance is saved with this
-     * ExecutionContext to be reused. The instanceClass may be null in scripts or other contexts where static typing
-     * is not needed */
+    /**
+     * 从命名的ToolFactory实例获取实例对象（由配置加载）。
+     * 有些工具返回单例实例，其他工具每次使用时返回一个新实例，
+     * 并且该实例与此ExecutionContext一起保存以供重用。
+     * 在不需要静态类型的脚本或其他上下文中，instanceClass可以为null
+     */
     <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters);
 
-//    /** If running through a web (HTTP servlet) request offers access to the various web objects/information.
-//     * If not running in a web context will return null.
-//     */
-//    @Nullable
-//    WebFacade getWeb();
-//
-//    /** For information about the user and user preferences (including locale, time zone, currency, etc). */
-//    @Nonnull
-//    UserFacade getUser();
-//
-
-//    /** For information about artifacts as they are being executed. */
-//    @Nonnull
-//    ArtifactExecutionFacade getArtifactExecution();
-//
-//
-    /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and uses
-     * the current ExecutionContext in the separate thread (retaining user, authz context, etc). */
+    /**
+     * 轻量级异步执行程序。
+     * Quartz的替代方法，仍然可以识别ExecutionContext并在单独的线程中使用当前的ExecutionContext（保留用户，authz上下文等）。
+     */
     void runAsync(@Nonnull Closure closure);
 
-    /** This should be called when the ExecutionContext won't be used any more. Implementations should make sure
-     * any active transactions, database connections, etc are closed.
+    /**
+     * 当不再使用ExecutionContext时，应调用此方法。
+     * 实现应确保关闭任何活动事务，数据库连接等。
      */
     void destroy();
 

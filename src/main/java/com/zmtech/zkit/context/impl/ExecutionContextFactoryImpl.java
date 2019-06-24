@@ -38,72 +38,61 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
+
     private AtomicBoolean destroyed = new AtomicBoolean(false);
+
+    protected String runtimePath;
+    @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath;
+    @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot;
+
     private ZClassLoader zClassLoader;
     private GroovyClassLoader groovyClassLoader;
     private CompilerConfiguration groovyCompilerConf;
+
     public final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>();
     private final Map<Long, ExecutionContextImpl> activeContextMap = new HashMap<>();
     private final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>();
-    // NOTE: this is experimental, don't set to true! still issues with unique class names, etc
-    // also issue with how to support recompile of actions on change, could just use for expressions but that only helps so much
-    // maybe some way to load from disk only if timestamp newer for XmlActions and GroovyScriptRunner
-    // this could be driven by setting in Moqui Conf XML file
-    // also need to clean out runtime/script-classes in gradle cleanAll
+    // 注意：这是实验性的，不要设置为true！
+    // 仍有问题的独特类名等也问题如何支持对变更动作的重新编译，
+    // 可能只是用于表达式，但这只能帮助这么多可能某种方式从磁盘加载只有当XmlActions和GroovyScriptRunner的时间戳更新时才能驱动
+    // 通过在Moqui Conf中设置XML文件，还需要在gradle cleanAll中清除运行时/脚本类
     protected boolean groovyCompileCacheToDisk = false;
-
-    protected String runtimePath;
-//    @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath;
-    @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot;
-//    protected MNode serverStatsNode;
-//    protected String moquiVersion = "";
-//    protected Map versionMap = null;
 
     @SuppressWarnings("GrFinalVariableAccess") private final EntityFacadeImpl entityFacade;
     @SuppressWarnings("GrFinalVariableAccess") private final TransactionFacadeImpl transactionFacade;
     @SuppressWarnings("GrFinalVariableAccess") private final CacheFacadeImpl cacheFacade;
     @SuppressWarnings("GrFinalVariableAccess") private final ResourceFacadeImpl resourceFacade;
     @SuppressWarnings("GrFinalVariableAccess") private final LoggerFacadeImpl loggerFacade;
-
     /** The main worker pool for services, running async closures and runnables, etc */
     @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool;
+
+//    protected String moquiVersion = "";
+//    protected MNode serverStatsNode;
+//    @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath;
+//    protected Map versionMap = null;
 //    protected InetAddress localhostAddress = null;
-
-
 //    protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>();
-
-
 //    protected final Map<String, WebappInfo> webappInfoMap = new HashMap<>()
 //    protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
-
 //    protected final Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>()
 //    public final Map<ArtifactType, Boolean> artifactTypeAuthzEnabled = new EnumMap<>(ArtifactType.class)
 //    public final Map<ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<>(ArtifactType.class)
-
 //    protected String skipStatsCond
 //    protected long hitBinLengthMillis = 900000 // 15 minute default
 //    private final EnumMap<ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<>(ArtifactType.class)
 //    private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<>(ArtifactType.class)
 //    final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
-
 //    /** The SecurityManager for Apache Shiro */
 //    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
 //    /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
 //    protected ServletContext internalServletContext = null
 //    /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
 //    protected ServerContainer internalServerContainer = null
-
 //    /** Notification Message Topic (for distributed notifications) */
 //    private SimpleTopic<NotificationMessageImpl> notificationMessageTopic = null
 //    private NotificationWebSocketListener notificationWebSocketListener = new NotificationWebSocketListener()
-
 //    protected ArrayList<LogEventSubscriber> logEventSubscribers = new ArrayList<>()
-
     // ======== Permanent Delegated Facades ========
-
-
-
-
 //    @SuppressWarnings("GrFinalVariableAccess") public final ServiceFacadeImpl serviceFacade
 //    @SuppressWarnings("GrFinalVariableAccess") public final ScreenFacadeImpl screenFacade
 
@@ -121,7 +110,7 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         long initStartTime = System.currentTimeMillis();
 
-        // get the MoquiInit.properties file
+        // 获取MoquiInit.properties文件
         Properties moquiInitProperties = new Properties();
 //        URL initProps = this.class.getClassLoader().getResource("MoquiInit.properties");
 //        if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
@@ -746,13 +735,13 @@ public class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Facades destroyed");
         System.out.println("Facades destroyed");
 
-//        for (ToolFactory tf in toolFactoryList) {
-//            try {
-//                tf.postFacadeDestroy()
-//            } catch (Throwable t) {
-//                logger.error("Error in post-facade destroy of ToolFactory ${tf.getName()}", t)
-//            }
-//        }
+        for (ToolFactory tf : toolFactoryList) {
+            try {
+                tf.postFacadeDestroy();
+            } catch (Throwable t) {
+                logger.error("Error in post-facade destroy of ToolFactory ${tf.getName()}", t);
+            }
+        }
 
         activeContext.remove();
 
